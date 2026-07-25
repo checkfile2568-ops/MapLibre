@@ -8,6 +8,7 @@ const STORAGE_KEY = "lopburi-notice-area-manager-v1";
 const REMEMBERED_TOKEN_KEY = STORAGE_KEY + ":github-token";
 const REMEMBERED_TOKEN_METADATA_KEY = STORAGE_KEY + ":github-token-metadata";
 const SHARED_BRANCH = "main";
+const SHARED_DATA_URL = "data/assignments.json";
 const SHARED_DATA_API = "https://api.github.com/repos/checkfile2568-ops/MapLibre/contents/data/assignments.json";
 const MAIN_COURT_DISTRICTS = new Set(["เมืองลพบุรี", "พัฒนานิคม", "โคกสำโรง", "ท่าวุ้ง", "บ้านหมี่", "หนองม่วง"]);
 const PALETTE = [
@@ -187,11 +188,6 @@ function showToast(message) {
   toastTimer = setTimeout(() => dom.toast.classList.remove("show"), 3100);
 }
 
-function decodeBase64Utf8(value) {
-  const bytes = Uint8Array.from(atob(value.replace(/\n/g, "")), (character) => character.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
-}
-
 function encodeBase64Utf8(value) {
   const bytes = new TextEncoder().encode(value);
   let binary = "";
@@ -202,9 +198,14 @@ function encodeBase64Utf8(value) {
 }
 
 function sharedDataUrl() {
+  const url = new URL(SHARED_DATA_URL, window.location.href);
+  url.searchParams.set("_", String(Date.now()));
+  return url;
+}
+
+function sharedRevisionUrl() {
   const url = new URL(SHARED_DATA_API);
   url.searchParams.set("ref", SHARED_BRANCH);
-  url.searchParams.set("_", String(Date.now()));
   return url;
 }
 
@@ -445,13 +446,9 @@ async function loadSharedState({ forceRemote = false } = {}) {
   shared.error = null;
   renderSharedStatus();
   try {
-    const response = await fetch(sharedDataUrl(), {
-      headers: { Accept: "application/vnd.github+json" },
-      cache: "no-store",
-    });
-    if (!response.ok) throw new Error(`GitHub responded ${response.status}`);
-    const payload = await response.json();
-    const remoteState = normalizeState(JSON.parse(decodeBase64Utf8(payload.content)));
+    const response = await fetch(sharedDataUrl(), { cache: "no-store" });
+    if (!response.ok) throw new Error(`ไม่สามารถโหลดไฟล์ข้อมูลกลาง (${response.status})`);
+    const remoteState = normalizeState(await response.json());
     const shouldUseRemote = forceRemote || hasAssignmentsOrStaff(remoteState) || !hasAssignmentsOrStaff(state);
     if (shouldUseRemote) {
       state = { ...remoteState, pendingChanges: false };
@@ -459,7 +456,7 @@ async function loadSharedState({ forceRemote = false } = {}) {
       state.pendingChanges = true;
     }
     if (removeAreasOutsideLopburiCourt() > 0) state.pendingChanges = true;
-    shared = { available: true, loading: false, sha: payload.sha, error: null };
+    shared = { available: true, loading: false, sha: null, error: null };
     saveLocalState();
     renderAll();
     return true;
@@ -477,6 +474,17 @@ async function reloadSharedState() {
   showToast(loaded ? "โหลดข้อมูลส่วนกลางล่าสุดแล้ว" : "ไม่สามารถโหลดข้อมูลส่วนกลางได้");
 }
 
+async function loadSharedRevision(token) {
+  const response = await fetch(sharedRevisionUrl(), {
+    headers: githubApiHeaders(token),
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error(explainGitHubError(await readGitHubError(response)));
+  const payload = await response.json();
+  if (!payload.sha) throw new Error("ไม่พบรหัสอ้างอิงของข้อมูลกลางสำหรับบันทึก");
+  return payload.sha;
+}
+
 async function saveSharedState() {
   const token = dom.githubToken.value.trim();
   if (!token) {
@@ -489,13 +497,10 @@ async function saveSharedState() {
     showToast(checked.reason);
     return;
   }
-  if (!shared.sha && !(await loadSharedState())) {
-    showToast("ไม่พบข้อมูลส่วนกลาง จึงยังบันทึกไม่ได้");
-    return;
-  }
   shared.loading = true;
   renderSharedStatus();
   try {
+    const writeSha = await loadSharedRevision(token);
     const response = await fetch(SHARED_DATA_API, {
       method: "PUT",
       headers: {
@@ -506,7 +511,7 @@ async function saveSharedState() {
         message: "Update Lopburi notice area assignments",
         content: encodeBase64Utf8(JSON.stringify(serializableState(), null, 2)),
         branch: SHARED_BRANCH,
-        sha: shared.sha,
+        sha: writeSha,
       }),
     });
     if (!response.ok) {
@@ -519,7 +524,7 @@ async function saveSharedState() {
       throw new Error(reason);
     }
     const result = await response.json();
-    shared = { available: true, loading: false, sha: result.content?.sha || shared.sha, error: null };
+    shared = { available: true, loading: false, sha: result.content?.sha || writeSha, error: null };
     state.pendingChanges = false;
     state.updatedAt = new Date().toISOString();
     saveLocalState();
@@ -530,7 +535,7 @@ async function saveSharedState() {
       dom.githubToken.value = "";
       clearTokenCheck();
     }
-    showToast("บันทึกข้อมูลส่วนกลางแล้ว ทุกเครื่องจะเห็นค่าใหม่นี้");
+    showToast("บันทึกข้อมูลส่วนกลางแล้ว หน้าแสดงผลจะอัปเดตภายในประมาณ 1 นาที");
   } catch (error) {
     console.error(error);
     shared = { ...shared, loading: false, error: error.message };

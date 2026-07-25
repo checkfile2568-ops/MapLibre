@@ -1,5 +1,5 @@
 const DISPLAY_GIS_QUERY_URL = "https://services1.arcgis.com/jSaRWj2TDlcN1zOC/arcgis/rest/services/Thailand_Subdistrict_Boundaries_%28%E0%B8%82%E0%B9%89%E0%B8%AD%E0%B8%A1%E0%B8%B9%E0%B8%A5%E0%B8%82%E0%B8%AD%E0%B8%9A%E0%B9%80%E0%B8%82%E0%B8%95%E0%B8%95%E0%B8%B3%E0%B8%9A%E0%B8%A5%E0%B8%9B%E0%B8%A3%E0%B8%B0%E0%B9%80%E0%B8%97%E0%B8%A8%E0%B9%84%E0%B8%97%E0%B8%A2%29/FeatureServer/1/query";
-const DISPLAY_SHARED_DATA_API = "https://api.github.com/repos/checkfile2568-ops/MapLibre/contents/data/assignments.json";
+const DISPLAY_SHARED_DATA_URL = "data/assignments.json";
 const DISPLAY_MAIN_COURT_DISTRICTS = new Set(["เมืองลพบุรี", "พัฒนานิคม", "โคกสำโรง", "ท่าวุ้ง", "บ้านหมี่", "หนองม่วง"]);
 const DISPLAY_VERSION = "V1.0";
 
@@ -25,7 +25,7 @@ const displayDom = {
 let displayFeatures = [];
 let displayState = { staff: [], assignments: {}, updatedAt: null };
 let displayMap;
-let displayDataSha = null;
+let displayDataRevision = null;
 let displayLabelMarkers = { tambon: [], district: [] };
 let displayUi = { selectedStaffId: "", showTambonLabels: true, showDistrictLabels: true };
 let displayResizeTimer;
@@ -81,9 +81,14 @@ function displayOwner(feature) {
   return displayState.staff.find((person) => person.id === staffId) || null;
 }
 
-function decodeDisplayBase64(value) {
-  const bytes = Uint8Array.from(atob(value.replace(/\n/g, "")), (character) => character.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
+function displaySharedDataUrl() {
+  const url = new URL(DISPLAY_SHARED_DATA_URL, window.location.href);
+  url.searchParams.set("_", String(Date.now()));
+  return url;
+}
+
+function displayRevision(data) {
+  return data.updatedAt || JSON.stringify(data);
 }
 
 function displaySearchText() {
@@ -491,13 +496,13 @@ async function loadDisplayData() {
   });
   const [boundariesResponse, sharedResponse] = await Promise.all([
     fetch(`${DISPLAY_GIS_QUERY_URL}?${params.toString()}`),
-    fetch(`${DISPLAY_SHARED_DATA_API}?ref=main&_=${Date.now()}`, { headers: { Accept: "application/vnd.github+json" }, cache: "no-store" }),
+    fetch(displaySharedDataUrl(), { cache: "no-store" }),
   ]);
   if (!boundariesResponse.ok) throw new Error("ไม่สามารถโหลดขอบเขตตำบลได้");
   if (!sharedResponse.ok) throw new Error("ไม่สามารถโหลดข้อมูลการมอบหมายได้");
-  const [collection, sharedPayload] = await Promise.all([boundariesResponse.json(), sharedResponse.json()]);
-  applyDisplaySharedData(JSON.parse(decodeDisplayBase64(sharedPayload.content)));
-  displayDataSha = sharedPayload.sha || null;
+  const [collection, sharedData] = await Promise.all([boundariesResponse.json(), sharedResponse.json()]);
+  applyDisplaySharedData(sharedData);
+  displayDataRevision = displayRevision(sharedData);
   displayFeatures = collection.features
     .filter((feature) => feature.properties?.ADMIN_ID3 && DISPLAY_MAIN_COURT_DISTRICTS.has(feature.properties.NAME2))
     .map((feature) => ({ ...feature, id: displayAreaId(feature) }));
@@ -519,21 +524,19 @@ function filterDisplayAssignments() {
 
 async function refreshDisplayData() {
   try {
-    const response = await fetch(`${DISPLAY_SHARED_DATA_API}?ref=main&_=${Date.now()}`, {
-      headers: { Accept: "application/vnd.github+json" },
-      cache: "no-store",
-    });
+    const response = await fetch(displaySharedDataUrl(), { cache: "no-store" });
     if (!response.ok) {
       renderDataStatus(false);
       return;
     }
-    const payload = await response.json();
-    if (!payload.sha || payload.sha === displayDataSha) {
+    const sharedData = await response.json();
+    const revision = displayRevision(sharedData);
+    if (revision === displayDataRevision) {
       renderDataStatus(true);
       return;
     }
-    applyDisplaySharedData(JSON.parse(decodeDisplayBase64(payload.content)));
-    displayDataSha = payload.sha;
+    applyDisplaySharedData(sharedData);
+    displayDataRevision = revision;
     filterDisplayAssignments();
     renderStaffFilter();
     renderStats();

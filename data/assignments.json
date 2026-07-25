@@ -6,6 +6,12 @@
       "name": "นายชนินทร์​ โพธิ์ศรี",
       "color": "#1377b5",
       "active": true
+    },
+    {
+      "id": "staff-1784993803984-w6gmn",
+      "name": "นายณรงค์​ นวลอินทร์",
+      "color": "#ca5d35",
+      "active": true
     }
   ],
   "assignments": {
@@ -18,5 +24,5 @@
     "160318": "staff-1784987702700-q10g5"
   },
   "showLabels": true,
-  "updatedAt": "2026-07-25T13:57:49.741Z"
+  "updatedAt": "2026-07-25T15:36:43.986Z"
 }

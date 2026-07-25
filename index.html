@@ -47,6 +47,17 @@
           <p id="staff-help" class="helper-text">เพิ่มรายชื่อก่อน แล้วระบบจะคละสีที่ต่างกันชัดเจนให้</p>
         </section>
 
+        <section class="panel-section staff-management-section">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">จัดการรายชื่อ</p>
+              <h2>เจ้าหน้าที่</h2>
+            </div>
+          </div>
+          <p class="helper-text">แก้ชื่อ ปิดใช้งาน หรือโอนพื้นที่ก่อนลบ เพื่อไม่ให้ตำบลค้างกับรายชื่อเดิม</p>
+          <div id="staff-management-list" class="staff-management-list" aria-live="polite"></div>
+        </section>
+
         <section class="panel-section sharing-section">
           <div class="section-heading">
             <div>
@@ -79,6 +90,22 @@
             <button id="backup-button" class="button button-muted" type="button">สำรองข้อมูล</button>
             <button id="export-button" class="button button-primary" type="button">ดาวน์โหลด PNG</button>
           </div>
+        </section>
+
+        <section class="panel-section report-section">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">รายงานใช้งาน</p>
+              <h2>ภาระงานและพื้นที่</h2>
+            </div>
+          </div>
+          <label for="report-staff-select">เลือกรายงานรายบุคคล</label>
+          <select id="report-staff-select"><option value="">— รายงานทั้งหมด —</option></select>
+          <div class="report-actions">
+            <button id="excel-report-button" class="button button-muted" type="button">ดาวน์โหลด Excel</button>
+            <button id="pdf-report-button" class="button button-primary" type="button">พิมพ์ / บันทึก PDF</button>
+          </div>
+          <div id="report-summary" class="report-summary" aria-live="polite"></div>
         </section>
 
         <section class="panel-section">
@@ -156,6 +183,7 @@
 
     <script src="https://unpkg.com/maplibre-gl@5.20.0/dist/maplibre-gl.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

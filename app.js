@@ -22,6 +22,7 @@ const dom = {
   colorSwatch: document.querySelector("#color-swatch"),
   staffHelp: document.querySelector("#staff-help"),
   newColorButton: document.querySelector("#new-color-button"),
+  staffManagementList: document.querySelector("#staff-management-list"),
   districtList: document.querySelector("#district-list"),
   tambonSearch: document.querySelector("#tambon-search"),
   tambonList: document.querySelector("#tambon-list"),
@@ -33,6 +34,10 @@ const dom = {
   exportButton: document.querySelector("#export-button"),
   backupButton: document.querySelector("#backup-button"),
   restoreInput: document.querySelector("#restore-input"),
+  reportStaffSelect: document.querySelector("#report-staff-select"),
+  excelReportButton: document.querySelector("#excel-report-button"),
+  pdfReportButton: document.querySelector("#pdf-report-button"),
+  reportSummary: document.querySelector("#report-summary"),
   saveSharedButton: document.querySelector("#save-shared-button"),
   reloadSharedButton: document.querySelector("#reload-shared-button"),
   checkTokenButton: document.querySelector("#check-token-button"),
@@ -53,16 +58,16 @@ let shared = { available: false, loading: false, sha: null, error: null };
 let tokenCheck = { checking: false, status: "idle", message: "", expiresAt: null, login: null };
 
 function initialState() {
-  return { version: 2, staff: [], assignments: {}, showLabels: false, updatedAt: null, pendingChanges: false };
+  return { version: 3, staff: [], assignments: {}, showLabels: false, updatedAt: null, pendingChanges: false };
 }
 
 function normalizeState(raw) {
   if (!raw || !Array.isArray(raw.staff) || typeof raw.assignments !== "object") return initialState();
   return {
-    version: 2,
+    version: 3,
     staff: raw.staff
       .filter((person) => person && person.id && person.name && person.color)
-      .map((person) => ({ id: String(person.id), name: String(person.name), color: String(person.color) })),
+      .map((person) => ({ id: String(person.id), name: String(person.name), color: String(person.color), active: person.active !== false })),
     assignments: Object.fromEntries(Object.entries(raw.assignments).map(([area, person]) => [String(area), String(person)])),
     showLabels: Boolean(raw.showLabels),
     updatedAt: raw.updatedAt || null,
@@ -80,7 +85,7 @@ function loadState() {
 
 function serializableState() {
   return {
-    version: 2,
+    version: 3,
     staff: state.staff,
     assignments: state.assignments,
     showLabels: state.showLabels,
@@ -109,11 +114,15 @@ function selectedStaffId() {
 }
 
 function selectedStaff() {
-  return state.staff.find((person) => person.id === selectedStaffId()) || null;
+  return state.staff.find((person) => person.id === selectedStaffId() && person.active) || null;
 }
 
 function getStaff(staffId) {
   return state.staff.find((person) => person.id === staffId) || null;
+}
+
+function activeStaff() {
+  return state.staff.filter((person) => person.active);
 }
 
 function areaId(feature) {
@@ -450,6 +459,7 @@ function addStaff(name) {
     id: `staff-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     name: cleanName,
     color: nextDistinctColor(state.staff.map((existing) => existing.color)),
+    active: true,
   };
   state.staff.push(person);
   renderStaffSelect();
@@ -464,6 +474,146 @@ function reassignSelectedColor() {
   const next = nextDistinctColor(otherColors);
   person.color = next;
   persist(`เปลี่ยนสีของ ${person.name} แล้ว`);
+}
+
+function cleanStaffName(name) {
+  return name.trim().replace(/\s+/g, " ");
+}
+
+function renameStaff(person) {
+  const nextName = window.prompt("แก้ไขชื่อเจ้าหน้าที่", person.name);
+  if (nextName === null) return;
+  const cleanName = cleanStaffName(nextName);
+  if (!cleanName) return showToast("ชื่อเจ้าหน้าที่ต้องไม่ว่าง");
+  if (state.staff.some((candidate) => candidate.id !== person.id && candidate.name.localeCompare(cleanName, "th") === 0)) {
+    return showToast("มีชื่อนี้อยู่ในรายการแล้ว");
+  }
+  if (cleanName === person.name) return;
+  person.name = cleanName;
+  persist(`แก้ไขชื่อเจ้าหน้าที่เป็น ${cleanName} แล้ว`);
+}
+
+function toggleStaffActive(person) {
+  const assignmentCount = assignedAreasFor(person.id).length;
+  if (person.active) {
+    const note = assignmentCount ? `\nพื้นที่ ${assignmentCount} ตำบลจะยังคงอยู่กับชื่อนี้จนกว่าจะโอนพื้นที่` : "";
+    if (!window.confirm(`ปิดใช้งาน ${person.name} หรือไม่? จะไม่สามารถรับมอบหมายพื้นที่ใหม่ได้${note}`)) return;
+    person.active = false;
+    if (dom.staffSelect.value === person.id) dom.staffSelect.value = "";
+    persist(`ปิดใช้งาน ${person.name} แล้ว`);
+    return;
+  }
+  person.active = true;
+  persist(`เปิดใช้งาน ${person.name} แล้ว`);
+}
+
+function transferStaffAreas(person, targetId) {
+  const areas = assignedAreasFor(person.id);
+  if (!areas.length) return showToast(`${person.name} ยังไม่มีพื้นที่ต้องโอน`);
+  if (!targetId) return showToast("เลือกผู้รับโอนพื้นที่ก่อน");
+
+  if (targetId === "__unassign__") {
+    if (!window.confirm(`ยกเลิกการมอบหมาย ${areas.length} ตำบลของ ${person.name} หรือไม่?`)) return;
+    for (const feature of areas) delete state.assignments[areaId(feature)];
+    persist(`ยกเลิกพื้นที่ ${areas.length} ตำบลของ ${person.name} แล้ว`);
+    return;
+  }
+
+  const target = getStaff(targetId);
+  if (!target || !target.active) return showToast("เลือกผู้รับโอนที่ยังปฏิบัติงานอยู่");
+  if (!window.confirm(`โอน ${areas.length} ตำบลจาก ${person.name} ไปให้ ${target.name} หรือไม่?`)) return;
+  for (const feature of areas) state.assignments[areaId(feature)] = target.id;
+  persist(`โอน ${areas.length} ตำบลไปให้ ${target.name} แล้ว`);
+}
+
+function deleteStaff(person) {
+  const areas = assignedAreasFor(person.id);
+  if (areas.length) {
+    showToast(`ลบ ${person.name} ไม่ได้ — กรุณาโอนหรือยกเลิก ${areas.length} ตำบลก่อน`);
+    return;
+  }
+  if (!window.confirm(`ลบ ${person.name} ออกจากรายชื่อหรือไม่?`)) return;
+  state.staff = state.staff.filter((candidate) => candidate.id !== person.id);
+  if (dom.staffSelect.value === person.id) dom.staffSelect.value = "";
+  persist(`ลบ ${person.name} ออกจากรายชื่อแล้ว`);
+}
+
+function renderStaffManagement() {
+  if (!state.staff.length) {
+    dom.staffManagementList.innerHTML = '<p class="empty-result">ยังไม่มีรายชื่อเจ้าหน้าที่</p>';
+    return;
+  }
+  const fragment = document.createDocumentFragment();
+  for (const person of state.staff) {
+    const areas = assignedAreasFor(person.id);
+    const districts = new Set(areas.map(featureDistrict));
+    const card = document.createElement("article");
+    card.className = `staff-card${person.active ? "" : " inactive"}`;
+
+    const heading = document.createElement("div");
+    heading.className = "staff-card-heading";
+    const dot = document.createElement("span");
+    dot.className = "legend-dot";
+    dot.style.background = person.color;
+    const name = document.createElement("strong");
+    name.textContent = person.name;
+    const status = document.createElement("span");
+    status.className = `staff-status${person.active ? "" : " inactive"}`;
+    status.textContent = person.active ? "ปฏิบัติงาน" : "ปิดใช้งาน";
+    heading.append(dot, name, status);
+
+    const meta = document.createElement("p");
+    meta.className = "staff-card-meta";
+    meta.textContent = `${areas.length} ตำบล · ${districts.size} อำเภอ${person.active ? "" : " · รับพื้นที่ใหม่ไม่ได้"}`;
+
+    const actions = document.createElement("div");
+    actions.className = "staff-card-actions";
+    const rename = document.createElement("button");
+    rename.type = "button";
+    rename.className = "button button-muted";
+    rename.textContent = "แก้ชื่อ";
+    rename.addEventListener("click", () => renameStaff(person));
+    const activity = document.createElement("button");
+    activity.type = "button";
+    activity.className = "button button-muted";
+    activity.textContent = person.active ? "ปิดใช้งาน" : "เปิดใช้งาน";
+    activity.addEventListener("click", () => toggleStaffActive(person));
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "button button-danger";
+    remove.textContent = "ลบ";
+    remove.addEventListener("click", () => deleteStaff(person));
+    actions.append(rename, activity, remove);
+
+    const transfer = document.createElement("div");
+    transfer.className = "transfer-row";
+    const select = document.createElement("select");
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "— โอนพื้นที่ไปให้ —";
+    select.append(placeholder);
+    for (const candidate of activeStaff().filter((candidate) => candidate.id !== person.id)) {
+      const option = document.createElement("option");
+      option.value = candidate.id;
+      option.textContent = candidate.name;
+      select.append(option);
+    }
+    const unassign = document.createElement("option");
+    unassign.value = "__unassign__";
+    unassign.textContent = "ยกเลิกพื้นที่ทั้งหมด";
+    select.append(unassign);
+    const transferButton = document.createElement("button");
+    transferButton.type = "button";
+    transferButton.className = "button button-secondary";
+    transferButton.textContent = "โอน";
+    transferButton.disabled = !areas.length;
+    transferButton.addEventListener("click", () => transferStaffAreas(person, select.value));
+    transfer.append(select, transferButton);
+
+    card.append(heading, meta, actions, transfer);
+    fragment.append(card);
+  }
+  dom.staffManagementList.replaceChildren(fragment);
 }
 
 function assignmentCount() {
@@ -525,18 +675,18 @@ function toggleFeatureFromMap(feature) {
 function renderStaffSelect() {
   const selected = selectedStaffId();
   dom.staffSelect.innerHTML = '<option value="">— เลือกผู้รับผิดชอบ —</option>';
-  for (const person of state.staff) {
+  for (const person of activeStaff()) {
     const option = document.createElement("option");
     option.value = person.id;
     option.textContent = person.name;
     dom.staffSelect.append(option);
   }
-  dom.staffSelect.value = state.staff.some((person) => person.id === selected) ? selected : "";
+  dom.staffSelect.value = activeStaff().some((person) => person.id === selected) ? selected : "";
   const person = selectedStaff();
   dom.colorSwatch.style.background = person ? person.color : "repeating-conic-gradient(#d3dde3 0 25%, #fff 0 50%) 50% / 10px 10px";
   dom.staffHelp.textContent = person
     ? `สีของ ${person.name} จะไม่ซ้ำกับผู้รับผิดชอบรายอื่น`
-    : "เพิ่มรายชื่อก่อน แล้วระบบจะคละสีที่ต่างกันชัดเจนให้";
+    : activeStaff().length ? "เลือกผู้รับผิดชอบที่ปฏิบัติงานอยู่เพื่อกำหนดพื้นที่" : "เพิ่มรายชื่อก่อน แล้วระบบจะคละสีที่ต่างกันชัดเจนให้";
 }
 
 function renderDistrictList() {
@@ -612,7 +762,7 @@ function renderLegend() {
     dot.className = "legend-dot";
     dot.style.background = person.color;
     const name = document.createElement("strong");
-    name.textContent = person.name;
+    name.textContent = `${person.name}${person.active ? "" : " (ปิดใช้งาน)"}`;
     const countText = document.createElement("span");
     countText.className = "legend-count";
     countText.textContent = `${count} ตำบล`;
@@ -821,6 +971,9 @@ function renderAll() {
   renderSharedStatus();
   if (!features.length) return;
   renderStaffSelect();
+  renderStaffManagement();
+  renderReportStaffSelect();
+  renderReportSummary();
   renderDistrictList();
   renderTambonList();
   renderLegend();
@@ -855,6 +1008,172 @@ function downloadBlob(blob, filename) {
   anchor.click();
   anchor.remove();
   setTimeout(() => URL.revokeObjectURL(anchor.href), 1000);
+}
+
+function reportDateStamp() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function workloadFor(person) {
+  const areas = assignedAreasFor(person.id);
+  return {
+    person,
+    areas,
+    districts: Array.from(new Set(areas.map(featureDistrict))).sort((first, second) => first.localeCompare(second, "th")),
+  };
+}
+
+function unassignedAreas() {
+  return availableFeatures().filter((feature) => !getStaff(state.assignments[areaId(feature)]));
+}
+
+function reportRowsFor(person) {
+  return assignedAreasFor(person.id)
+    .sort((first, second) => `${featureDistrict(first)} ${featureTambon(first)}`.localeCompare(`${featureDistrict(second)} ${featureTambon(second)}`, "th"))
+    .map((feature, index) => ({
+      "ลำดับ": index + 1,
+      "ผู้รับผิดชอบ": person.name,
+      "สถานะเจ้าหน้าที่": person.active ? "ปฏิบัติงาน" : "ปิดใช้งาน",
+      "อำเภอ": featureDistrict(feature),
+      "ตำบล": featureTambon(feature),
+    }));
+}
+
+function unassignedReportRows() {
+  return unassignedAreas()
+    .sort((first, second) => `${featureDistrict(first)} ${featureTambon(first)}`.localeCompare(`${featureDistrict(second)} ${featureTambon(second)}`, "th"))
+    .map((feature, index) => ({ "ลำดับ": index + 1, "อำเภอ": featureDistrict(feature), "ตำบล": featureTambon(feature), "สถานะ": "ยังไม่มอบหมาย" }));
+}
+
+function workbookSheet(workbook, name, rows, usedNames) {
+  let sheetName = name.replace(/[\\/?*\[\]:]/g, " ").trim().slice(0, 28) || "รายงาน";
+  let suffix = 2;
+  while (usedNames.has(sheetName)) {
+    sheetName = `${name.slice(0, 24)} ${suffix}`.slice(0, 31);
+    suffix += 1;
+  }
+  usedNames.add(sheetName);
+  const content = rows.length ? rows : [{ "หมายเหตุ": "ไม่มีข้อมูล" }];
+  const sheet = window.XLSX.utils.json_to_sheet(content);
+  sheet["!cols"] = Object.keys(content[0]).map((key) => ({ wch: Math.min(42, Math.max(12, key.length + 8)) }));
+  window.XLSX.utils.book_append_sheet(workbook, sheet, sheetName);
+}
+
+function exportExcelReport() {
+  if (!window.XLSX) {
+    showToast("ยังโหลดเครื่องมือ Excel ไม่สำเร็จ กรุณารีเฟรชแล้วลองใหม่");
+    return;
+  }
+  const selectedId = dom.reportStaffSelect.value;
+  const selected = selectedId ? getStaff(selectedId) : null;
+  if (selectedId && !selected) return showToast("ไม่พบเจ้าหน้าที่ที่เลือกรายงาน");
+
+  const workbook = window.XLSX.utils.book_new();
+  const usedNames = new Set();
+  const workloads = (selected ? [selected] : state.staff).map(workloadFor);
+  const summary = workloads.map((item, index) => ({
+    "ลำดับ": index + 1,
+    "ผู้รับผิดชอบ": item.person.name,
+    "สถานะ": item.person.active ? "ปฏิบัติงาน" : "ปิดใช้งาน",
+    "จำนวนตำบล": item.areas.length,
+    "จำนวนอำเภอ": item.districts.length,
+    "อำเภอที่รับผิดชอบ": item.districts.join(", "),
+  }));
+  workbookSheet(workbook, "สรุปภาระงาน", summary, usedNames);
+
+  if (selected) {
+    workbookSheet(workbook, `พื้นที่ ${selected.name}`, reportRowsFor(selected), usedNames);
+  } else {
+    const details = state.staff.flatMap((person) => reportRowsFor(person));
+    workbookSheet(workbook, "รายการพื้นที่ทั้งหมด", details, usedNames);
+    for (const person of state.staff) workbookSheet(workbook, person.name, reportRowsFor(person), usedNames);
+  }
+  workbookSheet(workbook, "ยังไม่มอบหมาย", unassignedReportRows(), usedNames);
+  const filename = selected
+    ? `รายงานเขต-${selected.name}-${reportDateStamp()}.xlsx`
+    : `รายงานเขตงานส่งหมาย-${reportDateStamp()}.xlsx`;
+  window.XLSX.writeFile(workbook, filename);
+  showToast("ดาวน์โหลดรายงาน Excel แล้ว");
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]));
+}
+
+function printStaffPdf() {
+  const person = getStaff(dom.reportStaffSelect.value);
+  if (!person) {
+    showToast("เลือกเจ้าหน้าที่ก่อนพิมพ์หรือบันทึก PDF รายคน");
+    return;
+  }
+  const workload = workloadFor(person);
+  const byDistrict = new Map();
+  for (const feature of workload.areas) {
+    const district = featureDistrict(feature);
+    if (!byDistrict.has(district)) byDistrict.set(district, []);
+    byDistrict.get(district).push(featureTambon(feature));
+  }
+  const groups = [...byDistrict.entries()]
+    .sort(([first], [second]) => first.localeCompare(second, "th"))
+    .map(([district, tambons]) => `<section><h3>อำเภอ${escapeHtml(district)} (${tambons.length} ตำบล)</h3><p>${tambons.sort((first, second) => first.localeCompare(second, "th")).map(escapeHtml).join(" · ") || "—"}</p></section>`)
+    .join("") || "<p>ยังไม่มีพื้นที่รับผิดชอบ</p>";
+  const printedAt = new Intl.DateTimeFormat("th-TH", { dateStyle: "long", timeStyle: "short" }).format(new Date());
+  const reportWindow = window.open("", "_blank");
+  if (!reportWindow) {
+    showToast("เบราว์เซอร์ปิดหน้าต่างรายงานไว้ กรุณาอนุญาตป๊อปอัปแล้วลองใหม่");
+    return;
+  }
+  reportWindow.opener = null;
+  reportWindow.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานเขต ${escapeHtml(person.name)}</title><style>
+    @page { size: A4; margin: 16mm; } body { font-family: "Noto Sans Thai", "Leelawadee UI", Tahoma, sans-serif; color:#172b3a; line-height:1.55; } h1{font-size:22px;margin:0 0 4px} h2{font-size:16px;margin:0 0 14px;color:#315269} h3{font-size:14px;margin:15px 0 5px;padding-top:10px;border-top:1px solid #dbe5ea} p{margin:0} .meta{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.tag{padding:5px 9px;border-radius:999px;background:#edf4f7;color:#315269;font-size:12px}.foot{margin-top:22px;color:#647785;font-size:11px}
+  </style></head><body><h1>รายงานเขตรับผิดชอบงานส่งหมาย</h1><h2>ศาลจังหวัดลพบุรี</h2><p><strong>ผู้รับผิดชอบ:</strong> ${escapeHtml(person.name)} (${person.active ? "ปฏิบัติงาน" : "ปิดใช้งาน"})</p><div class="meta"><span class="tag">${workload.areas.length} ตำบล</span><span class="tag">${workload.districts.length} อำเภอ</span></div>${groups}<p class="foot">จัดทำเมื่อ ${escapeHtml(printedAt)}</p></body></html>`);
+  reportWindow.document.close();
+  reportWindow.onload = () => reportWindow.print();
+}
+
+function renderReportStaffSelect() {
+  const selected = dom.reportStaffSelect.value;
+  dom.reportStaffSelect.replaceChildren();
+  const all = document.createElement("option");
+  all.value = "";
+  all.textContent = "— รายงานทั้งหมด —";
+  dom.reportStaffSelect.append(all);
+  for (const person of state.staff) {
+    const option = document.createElement("option");
+    option.value = person.id;
+    option.textContent = `${person.name}${person.active ? "" : " (ปิดใช้งาน)"}`;
+    dom.reportStaffSelect.append(option);
+  }
+  dom.reportStaffSelect.value = state.staff.some((person) => person.id === selected) ? selected : "";
+}
+
+function renderReportSummary() {
+  const fragment = document.createDocumentFragment();
+  const unassigned = unassignedAreas().length;
+  const unassignedItem = document.createElement("div");
+  unassignedItem.className = "report-item report-unassigned";
+  const unassignedName = document.createElement("strong");
+  unassignedName.textContent = "พื้นที่ยังไม่มอบหมาย";
+  const unassignedCount = document.createElement("span");
+  unassignedCount.textContent = `${unassigned} ตำบล`;
+  unassignedItem.append(unassignedName, unassignedCount);
+  fragment.append(unassignedItem);
+
+  for (const person of state.staff) {
+    const workload = workloadFor(person);
+    const item = document.createElement("div");
+    item.className = "report-item";
+    const dot = document.createElement("span");
+    dot.className = "legend-dot";
+    dot.style.background = person.color;
+    const name = document.createElement("strong");
+    name.textContent = `${person.name}${person.active ? "" : " (ปิดใช้งาน)"}`;
+    const count = document.createElement("span");
+    count.textContent = `${workload.areas.length} ตำบล · ${workload.districts.length} อำเภอ`;
+    item.append(dot, name, count);
+    fragment.append(item);
+  }
+  dom.reportSummary.replaceChildren(fragment);
 }
 
 async function exportPng() {
@@ -932,6 +1251,7 @@ async function importStaff(file) {
         id: `staff-${Date.now()}-${added}-${Math.random().toString(36).slice(2, 6)}`,
         name,
         color: nextDistinctColor(state.staff.map((person) => person.color)),
+        active: true,
       });
       existing.add(name);
       added += 1;
@@ -970,6 +1290,9 @@ function bindEvents() {
   });
   dom.exportButton.addEventListener("click", exportPng);
   dom.backupButton.addEventListener("click", backupState);
+  dom.excelReportButton.addEventListener("click", exportExcelReport);
+  dom.pdfReportButton.addEventListener("click", printStaffPdf);
+  dom.reportStaffSelect.addEventListener("change", renderReportSummary);
   dom.checkTokenButton.addEventListener("click", async () => {
     const checked = await verifyGitHubToken();
     showToast(checked.valid ? "ตรวจสอบรหัสแล้ว" : checked.reason);

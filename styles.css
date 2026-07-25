@@ -76,6 +76,11 @@ input:focus, select:focus { outline: 3px solid rgb(76 151 193 / 24%); border-col
 .shared-status.synced { background: #edf8ef; color: #23623c; }
 .shared-status.pending { background: #fff6e4; color: #7e520e; }
 .shared-status.offline { background: #ffebeb; color: #912f2f; }
+.token-status { margin: 10px 0 0; border-radius: 7px; padding: 9px 10px; font-size: .78rem; line-height: 1.45; background: #eef5f7; color: #345468; }
+.token-status.ok { background: #edf8ef; color: #23623c; }
+.token-status.error { background: #ffebeb; color: #912f2f; }
+.token-status.warning { background: #fff6e4; color: #7e520e; }
+.check-token-button { width: 100%; justify-content: center; margin-top: 10px; }
 .shared-actions, .tool-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
 .shared-actions .button, .tool-grid .button { text-align: center; justify-content: center; }
 .tool-grid .button:last-child { grid-column: 1 / -1; }

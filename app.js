@@ -35,8 +35,10 @@ const dom = {
   restoreInput: document.querySelector("#restore-input"),
   saveSharedButton: document.querySelector("#save-shared-button"),
   reloadSharedButton: document.querySelector("#reload-shared-button"),
+  checkTokenButton: document.querySelector("#check-token-button"),
   githubToken: document.querySelector("#github-token"),
   sharedStatus: document.querySelector("#shared-status"),
+  tokenStatus: document.querySelector("#token-status"),
   updatedAt: document.querySelector("#updated-at"),
   toast: document.querySelector("#toast"),
   printable: document.querySelector("#printable"),
@@ -47,6 +49,7 @@ let maps = { main: null };
 let toastTimer;
 let state = loadState();
 let shared = { available: false, loading: false, sha: null, error: null };
+let tokenCheck = { checking: false, status: "idle", message: "", expiresAt: null, login: null };
 
 function initialState() {
   return { version: 2, staff: [], assignments: {}, showLabels: false, updatedAt: null, pendingChanges: false };
@@ -184,6 +187,105 @@ function sharedDataUrl() {
   return url;
 }
 
+function githubApiHeaders(token) {
+  return {
+    Accept: "application/vnd.github+json",
+    Authorization: `Bearer ${token}`,
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
+}
+
+function setTokenStatus(message, status = "") {
+  tokenCheck = { ...tokenCheck, status, message };
+  if (!dom.tokenStatus) return;
+  dom.tokenStatus.textContent = message;
+  dom.tokenStatus.className = `token-status ${status}`.trim();
+}
+
+function clearTokenCheck() {
+  tokenCheck = { checking: false, status: "idle", message: "", expiresAt: null, login: null };
+  setTokenStatus(dom.githubToken.value.trim() ? "ยังไม่ได้ตรวจสอบรหัส กด “ตรวจสอบรหัส” ก่อนบันทึก" : "วางรหัสแล้วกด “ตรวจสอบรหัส” ก่อนบันทึก");
+}
+
+function formatExpiration(expiresAt) {
+  if (!expiresAt) return "GitHub ไม่ได้ส่งวันหมดอายุให้หน้าเว็บนี้อ่านได้ ให้ตรวจที่หน้าจัดการรหัสของ GitHub";
+  const date = new Date(expiresAt);
+  if (Number.isNaN(date.getTime())) return `วันหมดอายุตาม GitHub: ${expiresAt}`;
+  const days = Math.ceil((date.getTime() - Date.now()) / 86400000);
+  const dateText = new Intl.DateTimeFormat("th-TH", { dateStyle: "long", timeStyle: "short" }).format(date);
+  if (days < 0) return `หมดอายุแล้วเมื่อ ${dateText}`;
+  if (days === 0) return `หมดอายุภายในวันนี้ (${dateText})`;
+  return `หมดอายุ ${dateText} (เหลือประมาณ ${days} วัน)`;
+}
+
+async function readGitHubError(response) {
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch {
+    // GitHub may return an empty response body for some security failures.
+  }
+  return {
+    status: response.status,
+    message: typeof payload?.message === "string" ? payload.message : "",
+    documentationUrl: typeof payload?.documentation_url === "string" ? payload.documentation_url : "",
+  };
+}
+
+function explainGitHubError({ status, message }) {
+  const detail = message.toLowerCase();
+  if (status === 401) return "รหัสใช้ไม่ได้ ถูกยกเลิก หรือหมดอายุแล้ว ให้สร้างรหัสใหม่แล้ววางอีกครั้ง";
+  if (status === 403 && /rate limit|secondary rate limit/.test(detail)) return "GitHub จำกัดจำนวนการใช้งานชั่วคราว โปรดลองใหม่อีกสักครู่";
+  if (status === 403 && /saml|single sign-on|sso/.test(detail)) return "รหัสยังไม่ได้รับอนุญาตให้ใช้กับองค์กรนี้ ให้เปิดสิทธิ์ SSO ของ GitHub ก่อน";
+  if (status === 403 && /resource not accessible|personal access token|insufficient|not accessible/.test(detail)) {
+    return "รหัสใช้ได้ แต่ไม่มีสิทธิ์แก้ไข MapLibre: ตอนสร้างรหัสให้เลือก Only select repositories → MapLibre และตั้ง Repository permissions → Contents เป็น Read and write";
+  }
+  if (status === 403) return `GitHub ปฏิเสธสิทธิ์ (403)${message ? `: ${message}` : ""}`;
+  if (status === 404) return "ไม่พบไฟล์หรือที่เก็บข้อมูลกลาง กรุณาตรวจสอบชื่อโครงการ MapLibre";
+  return `GitHub ตอบกลับ ${status}${message ? `: ${message}` : ""}`;
+}
+
+async function verifyGitHubToken() {
+  const token = dom.githubToken.value.trim();
+  if (!token) {
+    setTokenStatus("ยังไม่มีรหัสสำหรับตรวจสอบ", "warning");
+    return { valid: false, reason: "กรุณาวางรหัส GitHub ก่อน" };
+  }
+
+  tokenCheck = { ...tokenCheck, checking: true };
+  setTokenStatus("กำลังตรวจสอบรหัสกับ GitHub…");
+  renderSharedStatus();
+  try {
+    const response = await fetch("https://api.github.com/user", {
+      headers: githubApiHeaders(token),
+      cache: "no-store",
+    });
+    const expiresAt = response.headers.get("github-authentication-token-expiration");
+    if (!response.ok) {
+      const error = await readGitHubError(response);
+      const reason = explainGitHubError(error);
+      tokenCheck = { checking: false, status: "error", message: reason, expiresAt: null, login: null };
+      setTokenStatus(reason, "error");
+      return { valid: false, reason };
+    }
+    const account = await response.json();
+    const expirationText = formatExpiration(expiresAt);
+    const message = `ตรวจสอบแล้ว: รหัสเป็นของบัญชี ${account.login} และยังใช้ได้ — ${expirationText} กด “บันทึกส่วนกลาง” เพื่อยืนยันสิทธิ์แก้ไข MapLibre`;
+    tokenCheck = { checking: false, status: "ok", message, expiresAt, login: account.login };
+    setTokenStatus(message, "ok");
+    return { valid: true, expiresAt, login: account.login };
+  } catch (error) {
+    console.error(error);
+    const reason = "ตรวจสอบรหัสไม่ได้ เพราะเชื่อมต่อ GitHub ไม่สำเร็จ โปรดตรวจอินเทอร์เน็ตแล้วลองใหม่";
+    tokenCheck = { checking: false, status: "error", message: reason, expiresAt: null, login: null };
+    setTokenStatus(reason, "error");
+    return { valid: false, reason };
+  } finally {
+    tokenCheck = { ...tokenCheck, checking: false };
+    renderSharedStatus();
+  }
+}
+
 function renderSharedStatus() {
   if (!dom.sharedStatus) return;
   let message = "กำลังเชื่อมต่อข้อมูลส่วนกลาง…";
@@ -204,6 +306,8 @@ function renderSharedStatus() {
   dom.sharedStatus.className = `shared-status ${statusClass}`.trim();
   dom.saveSharedButton.disabled = shared.loading;
   dom.reloadSharedButton.disabled = shared.loading;
+  dom.checkTokenButton.disabled = shared.loading || tokenCheck.checking;
+  dom.checkTokenButton.textContent = tokenCheck.checking ? "กำลังตรวจสอบรหัส…" : "ตรวจสอบรหัส";
 }
 
 async function loadSharedState({ forceRemote = false } = {}) {
@@ -246,7 +350,13 @@ async function reloadSharedState() {
 async function saveSharedState() {
   const token = dom.githubToken.value.trim();
   if (!token) {
-    showToast("กรุณาวาง Fine-grained GitHub token ที่มีสิทธิ์ Contents: Read and write ก่อนบันทึก");
+    setTokenStatus("กรุณาวาง Fine-grained GitHub token ที่มีสิทธิ์ Contents: Read and write ก่อนบันทึก", "warning");
+    showToast("กรุณาวางรหัส GitHub ก่อนบันทึก");
+    return;
+  }
+  const checked = await verifyGitHubToken();
+  if (!checked.valid) {
+    showToast(checked.reason);
     return;
   }
   if (!shared.sha && !(await loadSharedState())) {
@@ -259,8 +369,7 @@ async function saveSharedState() {
     const response = await fetch(SHARED_DATA_API, {
       method: "PUT",
       headers: {
-        Accept: "application/vnd.github+json",
-        Authorization: `Bearer ${token}`,
+        ...githubApiHeaders(token),
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -271,10 +380,13 @@ async function saveSharedState() {
       }),
     });
     if (!response.ok) {
+      const githubError = await readGitHubError(response);
       if (response.status === 409 || response.status === 422) {
         throw new Error("ข้อมูลส่วนกลางถูกแก้ไขจากเครื่องอื่นแล้ว กรุณาโหลดค่ากลางใหม่ก่อนบันทึกอีกครั้ง");
       }
-      throw new Error(`GitHub responded ${response.status}`);
+      const reason = explainGitHubError(githubError);
+      setTokenStatus(`ตรวจสอบรหัสผ่าน แต่บันทึกไม่ได้: ${reason}`, "error");
+      throw new Error(reason);
     }
     const result = await response.json();
     shared = { available: true, loading: false, sha: result.content?.sha || shared.sha, error: null };
@@ -283,6 +395,7 @@ async function saveSharedState() {
     saveLocalState();
     renderAll();
     dom.githubToken.value = "";
+    clearTokenCheck();
     showToast("บันทึกข้อมูลส่วนกลางแล้ว ทุกเครื่องจะเห็นค่าใหม่นี้");
   } catch (error) {
     console.error(error);
@@ -822,8 +935,13 @@ function bindEvents() {
   });
   dom.exportButton.addEventListener("click", exportPng);
   dom.backupButton.addEventListener("click", backupState);
+  dom.checkTokenButton.addEventListener("click", async () => {
+    const checked = await verifyGitHubToken();
+    showToast(checked.valid ? "ตรวจสอบรหัสแล้ว" : checked.reason);
+  });
   dom.saveSharedButton.addEventListener("click", saveSharedState);
   dom.reloadSharedButton.addEventListener("click", reloadSharedState);
+  dom.githubToken.addEventListener("input", clearTokenCheck);
   dom.restoreInput.addEventListener("change", (event) => restoreState(event.target.files[0]));
   dom.staffImportInput.addEventListener("change", (event) => importStaff(event.target.files[0]));
 }

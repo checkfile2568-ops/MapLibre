@@ -526,6 +526,23 @@ function transferStaffAreas(person, targetId) {
   persist(`โอน ${areas.length} ตำบลไปให้ ${target.name} แล้ว`);
 }
 
+function transferSelectedStaffAreas(person, areas, targetId) {
+  if (!areas.length) return showToast("เลือกตำบลที่ต้องการโอนก่อน");
+  if (!targetId) return showToast("เลือกผู้รับโอนตำบลก่อน");
+  const target = getStaff(targetId);
+  if (!target || !target.active) return showToast("เลือกผู้รับโอนที่ยังปฏิบัติงานอยู่");
+  if (!window.confirm(`โอน ${areas.length} ตำบลจาก ${person.name} ไปให้ ${target.name} หรือไม่?`)) return;
+  for (const feature of areas) state.assignments[areaId(feature)] = target.id;
+  persist(`โอน ${areas.length} ตำบลไปให้ ${target.name} แล้ว`);
+}
+
+function unassignSelectedStaffAreas(person, areas) {
+  if (!areas.length) return showToast("เลือกตำบลที่ต้องการนำออกก่อน");
+  if (!window.confirm(`นำ ${areas.length} ตำบลออกจาก ${person.name} หรือไม่? ตำบลเหล่านี้จะกลับไปอยู่ในรายการยังไม่มอบหมาย`)) return;
+  for (const feature of areas) delete state.assignments[areaId(feature)];
+  persist(`นำ ${areas.length} ตำบลออกจาก ${person.name} แล้ว — อยู่ในรายการยังไม่มอบหมาย`);
+}
+
 function deleteStaff(person) {
   const areas = assignedAreasFor(person.id);
   if (areas.length) {
@@ -585,12 +602,108 @@ function renderStaffManagement() {
     remove.addEventListener("click", () => deleteStaff(person));
     actions.append(rename, activity, remove);
 
+    const editor = document.createElement("details");
+    editor.className = "staff-area-editor";
+    const editorSummary = document.createElement("summary");
+    editorSummary.textContent = `แก้ไขตำบลรายรายการ (${areas.length} ตำบล)`;
+    editor.append(editorSummary);
+
+    if (!areas.length) {
+      const empty = document.createElement("p");
+      empty.className = "staff-area-empty";
+      empty.textContent = "ยังไม่มีตำบลที่รับผิดชอบ";
+      editor.append(empty);
+    } else {
+      const hint = document.createElement("p");
+      hint.className = "staff-area-hint";
+      hint.textContent = "เลือกตำบลเพื่อโอนไปให้เจ้าหน้าที่คนอื่น หรือนำออกเพื่อให้กลับไปอยู่ในรายการยังไม่มอบหมาย";
+
+      const selectAllRow = document.createElement("label");
+      selectAllRow.className = "staff-area-select-all";
+      const selectAll = document.createElement("input");
+      selectAll.type = "checkbox";
+      const selectAllText = document.createElement("span");
+      selectAllText.textContent = "เลือกทั้งหมด";
+      selectAllRow.append(selectAll, selectAllText);
+
+      const areaList = document.createElement("div");
+      areaList.className = "staff-area-list";
+      const checkboxes = new Map();
+      const sortedAreas = areas.slice().sort((left, right) => {
+        const district = featureDistrict(left).localeCompare(featureDistrict(right), "th");
+        return district || featureTambon(left).localeCompare(featureTambon(right), "th");
+      });
+
+      for (const feature of sortedAreas) {
+        const option = document.createElement("label");
+        option.className = "staff-area-option";
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.dataset.areaId = areaId(feature);
+        const text = document.createElement("span");
+        text.textContent = featureTambon(feature);
+        const district = document.createElement("small");
+        district.textContent = featureDistrict(feature);
+        option.append(checkbox, text, district);
+        areaList.append(option);
+        checkboxes.set(areaId(feature), checkbox);
+      }
+
+      const selectedFeatures = () => sortedAreas.filter((feature) => checkboxes.get(areaId(feature)).checked);
+      const selectionStatus = document.createElement("p");
+      selectionStatus.className = "staff-area-selection-status";
+
+      const bulkActions = document.createElement("div");
+      bulkActions.className = "staff-area-bulk-actions";
+      const partialSelect = document.createElement("select");
+      const partialPlaceholder = document.createElement("option");
+      partialPlaceholder.value = "";
+      partialPlaceholder.textContent = "— โอนตำบลที่เลือกไปให้ —";
+      partialSelect.append(partialPlaceholder);
+      for (const candidate of activeStaff().filter((candidate) => candidate.id !== person.id)) {
+        const option = document.createElement("option");
+        option.value = candidate.id;
+        option.textContent = candidate.name;
+        partialSelect.append(option);
+      }
+
+      const partialTransfer = document.createElement("button");
+      partialTransfer.type = "button";
+      partialTransfer.className = "button button-secondary";
+      partialTransfer.textContent = "โอนที่เลือก";
+      const partialUnassign = document.createElement("button");
+      partialUnassign.type = "button";
+      partialUnassign.className = "button button-danger";
+      partialUnassign.textContent = "นำที่เลือกออก";
+
+      const refreshSelection = () => {
+        const count = selectedFeatures().length;
+        selectAll.checked = count === sortedAreas.length;
+        selectAll.indeterminate = count > 0 && count < sortedAreas.length;
+        selectionStatus.textContent = `เลือกแล้ว ${count} ตำบล`;
+        partialTransfer.disabled = !count || !partialSelect.value;
+        partialUnassign.disabled = !count;
+      };
+      selectAll.addEventListener("change", () => {
+        for (const checkbox of checkboxes.values()) checkbox.checked = selectAll.checked;
+        refreshSelection();
+      });
+      for (const checkbox of checkboxes.values()) checkbox.addEventListener("change", refreshSelection);
+      partialSelect.addEventListener("change", refreshSelection);
+      partialTransfer.addEventListener("click", () => transferSelectedStaffAreas(person, selectedFeatures(), partialSelect.value));
+      partialUnassign.addEventListener("click", () => unassignSelectedStaffAreas(person, selectedFeatures()));
+      refreshSelection();
+
+      bulkActions.append(partialSelect, partialTransfer, partialUnassign);
+      editor.append(hint, selectAllRow, areaList, selectionStatus, bulkActions);
+    }
+
     const transfer = document.createElement("div");
     transfer.className = "transfer-row";
     const select = document.createElement("select");
     const placeholder = document.createElement("option");
     placeholder.value = "";
-    placeholder.textContent = "— โอนพื้นที่ไปให้ —";
+    placeholder.textContent = "— โอนทั้งหมดไปให้ —";
     select.append(placeholder);
     for (const candidate of activeStaff().filter((candidate) => candidate.id !== person.id)) {
       const option = document.createElement("option");
@@ -605,12 +718,12 @@ function renderStaffManagement() {
     const transferButton = document.createElement("button");
     transferButton.type = "button";
     transferButton.className = "button button-secondary";
-    transferButton.textContent = "โอน";
+    transferButton.textContent = "โอนทั้งหมด";
     transferButton.disabled = !areas.length;
     transferButton.addEventListener("click", () => transferStaffAreas(person, select.value));
     transfer.append(select, transferButton);
 
-    card.append(heading, meta, actions, transfer);
+    card.append(heading, meta, actions, editor, transfer);
     fragment.append(card);
   }
   dom.staffManagementList.replaceChildren(fragment);

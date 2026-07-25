@@ -85,6 +85,24 @@ input:focus, select:focus { outline: 3px solid rgb(76 151 193 / 24%); border-col
 .button-danger:hover { background: #ffebeb; }
 .transfer-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; margin-top: 9px; }
 .transfer-row select { min-height: 34px; font-size: .76rem; }
+.staff-area-editor { margin-top: 10px; padding-top: 9px; border-top: 1px solid #e2eaee; }
+.staff-area-editor summary { cursor: pointer; color: var(--navy); font-size: .78rem; font-weight: 750; }
+.staff-area-editor[open] summary { margin-bottom: 8px; }
+.staff-area-hint, .staff-area-empty, .staff-area-selection-status { margin: 0 0 8px; color: var(--muted); font-size: .72rem; line-height: 1.45; }
+.staff-area-select-all { display: inline-flex; align-items: center; gap: 7px; margin: 0 0 7px; color: #385064; font-size: .74rem; font-weight: 700; }
+.staff-area-select-all input, .staff-area-option input { width: auto; min-height: auto; margin: 0; }
+.staff-area-list { max-height: 200px; overflow: auto; border: 1px solid #dbe5eb; border-radius: 7px; background: #fff; }
+.staff-area-option { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; margin: 0; padding: 8px 9px; border-bottom: 1px solid #edf1f3; color: #263b4b; font-size: .76rem; font-weight: 600; }
+.staff-area-option:last-child { border-bottom: 0; }
+.staff-area-option span { min-width: 0; overflow-wrap: anywhere; }
+.staff-area-option small { color: var(--muted); font-size: .67rem; font-weight: 500; text-align: right; }
+.staff-area-bulk-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
+.staff-area-bulk-actions select { min-height: 34px; font-size: .74rem; }
+.staff-area-bulk-actions .button-danger { grid-column: 1 / -1; }
+@media (min-width: 600px) {
+  .staff-area-bulk-actions .button-danger { grid-column: auto; }
+  .staff-area-bulk-actions { grid-template-columns: minmax(0, 1fr) auto auto; }
+}
 .color-swatch { display: block; height: 28px; width: 28px; border-radius: 50%; background: repeating-conic-gradient(#d3dde3 0 25%, #fff 0 50%) 50% / 10px 10px; border: 2px solid #fff; box-shadow: 0 0 0 1px #a8b8c4; }
 .shared-status { margin: 0; border-radius: 7px; padding: 9px 10px; font-size: .8rem; line-height: 1.45; background: #eef5f7; color: #345468; }
 .shared-status.synced { background: #edf8ef; color: #23623c; }

@@ -67,8 +67,14 @@
           </div>
           <p id="shared-status" class="shared-status" role="status">กำลังเชื่อมต่อข้อมูลส่วนกลาง…</p>
           <label for="github-token">รหัสบันทึก GitHub</label>
-          <input id="github-token" type="password" autocomplete="off" spellcheck="false" placeholder="วาง Fine-grained token เมื่อบันทึก" />
-          <p class="helper-text">ใช้เฉพาะผู้มีสิทธิ์แก้ไข ระบบไม่เก็บรหัสนี้ในเครื่อง กด “ตรวจสอบรหัส” เพื่อดูว่ายังใช้ได้หรือหมดอายุเมื่อใด แล้วจึงบันทึกข้อมูลกลาง</p>
+          <input id="github-token" type="password" autocomplete="off" spellcheck="false" placeholder="วาง Fine-grained token สำหรับบันทึก" />
+          <label class="remember-token-choice" for="remember-github-token">
+            <input id="remember-github-token" type="checkbox" />
+            <span>จำรหัสไว้ในเครื่องนี้</span>
+          </label>
+          <p class="helper-text">รหัสจะจำเฉพาะเบราว์เซอร์ของเครื่องนี้ ไม่ถูกบันทึกลงข้อมูลกลางหรือแสดงให้เครื่องอื่นเห็น กด “ตรวจสอบรหัส” เพื่ออัปเดตวันหมดอายุ</p>
+          <p id="remembered-token-status" class="remembered-token-status" role="status">ยังไม่ได้จำรหัสไว้ในเครื่องนี้</p>
+          <button id="forget-github-token-button" class="text-button forget-token-button" type="button" hidden>ลบรหัสที่จำไว้จากเครื่องนี้</button>
           <p id="token-status" class="token-status" role="status">วางรหัสแล้วกด “ตรวจสอบรหัส” ก่อนบันทึก</p>
           <button id="check-token-button" class="button button-muted check-token-button" type="button">ตรวจสอบรหัส</button>
           <div class="shared-actions">

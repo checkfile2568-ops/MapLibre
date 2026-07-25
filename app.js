@@ -5,6 +5,8 @@
 
 const GIS_QUERY_URL = "https://services1.arcgis.com/jSaRWj2TDlcN1zOC/arcgis/rest/services/Thailand_Subdistrict_Boundaries_%28%E0%B8%82%E0%B9%89%E0%B8%AD%E0%B8%A1%E0%B8%B9%E0%B8%A5%E0%B8%82%E0%B8%AD%E0%B8%9A%E0%B9%80%E0%B8%82%E0%B8%95%E0%B8%95%E0%B8%B3%E0%B8%9A%E0%B8%A5%E0%B8%9B%E0%B8%A3%E0%B8%B0%E0%B9%80%E0%B8%97%E0%B8%A8%E0%B9%84%E0%B8%97%E0%B8%A2%29/FeatureServer/1/query";
 const STORAGE_KEY = "lopburi-notice-area-manager-v1";
+const REMEMBERED_TOKEN_KEY = STORAGE_KEY + ":github-token";
+const REMEMBERED_TOKEN_METADATA_KEY = STORAGE_KEY + ":github-token-metadata";
 const SHARED_BRANCH = "main";
 const SHARED_DATA_API = "https://api.github.com/repos/checkfile2568-ops/MapLibre/contents/data/assignments.json";
 const MAIN_COURT_DISTRICTS = new Set(["เมืองลพบุรี", "พัฒนานิคม", "โคกสำโรง", "ท่าวุ้ง", "บ้านหมี่", "หนองม่วง"]);
@@ -42,6 +44,9 @@ const dom = {
   reloadSharedButton: document.querySelector("#reload-shared-button"),
   checkTokenButton: document.querySelector("#check-token-button"),
   githubToken: document.querySelector("#github-token"),
+  rememberToken: document.querySelector("#remember-github-token"),
+  rememberedTokenStatus: document.querySelector("#remembered-token-status"),
+  forgetTokenButton: document.querySelector("#forget-github-token-button"),
   sharedStatus: document.querySelector("#shared-status"),
   tokenStatus: document.querySelector("#token-status"),
   updatedAt: document.querySelector("#updated-at"),
@@ -217,6 +222,108 @@ function clearTokenCheck() {
   setTokenStatus(dom.githubToken.value.trim() ? "ยังไม่ได้ตรวจสอบรหัส กด “ตรวจสอบรหัส” ก่อนบันทึก" : "วางรหัสแล้วกด “ตรวจสอบรหัส” ก่อนบันทึก");
 }
 
+function readRememberedTokenMetadata() {
+  try {
+    const raw = localStorage.getItem(REMEMBERED_TOKEN_METADATA_KEY);
+    if (!raw) return null;
+    const metadata = JSON.parse(raw);
+    return {
+      expiresAt: typeof metadata?.expiresAt === "string" ? metadata.expiresAt : null,
+      login: typeof metadata?.login === "string" ? metadata.login : null,
+      checkedAt: typeof metadata?.checkedAt === "string" ? metadata.checkedAt : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function rememberedTokenValue() {
+  try {
+    return localStorage.getItem(REMEMBERED_TOKEN_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function setRememberedTokenStatus(message, status = "") {
+  if (!dom.rememberedTokenStatus) return;
+  dom.rememberedTokenStatus.textContent = message;
+  dom.rememberedTokenStatus.className = "remembered-token-status" + (status ? " " + status : "");
+}
+
+function formatTokenDate(value) {
+  return new Intl.DateTimeFormat("th-TH", { dateStyle: "long", timeStyle: "short" }).format(value);
+}
+
+function renderRememberedTokenStatus(metadata = readRememberedTokenMetadata()) {
+  const token = rememberedTokenValue();
+  if (dom.forgetTokenButton) dom.forgetTokenButton.hidden = !token;
+  if (!token) {
+    setRememberedTokenStatus("ยังไม่ได้จำรหัสไว้ในเครื่องนี้");
+    return;
+  }
+  if (!metadata?.expiresAt) {
+    const checked = metadata?.checkedAt ? " ตรวจสอบล่าสุด " + formatTokenDate(new Date(metadata.checkedAt)) : "";
+    setRememberedTokenStatus("จำรหัสไว้ในเครื่องนี้แล้ว แต่ GitHub ยังไม่แจ้งวันหมดอายุ" + checked + " กด “ตรวจสอบรหัส” เพื่ออัปเดตสถานะ", "warning");
+    return;
+  }
+  const expiry = new Date(metadata.expiresAt);
+  if (Number.isNaN(expiry.getTime())) {
+    setRememberedTokenStatus("จำวันที่ต้องเปลี่ยนรหัสไม่ได้ กด “ตรวจสอบรหัส” เพื่ออัปเดตสถานะ", "warning");
+    return;
+  }
+  const days = Math.ceil((expiry.getTime() - Date.now()) / 86400000);
+  const account = metadata.login ? "ของ " + metadata.login + " " : "";
+  if (days < 0) {
+    setRememberedTokenStatus("รหัส" + account + "หมดอายุแล้วเมื่อ " + formatTokenDate(expiry) + " กรุณาวางรหัสใหม่", "error");
+    return;
+  }
+  setRememberedTokenStatus("รหัส" + account + "ต้องเปลี่ยนภายใน " + formatTokenDate(expiry) + " (เหลือประมาณ " + days + " วัน)", days <= 7 ? "warning" : "ok");
+}
+
+function forgetRememberedToken({ clearInput = false, message = "" } = {}) {
+  try {
+    localStorage.removeItem(REMEMBERED_TOKEN_KEY);
+    localStorage.removeItem(REMEMBERED_TOKEN_METADATA_KEY);
+  } catch {
+    // The browser may block local storage; the current field remains usable.
+  }
+  if (clearInput) dom.githubToken.value = "";
+  if (dom.rememberToken) dom.rememberToken.checked = false;
+  setRememberedTokenStatus(message || "ลบรหัสที่จำไว้จากเครื่องนี้แล้ว");
+  if (dom.forgetTokenButton) dom.forgetTokenButton.hidden = true;
+}
+
+function rememberGitHubToken(token, { expiresAt = null, login = null } = {}) {
+  if (!dom.rememberToken?.checked || !token) return;
+  try {
+    const checkedAt = new Date().toISOString();
+    const metadata = { expiresAt, login, checkedAt };
+    localStorage.setItem(REMEMBERED_TOKEN_KEY, token);
+    localStorage.setItem(REMEMBERED_TOKEN_METADATA_KEY, JSON.stringify(metadata));
+    renderRememberedTokenStatus(metadata);
+  } catch {
+    setRememberedTokenStatus("เบราว์เซอร์นี้ไม่อนุญาตให้จำรหัส กรุณาวางรหัสก่อนบันทึก", "warning");
+  }
+}
+
+function loadRememberedToken() {
+  const token = rememberedTokenValue();
+  const metadata = readRememberedTokenMetadata();
+  const expiry = metadata?.expiresAt ? new Date(metadata.expiresAt) : null;
+  if (token && expiry && !Number.isNaN(expiry.getTime()) && expiry.getTime() <= Date.now()) {
+    forgetRememberedToken({ clearInput: true, message: "รหัสที่จำไว้หมดอายุแล้วเมื่อ " + formatTokenDate(expiry) + " กรุณาวางรหัสใหม่" });
+    return;
+  }
+  if (!token) {
+    renderRememberedTokenStatus(metadata);
+    return;
+  }
+  dom.githubToken.value = token;
+  dom.rememberToken.checked = true;
+  renderRememberedTokenStatus(metadata);
+}
+
 function formatExpiration(expiresAt) {
   if (!expiresAt) return "GitHub ไม่ได้ส่งวันหมดอายุให้หน้าเว็บนี้อ่านได้ ให้ตรวจที่หน้าจัดการรหัสของ GitHub";
   const date = new Date(expiresAt);
@@ -274,6 +381,12 @@ async function verifyGitHubToken() {
     if (!response.ok) {
       const error = await readGitHubError(response);
       const reason = explainGitHubError(error);
+      if (error.status === 401 && token === rememberedTokenValue()) {
+        forgetRememberedToken({
+          clearInput: true,
+          message: "รหัสที่จำไว้ใช้ไม่ได้หรือหมดอายุแล้ว จึงลบออกจากเครื่องนี้ กรุณาวางรหัสใหม่",
+        });
+      }
       tokenCheck = { checking: false, status: "error", message: reason, expiresAt: null, login: null };
       setTokenStatus(reason, "error");
       return { valid: false, reason };
@@ -282,6 +395,7 @@ async function verifyGitHubToken() {
     const expirationText = formatExpiration(expiresAt);
     const message = `ตรวจสอบแล้ว: รหัสเป็นของบัญชี ${account.login} และยังใช้ได้ — ${expirationText} กด “บันทึกส่วนกลาง” เพื่อยืนยันสิทธิ์แก้ไข MapLibre`;
     tokenCheck = { checking: false, status: "ok", message, expiresAt, login: account.login };
+    rememberGitHubToken(token, { expiresAt, login: account.login });
     setTokenStatus(message, "ok");
     return { valid: true, expiresAt, login: account.login };
   } catch (error) {
@@ -404,8 +518,12 @@ async function saveSharedState() {
     state.updatedAt = new Date().toISOString();
     saveLocalState();
     renderAll();
-    dom.githubToken.value = "";
-    clearTokenCheck();
+    if (dom.rememberToken?.checked) {
+      rememberGitHubToken(token, checked);
+    } else {
+      dom.githubToken.value = "";
+      clearTokenCheck();
+    }
     showToast("บันทึกข้อมูลส่วนกลางแล้ว ทุกเครื่องจะเห็นค่าใหม่นี้");
   } catch (error) {
     console.error(error);
@@ -1413,12 +1531,32 @@ function bindEvents() {
   dom.saveSharedButton.addEventListener("click", saveSharedState);
   dom.reloadSharedButton.addEventListener("click", reloadSharedState);
   dom.githubToken.addEventListener("input", clearTokenCheck);
+  dom.rememberToken.addEventListener("change", () => {
+    if (!dom.rememberToken.checked) {
+      forgetRememberedToken({
+        clearInput: false,
+        message: "ระบบจะไม่จำรหัสนี้หลังปิดหรือรีเฟรชหน้าเว็บ",
+      });
+      return;
+    }
+    if (dom.githubToken.value.trim()) {
+      setRememberedTokenStatus("รหัสนี้จะถูกจำหลังจากกด “ตรวจสอบรหัส” สำเร็จ", "warning");
+    } else {
+      setRememberedTokenStatus("วางรหัสแล้วกด “ตรวจสอบรหัส” เพื่อจำรหัสไว้ในเครื่องนี้", "warning");
+    }
+  });
+  dom.forgetTokenButton.addEventListener("click", () => {
+    forgetRememberedToken({ clearInput: true });
+    clearTokenCheck();
+    showToast("ลบรหัสที่จำไว้จากเครื่องนี้แล้ว");
+  });
   dom.restoreInput.addEventListener("change", (event) => restoreState(event.target.files[0]));
   dom.staffImportInput.addEventListener("change", (event) => importStaff(event.target.files[0]));
 }
 
 async function init() {
   bindEvents();
+  loadRememberedToken();
   try {
     await loadBoundaries();
     await loadSharedState();

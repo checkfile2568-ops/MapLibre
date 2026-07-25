@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="ระบบบริหารเขตพื้นที่งานส่งหมาย ศาลจังหวัดลพบุรี" />
+    <title>ระบบบริหารเขตงานส่งหมาย | ลพบุรี</title>
+    <link rel="preconnect" href="https://unpkg.com" />
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.20.0/dist/maplibre-gl.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">ศาลจังหวัดลพบุรี</p>
+        <h1>ระบบบริหารเขตพื้นที่งานส่งหมาย</h1>
+      </div>
+      <div class="header-actions" aria-label="การจัดการข้อมูล">
+        <label class="button button-secondary" for="restore-input">กู้คืนข้อมูล</label>
+        <input id="restore-input" type="file" accept="application/json" hidden />
+        <button id="backup-button" class="button button-secondary" type="button">สำรองข้อมูล</button>
+        <button id="export-button" class="button button-primary" type="button">ดาวน์โหลด PNG</button>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <aside class="control-panel" aria-label="กำหนดผู้รับผิดชอบและพื้นที่">
+        <section class="panel-section">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">ขั้นที่ 1</p>
+              <h2>ผู้รับผิดชอบ</h2>
+            </div>
+            <span id="color-swatch" class="color-swatch" title="สีประจำผู้รับผิดชอบ"></span>
+          </div>
+          <label for="staff-select">เลือกชื่อ</label>
+          <select id="staff-select">
+            <option value="">— เลือกผู้รับผิดชอบ —</option>
+          </select>
+          <div class="add-staff-row">
+            <input id="new-staff-name" type="text" maxlength="80" placeholder="เพิ่มชื่อผู้ส่งหมาย" />
+            <button id="add-staff-button" class="button button-secondary" type="button">เพิ่ม</button>
+          </div>
+          <div class="compact-actions">
+            <button id="new-color-button" class="text-button" type="button">คละสีใหม่</button>
+            <label class="text-button" for="staff-import-input">นำเข้ารายชื่อ</label>
+            <input id="staff-import-input" type="file" accept=".csv,.txt,text/csv,text/plain" hidden />
+          </div>
+          <p id="staff-help" class="helper-text">เพิ่มรายชื่อก่อน แล้วระบบจะคละสีที่ต่างกันชัดเจนให้</p>
+        </section>
+
+        <section class="panel-section">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">ขั้นที่ 2</p>
+              <h2>เลือกพื้นที่</h2>
+            </div>
+          </div>
+          <label for="district-search">เลือกทั้งอำเภอ</label>
+          <div id="district-list" class="district-list" aria-live="polite">
+            <p class="helper-text">กำลังโหลดข้อมูลอำเภอ…</p>
+          </div>
+          <label for="tambon-search">ค้นหาหรือเลือกตำบล</label>
+          <input id="tambon-search" type="search" placeholder="พิมพ์ชื่อตำบลหรืออำเภอ" autocomplete="off" />
+          <div id="tambon-list" class="tambon-list" aria-live="polite"></div>
+          <p class="helper-text">คลิกพื้นที่บนแผนที่เพื่อมอบหมายหรือยกเลิกได้เช่นกัน</p>
+        </section>
+
+        <section class="panel-section checks-section">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">ตรวจสอบ</p>
+              <h2>ความพร้อมข้อมูล</h2>
+            </div>
+            <button id="validate-button" class="text-button" type="button">ตรวจอีกครั้ง</button>
+          </div>
+          <ul id="validation-list" class="validation-list"></ul>
+        </section>
+      </aside>
+
+      <section id="printable" class="map-workspace" aria-label="แผนที่เขตรับผิดชอบ">
+        <div class="workspace-topline">
+          <div>
+            <p class="eyebrow">ภาพรวมการมอบหมาย</p>
+            <h2>เขตศาลจังหวัดลพบุรี</h2>
+          </div>
+          <div id="assignment-summary" class="summary-pills" aria-live="polite"></div>
+        </div>
+
+        <div class="maps-layout">
+          <article class="map-card main-map-card">
+            <div class="map-card-heading">
+              <div>
+                <h3>เขตหลัก</h3>
+                <p>สีเต็มและนูน 3D สำหรับพื้นที่ในเขตศาลจังหวัดลพบุรี</p>
+              </div>
+              <button id="labels-button" class="map-option" type="button" aria-pressed="false">แสดงชื่อตำบล</button>
+            </div>
+            <div id="main-map" class="map-canvas" aria-label="แผนที่เขตศาลจังหวัดลพบุรี"></div>
+          </article>
+
+          <aside class="right-rail">
+            <article class="map-card inset-map-card">
+              <div class="map-card-heading">
+                <div>
+                  <h3>เขตศาลจังหวัดชัยบาดาล</h3>
+                  <p>แผนที่ย่อ — เลือกมอบหมายได้ แต่แสดงสีจาง</p>
+                </div>
+              </div>
+              <div id="outside-map" class="map-canvas" aria-label="แผนที่ย่อเขตศาลจังหวัดชัยบาดาล"></div>
+            </article>
+
+            <article class="legend-card">
+              <div class="map-card-heading">
+                <div>
+                  <h3>คำอธิบายสี</h3>
+                  <p>หนึ่งสีต่อผู้รับผิดชอบ</p>
+                </div>
+              </div>
+              <div id="legend" class="legend" aria-live="polite"></div>
+            </article>
+          </aside>
+        </div>
+
+        <footer class="map-footer">
+          <span>ข้อมูลขอบเขตตำบล: Thailand Subdistrict Boundaries 2025 (NOSTRA / MERKATOR)</span>
+          <span id="updated-at">ยังไม่มีการบันทึก</span>
+        </footer>
+      </section>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <div id="loading" class="loading-overlay" role="status"><div><span class="spinner"></span><p>กำลังโหลดขอบเขตตำบลลพบุรี…</p></div></div>
+
+    <script src="https://unpkg.com/maplibre-gl@5.20.0/dist/maplibre-gl.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

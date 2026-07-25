@@ -1,0 +1,713 @@
+/*
+ * ระบบบริหารเขตงานส่งหมาย — ข้อมูลการมอบหมายถูกเก็บในเบราว์เซอร์ของเครื่องผู้ใช้
+ * ขอบเขตตำบลถูกเรียกจาก ArcGIS Feature Service แบบอ่านอย่างเดียว
+ */
+
+const GIS_QUERY_URL = "https://services1.arcgis.com/jSaRWj2TDlcN1zOC/arcgis/rest/services/Thailand_Subdistrict_Boundaries_%28%E0%B8%82%E0%B9%89%E0%B8%AD%E0%B8%A1%E0%B8%B9%E0%B8%A5%E0%B8%82%E0%B8%AD%E0%B8%9A%E0%B9%80%E0%B8%82%E0%B8%95%E0%B8%95%E0%B8%B3%E0%B8%9A%E0%B8%A5%E0%B8%9B%E0%B8%A3%E0%B8%B0%E0%B9%80%E0%B8%97%E0%B8%A8%E0%B9%84%E0%B8%97%E0%B8%A2%29/FeatureServer/1/query";
+const STORAGE_KEY = "lopburi-notice-area-manager-v1";
+const MAIN_COURT_DISTRICTS = new Set(["เมืองลพบุรี", "พัฒนานิคม", "โคกสำโรง", "ท่าวุ้ง", "บ้านหมี่", "หนองม่วง"]);
+const OUTSIDE_COURT_DISTRICTS = new Set(["ชัยบาดาล", "ท่าหลวง", "สระโบสถ์", "โคกเจริญ", "ลำสนธิ"]);
+const PALETTE = [
+  "#1377b5", "#ca5d35", "#2c9a6d", "#7757b5", "#c04662", "#27858f",
+  "#ae791a", "#4772af", "#a04d9a", "#537c3c", "#9c623f", "#27725a",
+];
+
+const dom = {
+  loading: document.querySelector("#loading"),
+  staffSelect: document.querySelector("#staff-select"),
+  newStaffName: document.querySelector("#new-staff-name"),
+  addStaffButton: document.querySelector("#add-staff-button"),
+  staffImportInput: document.querySelector("#staff-import-input"),
+  colorSwatch: document.querySelector("#color-swatch"),
+  staffHelp: document.querySelector("#staff-help"),
+  newColorButton: document.querySelector("#new-color-button"),
+  districtList: document.querySelector("#district-list"),
+  tambonSearch: document.querySelector("#tambon-search"),
+  tambonList: document.querySelector("#tambon-list"),
+  validationList: document.querySelector("#validation-list"),
+  validateButton: document.querySelector("#validate-button"),
+  summary: document.querySelector("#assignment-summary"),
+  legend: document.querySelector("#legend"),
+  labelsButton: document.querySelector("#labels-button"),
+  exportButton: document.querySelector("#export-button"),
+  backupButton: document.querySelector("#backup-button"),
+  restoreInput: document.querySelector("#restore-input"),
+  updatedAt: document.querySelector("#updated-at"),
+  toast: document.querySelector("#toast"),
+  printable: document.querySelector("#printable"),
+};
+
+let features = [];
+let maps = { main: null, outside: null };
+let toastTimer;
+let state = loadState();
+
+function initialState() {
+  return { version: 1, staff: [], assignments: {}, showLabels: false, updatedAt: null };
+}
+
+function loadState() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (!raw || !Array.isArray(raw.staff) || typeof raw.assignments !== "object") return initialState();
+    return {
+      version: 1,
+      staff: raw.staff
+        .filter((person) => person && person.id && person.name && person.color)
+        .map((person) => ({ id: String(person.id), name: String(person.name), color: String(person.color) })),
+      assignments: Object.fromEntries(Object.entries(raw.assignments).map(([area, person]) => [String(area), String(person)])),
+      showLabels: Boolean(raw.showLabels),
+      updatedAt: raw.updatedAt || null,
+    };
+  } catch {
+    return initialState();
+  }
+}
+
+function persist(message) {
+  state.updatedAt = new Date().toISOString();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  renderAll();
+  if (message) showToast(message);
+}
+
+function selectedStaffId() {
+  return dom.staffSelect.value || "";
+}
+
+function selectedStaff() {
+  return state.staff.find((person) => person.id === selectedStaffId()) || null;
+}
+
+function getStaff(staffId) {
+  return state.staff.find((person) => person.id === staffId) || null;
+}
+
+function areaId(feature) {
+  return String(feature.properties.ADMIN_ID3 || feature.properties.OBJECTID || feature.id);
+}
+
+function featureDistrict(feature) {
+  return feature.properties.NAME2;
+}
+
+function featureTambon(feature) {
+  return feature.properties.NAME3;
+}
+
+function isMainDistrict(feature) {
+  return MAIN_COURT_DISTRICTS.has(featureDistrict(feature));
+}
+
+function isOutsideDistrict(feature) {
+  return OUTSIDE_COURT_DISTRICTS.has(featureDistrict(feature));
+}
+
+function availableFeatures() {
+  return features.filter((feature) => isMainDistrict(feature) || isOutsideDistrict(feature));
+}
+
+function currentAssignments() {
+  const validStaff = new Set(state.staff.map((person) => person.id));
+  return Object.fromEntries(Object.entries(state.assignments).filter(([, staffId]) => validStaff.has(staffId)));
+}
+
+function assignedAreasFor(staffId) {
+  return availableFeatures().filter((feature) => state.assignments[areaId(feature)] === staffId);
+}
+
+function ensureSelectedStaff() {
+  if (selectedStaff()) return true;
+  showToast("กรุณาเลือกผู้รับผิดชอบก่อนกำหนดพื้นที่");
+  return false;
+}
+
+function showToast(message) {
+  dom.toast.textContent = message;
+  dom.toast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => dom.toast.classList.remove("show"), 3100);
+}
+
+function hexToRgb(hex) {
+  const normalized = hex.replace("#", "");
+  return [0, 2, 4].map((index) => Number.parseInt(normalized.slice(index, index + 2), 16));
+}
+
+function colorDistance(first, second) {
+  const [r1, g1, b1] = hexToRgb(first);
+  const [r2, g2, b2] = hexToRgb(second);
+  return Math.hypot(r1 - r2, g1 - g2, b1 - b2);
+}
+
+function hslToHex(hue, saturation, lightness) {
+  saturation /= 100;
+  lightness /= 100;
+  const channel = (n) => {
+    const k = (n + hue / 30) % 12;
+    const color = lightness - saturation * Math.min(lightness, 1 - lightness) * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(255 * color).toString(16).padStart(2, "0");
+  };
+  return `#${channel(0)}${channel(8)}${channel(4)}`;
+}
+
+function nextDistinctColor(excluded = []) {
+  const unused = PALETTE.filter((candidate) => !excluded.includes(candidate));
+  if (unused.length) return unused[0];
+
+  for (let index = 0; index < 360; index += 17) {
+    const candidate = hslToHex((state.staff.length * 137.508 + index) % 360, 62, 43);
+    if (excluded.every((color) => colorDistance(candidate, color) > 95)) return candidate;
+  }
+  return hslToHex((state.staff.length * 71) % 360, 65, 45);
+}
+
+function mutedColor(hex) {
+  const [red, green, blue] = hexToRgb(hex);
+  const average = (red + green + blue) / 3;
+  const blend = (channel) => Math.round(channel * 0.46 + average * 0.30 + 255 * 0.24);
+  return `#${[blend(red), blend(green), blend(blue)].map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function addStaff(name) {
+  const cleanName = name.trim().replace(/\s+/g, " ");
+  if (!cleanName) return;
+  if (state.staff.some((person) => person.name.localeCompare(cleanName, "th") === 0)) {
+    showToast("มีชื่อนี้อยู่ในรายการแล้ว");
+    return;
+  }
+  const person = {
+    id: `staff-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    name: cleanName,
+    color: nextDistinctColor(state.staff.map((existing) => existing.color)),
+  };
+  state.staff.push(person);
+  renderStaffSelect();
+  dom.staffSelect.value = person.id;
+  persist(`เพิ่ม ${cleanName} และกำหนดสีให้อัตโนมัติแล้ว`);
+}
+
+function reassignSelectedColor() {
+  const person = selectedStaff();
+  if (!person) return showToast("เลือกผู้รับผิดชอบที่ต้องการคละสีก่อน");
+  const otherColors = state.staff.filter((candidate) => candidate.id !== person.id).map((candidate) => candidate.color);
+  const next = nextDistinctColor(otherColors);
+  person.color = next;
+  persist(`เปลี่ยนสีของ ${person.name} แล้ว`);
+}
+
+function assignmentCount() {
+  return Object.keys(currentAssignments()).filter((id) => availableFeatures().some((feature) => areaId(feature) === id)).length;
+}
+
+function districtEntries() {
+  return Array.from(new Set(availableFeatures().map(featureDistrict))).sort((a, b) => a.localeCompare(b, "th"));
+}
+
+function setFeatureAssignment(feature, staffId, { silent = false } = {}) {
+  const id = areaId(feature);
+  if (!staffId) {
+    delete state.assignments[id];
+  } else {
+    state.assignments[id] = staffId;
+  }
+  if (!silent) persist();
+}
+
+function assignFeatures(featuresToAssign, shouldAssign) {
+  if (!ensureSelectedStaff()) {
+    renderAll();
+    return;
+  }
+  const staff = selectedStaff();
+  const foreign = featuresToAssign.filter((feature) => {
+    const owner = state.assignments[areaId(feature)];
+    return shouldAssign && owner && owner !== staff.id;
+  });
+  if (foreign.length && !window.confirm(`${foreign.length} ตำบลมีผู้รับผิดชอบอยู่แล้ว ต้องการย้ายมาให้ ${staff.name} หรือไม่?`)) {
+    renderAll();
+    return;
+  }
+  for (const feature of featuresToAssign) {
+    if (shouldAssign) state.assignments[areaId(feature)] = staff.id;
+    else if (state.assignments[areaId(feature)] === staff.id) delete state.assignments[areaId(feature)];
+  }
+  persist(shouldAssign ? `กำหนด ${featuresToAssign.length} ตำบลให้ ${staff.name} แล้ว` : `ยกเลิกพื้นที่ของ ${staff.name} แล้ว`);
+}
+
+function toggleFeatureFromMap(feature) {
+  if (!ensureSelectedStaff()) return;
+  const staff = selectedStaff();
+  const owner = state.assignments[areaId(feature)];
+  if (owner === staff.id) {
+    setFeatureAssignment(feature, null);
+    showToast(`ยกเลิก ${featureTambon(feature)} แล้ว`);
+    return;
+  }
+  if (owner && owner !== staff.id) {
+    const other = getStaff(owner);
+    if (!window.confirm(`${featureTambon(feature)} อยู่กับ ${other ? other.name : "ผู้รับผิดชอบเดิม"} ต้องการย้ายพื้นที่หรือไม่?`)) return;
+  }
+  setFeatureAssignment(feature, staff.id);
+  showToast(`กำหนด ${featureTambon(feature)} ให้ ${staff.name} แล้ว`);
+}
+
+function renderStaffSelect() {
+  const selected = selectedStaffId();
+  dom.staffSelect.innerHTML = '<option value="">— เลือกผู้รับผิดชอบ —</option>';
+  for (const person of state.staff) {
+    const option = document.createElement("option");
+    option.value = person.id;
+    option.textContent = person.name;
+    dom.staffSelect.append(option);
+  }
+  dom.staffSelect.value = state.staff.some((person) => person.id === selected) ? selected : "";
+  const person = selectedStaff();
+  dom.colorSwatch.style.background = person ? person.color : "repeating-conic-gradient(#d3dde3 0 25%, #fff 0 50%) 50% / 10px 10px";
+  dom.staffHelp.textContent = person
+    ? `สีของ ${person.name} จะไม่ซ้ำกับผู้รับผิดชอบรายอื่น`
+    : "เพิ่มรายชื่อก่อน แล้วระบบจะคละสีที่ต่างกันชัดเจนให้";
+}
+
+function renderDistrictList() {
+  const staff = selectedStaff();
+  const fragment = document.createDocumentFragment();
+  const indeterminateInputs = [];
+  for (const district of districtEntries()) {
+    const districtFeatures = availableFeatures().filter((feature) => featureDistrict(feature) === district);
+    const assigned = staff ? districtFeatures.filter((feature) => state.assignments[areaId(feature)] === staff.id).length : 0;
+    const label = document.createElement("label");
+    label.className = "district-option";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = Boolean(staff && assigned === districtFeatures.length);
+    input.disabled = !staff;
+    input.dataset.district = district;
+    if (staff && assigned > 0 && assigned < districtFeatures.length) indeterminateInputs.push(input);
+    input.addEventListener("change", () => assignFeatures(districtFeatures, input.checked));
+    const text = document.createElement("span");
+    text.className = "district-label";
+    text.textContent = district;
+    const count = document.createElement("span");
+    count.className = "outside-tag";
+    count.textContent = isOutsideDistrict(districtFeatures[0]) ? `เขตย่อ · ${districtFeatures.length}` : `${districtFeatures.length} ตำบล`;
+    label.append(input, text, count);
+    fragment.append(label);
+  }
+  dom.districtList.replaceChildren(fragment);
+  for (const input of indeterminateInputs) input.indeterminate = true;
+}
+
+function renderTambonList() {
+  const query = dom.tambonSearch.value.trim().toLocaleLowerCase("th");
+  const staff = selectedStaff();
+  const matches = availableFeatures()
+    .filter((feature) => `${featureTambon(feature)} ${featureDistrict(feature)}`.toLocaleLowerCase("th").includes(query))
+    .sort((a, b) => `${featureDistrict(a)} ${featureTambon(a)}`.localeCompare(`${featureDistrict(b)} ${featureTambon(b)}`, "th"))
+    .slice(0, query ? 80 : 25);
+  if (!matches.length) {
+    dom.tambonList.innerHTML = '<p class="empty-result">ไม่พบตำบลที่ค้นหา</p>';
+    return;
+  }
+  const fragment = document.createDocumentFragment();
+  for (const feature of matches) {
+    const label = document.createElement("label");
+    label.className = "tambon-option";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = Boolean(staff && state.assignments[areaId(feature)] === staff.id);
+    input.disabled = !staff;
+    input.addEventListener("change", () => assignFeatures([feature], input.checked));
+    const text = document.createElement("span");
+    text.textContent = featureTambon(feature);
+    const district = document.createElement("small");
+    district.textContent = featureDistrict(feature);
+    label.append(input, text, district);
+    fragment.append(label);
+  }
+  dom.tambonList.replaceChildren(fragment);
+}
+
+function renderLegend() {
+  if (!state.staff.length) {
+    dom.legend.innerHTML = '<p class="empty-result">ยังไม่มีผู้รับผิดชอบ</p>';
+    return;
+  }
+  const fragment = document.createDocumentFragment();
+  for (const person of state.staff) {
+    const count = assignedAreasFor(person.id).length;
+    const item = document.createElement("div");
+    item.className = "legend-item";
+    const dot = document.createElement("span");
+    dot.className = "legend-dot";
+    dot.style.background = person.color;
+    const name = document.createElement("strong");
+    name.textContent = person.name;
+    const countText = document.createElement("span");
+    countText.className = "legend-count";
+    countText.textContent = `${count} ตำบล`;
+    item.append(dot, name, countText);
+    fragment.append(item);
+  }
+  dom.legend.replaceChildren(fragment);
+}
+
+function renderSummary() {
+  const total = availableFeatures().length;
+  const assigned = assignmentCount();
+  const outsideAssigned = features.filter(isOutsideDistrict).filter((feature) => state.assignments[areaId(feature)]).length;
+  const pills = [
+    `${state.staff.length} ผู้รับผิดชอบ`,
+    `มอบหมายแล้ว ${assigned}/${total} ตำบล`,
+    `เขตย่อ ${outsideAssigned} ตำบล`,
+  ];
+  dom.summary.replaceChildren(...pills.map((text) => {
+    const pill = document.createElement("span");
+    pill.className = "summary-pill";
+    pill.textContent = text;
+    return pill;
+  }));
+  dom.updatedAt.textContent = state.updatedAt
+    ? `ปรับปรุง: ${new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(state.updatedAt))}`
+    : "ยังไม่มีการบันทึก";
+}
+
+function renderValidation() {
+  const validStaffIds = new Set(state.staff.map((person) => person.id));
+  const unknownAssignments = Object.entries(state.assignments).filter(([, staffId]) => !validStaffIds.has(staffId));
+  const colors = state.staff.map((person) => person.color.toLowerCase());
+  const duplicateColors = colors.length - new Set(colors).size;
+  const closePairs = [];
+  for (let index = 0; index < state.staff.length; index += 1) {
+    for (let next = index + 1; next < state.staff.length; next += 1) {
+      if (colorDistance(state.staff[index].color, state.staff[next].color) < 66) {
+        closePairs.push(`${state.staff[index].name} / ${state.staff[next].name}`);
+      }
+    }
+  }
+  const missing = availableFeatures().length - assignmentCount();
+  const items = [
+    { className: duplicateColors ? "error" : "ok", text: duplicateColors ? `พบสีซ้ำ ${duplicateColors} รายการ` : "สีไม่ซ้ำกัน" },
+    { className: closePairs.length ? "warn" : "ok", text: closePairs.length ? `สีใกล้กัน: ${closePairs.join(", ")}` : "สีต่างกันชัดเจน" },
+    { className: unknownAssignments.length ? "error" : "ok", text: unknownAssignments.length ? `พบการมอบหมายที่ไม่พบชื่อ ${unknownAssignments.length} รายการ` : "ไม่พบพื้นที่ซ้ำ — ตำบลหนึ่งมีผู้รับผิดชอบได้หนึ่งคน" },
+    { className: missing ? "warn" : "ok", text: missing ? `ยังไม่มอบหมาย ${missing} ตำบล` : "มอบหมายครบทุกตำบลในขอบเขต" },
+  ];
+  dom.validationList.replaceChildren(...items.map((item) => {
+    const row = document.createElement("li");
+    row.className = item.className;
+    row.textContent = item.text;
+    return row;
+  }));
+}
+
+function mapData(zone) {
+  const sourceFeatures = features
+    .filter(zone === "main" ? isMainDistrict : isOutsideDistrict)
+    .map((feature) => {
+      const id = areaId(feature);
+      const owner = getStaff(state.assignments[id]);
+      const isOutside = zone === "outside";
+      return {
+        ...feature,
+        id,
+        properties: {
+          ...feature.properties,
+          id,
+          label: state.showLabels && zone === "main" ? featureTambon(feature) : "",
+          color: owner ? (isOutside ? mutedColor(owner.color) : owner.color) : (isOutside ? "#d5dee3" : "#dce6ea"),
+          height: owner ? (isOutside ? 500 : 1250) : (isOutside ? 180 : 340),
+          assigned: Boolean(owner),
+        },
+      };
+    });
+  return { type: "FeatureCollection", features: sourceFeatures };
+}
+
+function createMap(container, zone) {
+  const config = zone === "main"
+    ? { center: [100.68, 14.83], zoom: 8.9, pitch: 47, bearing: -13 }
+    : { center: [101.11, 15.16], zoom: 8.0, pitch: 43, bearing: -11 };
+  const map = new maplibregl.Map({
+    container,
+    style: {
+      version: 8,
+      glyphs: "https://fonts.openmaptiles.org/{fontstack}/{range}.pbf",
+      sources: {},
+      layers: [{ id: "background", type: "background", paint: { "background-color": zone === "main" ? "#edf4f5" : "#f0f3f3" } }],
+    },
+    ...config,
+    antialias: true,
+    preserveDrawingBuffer: true,
+  });
+  map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+  map.on("load", () => {
+    map.addSource("tambons", { type: "geojson", data: mapData(zone), promoteId: "id" });
+    map.addLayer({
+      id: "tambon-ground",
+      type: "fill",
+      source: "tambons",
+      paint: { "fill-color": ["get", "color"], "fill-opacity": zone === "main" ? 0.74 : 0.5 },
+    });
+    map.addLayer({
+      id: "tambon-3d",
+      type: "fill-extrusion",
+      source: "tambons",
+      paint: {
+        "fill-extrusion-color": ["get", "color"],
+        "fill-extrusion-height": ["get", "height"],
+        "fill-extrusion-base": 0,
+        "fill-extrusion-opacity": zone === "main" ? 0.82 : 0.58,
+      },
+    });
+    map.addLayer({
+      id: "tambon-outline",
+      type: "line",
+      source: "tambons",
+      paint: { "line-color": zone === "main" ? "#ffffff" : "#f8fbfc", "line-width": zone === "main" ? 1.1 : 0.8, "line-opacity": 0.96 },
+    });
+    map.addLayer({
+      id: "tambon-label",
+      type: "symbol",
+      source: "tambons",
+      layout: {
+        "text-field": ["get", "label"],
+        "text-font": ["Noto Sans Thai Regular"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 8, 9, 10, 11],
+        "text-max-width": 7,
+        "text-allow-overlap": false,
+        "text-ignore-placement": false,
+      },
+      paint: { "text-color": "#153d55", "text-halo-color": "#ffffff", "text-halo-width": 1.25 },
+    });
+    map.on("mouseenter", "tambon-3d", () => { map.getCanvas().style.cursor = "pointer"; });
+    map.on("mouseleave", "tambon-3d", () => { map.getCanvas().style.cursor = ""; });
+    map.on("click", "tambon-3d", (event) => {
+      const clicked = event.features && event.features[0];
+      if (!clicked) return;
+      const original = features.find((feature) => areaId(feature) === String(clicked.properties.id));
+      if (!original) return;
+      toggleFeatureFromMap(original);
+    });
+  });
+  return map;
+}
+
+function updateMapSource(map, zone) {
+  if (!map || !map.isStyleLoaded() || !map.getSource("tambons")) return;
+  map.getSource("tambons").setData(mapData(zone));
+}
+
+function fitMapsToData() {
+  for (const [zone, map] of Object.entries(maps)) {
+    const zoneFeatures = features.filter(zone === "main" ? isMainDistrict : isOutsideDistrict);
+    if (!map || !zoneFeatures.length) continue;
+    const bounds = new maplibregl.LngLatBounds();
+    for (const feature of zoneFeatures) extendBounds(bounds, feature.geometry.coordinates);
+    map.fitBounds(bounds, { padding: zone === "main" ? 46 : 28, duration: 0, maxZoom: zone === "main" ? 10.2 : 9.2 });
+  }
+}
+
+function extendBounds(bounds, coordinates) {
+  if (typeof coordinates[0] === "number") {
+    bounds.extend(coordinates);
+    return;
+  }
+  for (const coordinate of coordinates) extendBounds(bounds, coordinate);
+}
+
+function renderMaps() {
+  updateMapSource(maps.main, "main");
+  updateMapSource(maps.outside, "outside");
+  dom.labelsButton.setAttribute("aria-pressed", String(state.showLabels));
+  dom.labelsButton.textContent = state.showLabels ? "ซ่อนชื่อตำบล" : "แสดงชื่อตำบล";
+}
+
+function renderAll() {
+  if (!features.length) return;
+  renderStaffSelect();
+  renderDistrictList();
+  renderTambonList();
+  renderLegend();
+  renderSummary();
+  renderValidation();
+  renderMaps();
+}
+
+async function loadBoundaries() {
+  const params = new URLSearchParams({
+    where: "ADMIN_ID1 = '16'",
+    outFields: "ADMIN_ID1,ADMIN_ID2,ADMIN_ID3,NAME1,NAME2,NAME3",
+    returnGeometry: "true",
+    outSR: "4326",
+    f: "geojson",
+  });
+  const response = await fetch(`${GIS_QUERY_URL}?${params.toString()}`);
+  if (!response.ok) throw new Error(`GIS service returned ${response.status}`);
+  const collection = await response.json();
+  if (!Array.isArray(collection.features) || !collection.features.length) throw new Error("ไม่พบขอบเขตตำบลของจังหวัดลพบุรี");
+  features = collection.features
+    .filter((feature) => feature.properties?.ADMIN_ID3 && feature.properties?.NAME2 && feature.properties?.NAME3)
+    .map((feature) => ({ ...feature, id: areaId(feature) }));
+  const currentIds = new Set(features.map(areaId));
+  state.assignments = Object.fromEntries(Object.entries(state.assignments).filter(([id]) => currentIds.has(id)));
+}
+
+function downloadBlob(blob, filename) {
+  const anchor = document.createElement("a");
+  anchor.href = URL.createObjectURL(blob);
+  anchor.download = filename;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(anchor.href), 1000);
+}
+
+async function exportPng() {
+  if (!window.html2canvas) {
+    showToast("ไม่พบเครื่องมือส่งออก PNG กรุณารีเฟรชหน้าเว็บ");
+    return;
+  }
+  const original = dom.exportButton.textContent;
+  dom.exportButton.disabled = true;
+  dom.exportButton.textContent = "กำลังสร้าง PNG…";
+  try {
+    maps.main.resize();
+    maps.outside.resize();
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    const canvas = await window.html2canvas(dom.printable, {
+      backgroundColor: "#ffffff",
+      scale: 2.25,
+      useCORS: true,
+      logging: false,
+      windowWidth: dom.printable.scrollWidth,
+      windowHeight: dom.printable.scrollHeight,
+    });
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+    if (!blob) throw new Error("สร้างไฟล์ PNG ไม่สำเร็จ");
+    const date = new Date().toISOString().slice(0, 10);
+    downloadBlob(blob, `lopburi-notice-areas-${date}.png`);
+    showToast("ดาวน์โหลด PNG แล้ว");
+  } catch (error) {
+    console.error(error);
+    showToast("ส่งออก PNG ไม่สำเร็จ โปรดลองใหม่อีกครั้ง");
+  } finally {
+    dom.exportButton.disabled = false;
+    dom.exportButton.textContent = original;
+  }
+}
+
+function backupState() {
+  const backup = { ...state, exportedAt: new Date().toISOString(), note: "Lopburi Notice Area Manager backup" };
+  downloadBlob(new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" }), `lopburi-notice-areas-backup-${new Date().toISOString().slice(0, 10)}.json`);
+  showToast("ดาวน์โหลดไฟล์สำรองแล้ว");
+}
+
+async function restoreState(file) {
+  if (!file) return;
+  try {
+    const restored = JSON.parse(await file.text());
+    if (!Array.isArray(restored.staff) || typeof restored.assignments !== "object") throw new Error("รูปแบบไฟล์ไม่ถูกต้อง");
+    if (!window.confirm("ต้องการแทนที่ข้อมูลการมอบหมายปัจจุบันด้วยไฟล์สำรองหรือไม่?")) return;
+    state = {
+      version: 1,
+      staff: restored.staff
+        .filter((person) => person && person.id && person.name && /^#[0-9a-f]{6}$/i.test(person.color || ""))
+        .map((person) => ({ id: String(person.id), name: String(person.name), color: String(person.color) })),
+      assignments: Object.fromEntries(Object.entries(restored.assignments).map(([id, person]) => [String(id), String(person)])),
+      showLabels: Boolean(restored.showLabels),
+      updatedAt: new Date().toISOString(),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    renderAll();
+    showToast("กู้คืนข้อมูลสำเร็จ");
+  } catch (error) {
+    console.error(error);
+    showToast("ไม่สามารถอ่านไฟล์สำรองนี้ได้");
+  } finally {
+    dom.restoreInput.value = "";
+  }
+}
+
+async function importStaff(file) {
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const names = text
+      .split(/\r?\n/)
+      .map((line) => line.split(/[,\t;]/)[0].trim().replace(/^"|"$/g, ""))
+      .filter((name) => name && !/^ชื่อ|^name$/i.test(name));
+    const existing = new Set(state.staff.map((person) => person.name));
+    let added = 0;
+    for (const name of names) {
+      if (existing.has(name)) continue;
+      state.staff.push({
+        id: `staff-${Date.now()}-${added}-${Math.random().toString(36).slice(2, 6)}`,
+        name,
+        color: nextDistinctColor(state.staff.map((person) => person.color)),
+      });
+      existing.add(name);
+      added += 1;
+    }
+    persist(added ? `นำเข้ารายชื่อ ${added} รายการแล้ว` : "ไม่พบรายชื่อใหม่ที่ต้องนำเข้า");
+  } catch (error) {
+    console.error(error);
+    showToast("นำเข้ารายชื่อไม่สำเร็จ");
+  } finally {
+    dom.staffImportInput.value = "";
+  }
+}
+
+function bindEvents() {
+  dom.addStaffButton.addEventListener("click", () => {
+    addStaff(dom.newStaffName.value);
+    dom.newStaffName.value = "";
+  });
+  dom.newStaffName.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      dom.addStaffButton.click();
+    }
+  });
+  dom.staffSelect.addEventListener("change", renderAll);
+  dom.newColorButton.addEventListener("click", reassignSelectedColor);
+  dom.tambonSearch.addEventListener("input", renderTambonList);
+  dom.validateButton.addEventListener("click", () => {
+    renderValidation();
+    showToast("ตรวจสอบข้อมูลล่าสุดแล้ว");
+  });
+  dom.labelsButton.addEventListener("click", () => {
+    state.showLabels = !state.showLabels;
+    persist();
+  });
+  dom.exportButton.addEventListener("click", exportPng);
+  dom.backupButton.addEventListener("click", backupState);
+  dom.restoreInput.addEventListener("change", (event) => restoreState(event.target.files[0]));
+  dom.staffImportInput.addEventListener("change", (event) => importStaff(event.target.files[0]));
+}
+
+async function init() {
+  bindEvents();
+  try {
+    await loadBoundaries();
+    maps.main = createMap("main-map", "main");
+    maps.outside = createMap("outside-map", "outside");
+    maps.main.once("load", () => {
+      fitMapsToData();
+      renderMaps();
+    });
+    maps.outside.once("load", () => {
+      fitMapsToData();
+      renderMaps();
+    });
+    renderAll();
+  } catch (error) {
+    console.error(error);
+    dom.districtList.innerHTML = '<p class="empty-result">ไม่สามารถโหลดขอบเขตแผนที่ได้</p>';
+    dom.tambonList.innerHTML = '<p class="empty-result">ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วรีเฟรชหน้าเว็บ</p>';
+    showToast("โหลดขอบเขตตำบลไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต");
+  } finally {
+    dom.loading.hidden = true;
+  }
+}
+
+init();

@@ -10,12 +10,19 @@ const displayDom = {
   legend: document.querySelector("#legend"),
   results: document.querySelector("#search-results"),
   centralNotice: document.querySelector("#central-notice"),
+  tambonLabelsButton: document.querySelector("#toggle-tambon-labels"),
+  districtLabelsButton: document.querySelector("#toggle-district-labels"),
+  staffFilter: document.querySelector("#staff-filter"),
+  clearStaffFilter: document.querySelector("#clear-staff-filter"),
+  personDetail: document.querySelector("#person-detail"),
 };
 
 let displayFeatures = [];
 let displayState = { staff: [], assignments: {}, updatedAt: null };
 let displayMap;
 let displayDataSha = null;
+let displayLabelMarkers = { tambon: [], district: [] };
+let displayUi = { selectedStaffId: "", showTambonLabels: false, showDistrictLabels: false };
 
 function displayAreaId(feature) {
   return String(feature.properties.ADMIN_ID3 || feature.properties.OBJECTID || feature.id);
@@ -49,14 +56,23 @@ function featureMatchesSearch(feature, query = displaySearchText()) {
   return `${displayTambon(feature)} ${displayDistrict(feature)} ${owner?.name || ""}`.toLocaleLowerCase("th").includes(query);
 }
 
+function featureMatchesSelectedStaff(feature) {
+  return !displayUi.selectedStaffId || displayOwner(feature)?.id === displayUi.selectedStaffId;
+}
+
+function featureMatchesDisplay(feature, query = displaySearchText()) {
+  return featureMatchesSelectedStaff(feature) && featureMatchesSearch(feature, query);
+}
+
 function displayMapData() {
   const query = displaySearchText();
+  const hasFilter = Boolean(query || displayUi.selectedStaffId);
   return {
     type: "FeatureCollection",
     features: displayFeatures.map((feature) => {
       const owner = displayOwner(feature);
-      const matches = featureMatchesSearch(feature, query);
-      const dimmed = Boolean(query) && !matches;
+      const matches = featureMatchesDisplay(feature, query);
+      const dimmed = hasFilter && !matches;
       return {
         ...feature,
         id: displayAreaId(feature),
@@ -74,7 +90,9 @@ function displayMapData() {
 function renderStats() {
   const total = displayFeatures.length;
   const assigned = displayFeatures.filter((feature) => displayOwner(feature)).length;
+  const selected = displayState.staff.find((person) => person.id === displayUi.selectedStaffId);
   const values = [`${displayState.staff.length} ผู้รับผิดชอบ`, `มอบหมายแล้ว ${assigned}/${total} ตำบล`, `ยังไม่มอบหมาย ${total - assigned} ตำบล`];
+  if (selected) values.push(`กำลังแสดง: ${selected.name}`);
   displayDom.stats.replaceChildren(...values.map((text) => {
     const item = document.createElement("span");
     item.className = "stat";
@@ -99,8 +117,11 @@ function renderLegend() {
   const fragment = document.createDocumentFragment();
   for (const person of displayState.staff) {
     const count = displayFeatures.filter((feature) => displayOwner(feature)?.id === person.id).length;
-    const row = document.createElement("div");
-    row.className = "legend-item";
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "legend-item legend-person";
+    row.setAttribute("aria-pressed", String(person.id === displayUi.selectedStaffId));
+    row.title = `แสดงเขตรับผิดชอบของ ${person.name}`;
     const dot = document.createElement("span");
     dot.className = "legend-dot";
     dot.style.background = person.color;
@@ -110,6 +131,7 @@ function renderLegend() {
     countText.className = "legend-count";
     countText.textContent = `${count} ตำบล`;
     row.append(dot, name, countText);
+    row.addEventListener("click", () => selectStaff(person.id === displayUi.selectedStaffId ? "" : person.id, true));
     fragment.append(row);
   }
   displayDom.legend.replaceChildren(fragment);
@@ -132,7 +154,7 @@ function renderSearchResults() {
     displayDom.results.replaceChildren();
     return;
   }
-  const matches = displayFeatures.filter((feature) => featureMatchesSearch(feature, query)).slice(0, 12);
+  const matches = displayFeatures.filter((feature) => featureMatchesDisplay(feature, query)).slice(0, 12);
   displayDom.results.className = "search-results visible";
   const heading = document.createElement("p");
   heading.className = "result-heading";
@@ -148,7 +170,7 @@ function renderSearchResults() {
     const district = document.createElement("small");
     district.textContent = displayDistrict(feature);
     button.append(district);
-    button.addEventListener("click", () => displayMap.fitBounds(boundsForFeature(feature), { padding: 70, maxZoom: 12.2, duration: 650 }));
+    button.addEventListener("click", () => focusFeature(feature));
     list.append(button);
   }
   displayDom.results.replaceChildren(heading, list);
@@ -156,7 +178,176 @@ function renderSearchResults() {
 
 function updateDisplayMap() {
   if (displayMap?.isStyleLoaded() && displayMap.getSource("tambons")) displayMap.getSource("tambons").setData(displayMapData());
+  renderDisplayLabels();
   renderSearchResults();
+}
+
+function focusFeature(feature) {
+  const bounds = boundsForFeature(feature);
+  displayMap.fitBounds(bounds, { padding: 70, maxZoom: 12.2, duration: 650 });
+  const center = bounds.getCenter();
+  window.setTimeout(() => new maplibregl.Popup({ offset: 12 }).setLngLat(center).setDOMContent(popupForFeature(feature)).addTo(displayMap), 700);
+}
+
+function featuresForStaff(staffId) {
+  return displayFeatures.filter((feature) => displayOwner(feature)?.id === staffId);
+}
+
+function selectStaff(staffId, focus = false) {
+  displayUi.selectedStaffId = staffId;
+  displayDom.staffFilter.value = staffId;
+  renderStats();
+  renderLegend();
+  renderPersonDetail();
+  updateDisplayMap();
+  if (focus && staffId) {
+    const selectedFeatures = featuresForStaff(staffId);
+    if (selectedFeatures.length) focusFeatures(selectedFeatures);
+  }
+}
+
+function focusFeatures(featuresToFocus) {
+  const bounds = new maplibregl.LngLatBounds();
+  for (const feature of featuresToFocus) bounds.extend(boundsForFeature(feature));
+  displayMap.fitBounds(bounds, { padding: 70, maxZoom: 11.5, duration: 650 });
+}
+
+function renderStaffFilter() {
+  const current = displayUi.selectedStaffId;
+  displayDom.staffFilter.replaceChildren();
+  const all = document.createElement("option");
+  all.value = "";
+  all.textContent = "ทุกคน";
+  displayDom.staffFilter.append(all);
+  for (const person of displayState.staff) {
+    const option = document.createElement("option");
+    option.value = person.id;
+    option.textContent = person.name;
+    displayDom.staffFilter.append(option);
+  }
+  if (current && displayState.staff.some((person) => person.id === current)) displayDom.staffFilter.value = current;
+  else displayUi.selectedStaffId = "";
+  displayDom.clearStaffFilter.hidden = !displayUi.selectedStaffId;
+}
+
+function renderPersonDetail() {
+  const person = displayState.staff.find((candidate) => candidate.id === displayUi.selectedStaffId);
+  displayDom.personDetail.hidden = !person;
+  displayDom.personDetail.replaceChildren();
+  if (!person) return;
+
+  const assigned = featuresForStaff(person.id);
+  const byDistrict = new Map();
+  for (const feature of assigned) {
+    const district = displayDistrict(feature);
+    if (!byDistrict.has(district)) byDistrict.set(district, []);
+    byDistrict.get(district).push(feature);
+  }
+  const heading = document.createElement("div");
+  heading.className = "person-detail-heading";
+  const title = document.createElement("h3");
+  title.textContent = `เขตรับผิดชอบ: ${person.name}`;
+  const showOnMap = document.createElement("button");
+  showOnMap.type = "button";
+  showOnMap.className = "clear-filter";
+  showOnMap.textContent = "ซูมดูพื้นที่";
+  showOnMap.addEventListener("click", () => focusFeatures(assigned));
+  heading.append(title, showOnMap);
+
+  const summary = document.createElement("div");
+  summary.className = "person-summary";
+  for (const text of [`${assigned.length} ตำบล`, `${byDistrict.size} อำเภอ`]) {
+    const item = document.createElement("span");
+    item.textContent = text;
+    summary.append(item);
+  }
+
+  const list = document.createElement("div");
+  list.className = "district-assignment-list";
+  for (const [district, districtFeatures] of [...byDistrict.entries()].sort(([first], [second]) => first.localeCompare(second, "th"))) {
+    const group = document.createElement("section");
+    group.className = "district-assignment";
+    const districtName = document.createElement("h4");
+    districtName.textContent = `อำเภอ${district} (${districtFeatures.length} ตำบล)`;
+    const chips = document.createElement("div");
+    chips.className = "area-chip-list";
+    for (const feature of districtFeatures.sort((first, second) => displayTambon(first).localeCompare(displayTambon(second), "th"))) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "area-chip";
+      chip.textContent = displayTambon(feature);
+      chip.addEventListener("click", () => focusFeature(feature));
+      chips.append(chip);
+    }
+    group.append(districtName, chips);
+    list.append(group);
+  }
+  displayDom.personDetail.append(heading, summary, list);
+}
+
+function labelPosition(feature) {
+  const bounds = boundsForFeature(feature);
+  const center = bounds.getCenter();
+  return [center.lng, center.lat];
+}
+
+function clearDisplayLabels(type) {
+  for (const marker of displayLabelMarkers[type]) marker.remove();
+  displayLabelMarkers[type] = [];
+}
+
+function labelBoxesOverlap(first, second) {
+  return first.left < second.right && first.right > second.left && first.top < second.bottom && first.bottom > second.top;
+}
+
+function renderDisplayLabels() {
+  clearDisplayLabels("tambon");
+  clearDisplayLabels("district");
+  if (!displayMap?.isStyleLoaded()) return;
+  const filtered = displayFeatures.filter(featureMatchesSelectedStaff);
+  const bounds = displayMap.getBounds();
+
+  if (displayUi.showTambonLabels && displayMap.getZoom() >= 9.4) {
+    const occupied = [];
+    for (const feature of filtered.map((feature) => ({ feature, coordinate: labelPosition(feature) })).filter(({ coordinate }) => bounds.contains(coordinate))) {
+      const point = displayMap.project(feature.coordinate);
+      const name = displayTambon(feature.feature);
+      const width = Math.max(34, name.length * 7.8);
+      const box = { left: point.x - width / 2, right: point.x + width / 2, top: point.y - 10, bottom: point.y + 10 };
+      if (occupied.some((other) => labelBoxesOverlap(box, other))) continue;
+      occupied.push(box);
+      const element = document.createElement("span");
+      element.className = "display-tambon-label";
+      element.textContent = name;
+      displayLabelMarkers.tambon.push(new maplibregl.Marker({ element, anchor: "center" }).setLngLat(feature.coordinate).addTo(displayMap));
+    }
+  }
+
+  if (displayUi.showDistrictLabels) {
+    const groups = new Map();
+    for (const feature of filtered) {
+      const district = displayDistrict(feature);
+      if (!groups.has(district)) groups.set(district, []);
+      groups.get(district).push(feature);
+    }
+    for (const [district, districtFeatures] of groups) {
+      const districtBounds = new maplibregl.LngLatBounds();
+      for (const feature of districtFeatures) districtBounds.extend(boundsForFeature(feature));
+      const center = districtBounds.getCenter();
+      if (!bounds.contains(center)) continue;
+      const element = document.createElement("span");
+      element.className = "display-district-label";
+      element.textContent = `อำเภอ${district}`;
+      displayLabelMarkers.district.push(new maplibregl.Marker({ element, anchor: "center" }).setLngLat(center).addTo(displayMap));
+    }
+  }
+}
+
+function renderDisplayControls() {
+  displayDom.tambonLabelsButton.setAttribute("aria-pressed", String(displayUi.showTambonLabels));
+  displayDom.districtLabelsButton.setAttribute("aria-pressed", String(displayUi.showDistrictLabels));
+  displayDom.tambonLabelsButton.textContent = displayUi.showTambonLabels ? "ซ่อนชื่อตำบล" : "แสดงชื่อตำบล";
+  displayDom.districtLabelsButton.textContent = displayUi.showDistrictLabels ? "ซ่อนชื่ออำเภอ" : "แสดงชื่ออำเภอ";
 }
 
 function popupForFeature(feature) {
@@ -200,6 +391,7 @@ function createDisplayMap() {
       paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-height": ["get", "height"], "fill-extrusion-base": 0, "fill-extrusion-opacity": 0.84 },
     });
     displayMap.addLayer({ id: "tambon-outline", type: "line", source: "tambons", paint: { "line-color": "#ffffff", "line-width": 1.1, "line-opacity": 0.96 } });
+    displayMap.on("moveend", renderDisplayLabels);
     displayMap.on("mouseenter", "tambon-3d", () => { displayMap.getCanvas().style.cursor = "pointer"; });
     displayMap.on("mouseleave", "tambon-3d", () => { displayMap.getCanvas().style.cursor = ""; });
     displayMap.on("click", "tambon-3d", (event) => {
@@ -211,6 +403,7 @@ function createDisplayMap() {
     const allBounds = new maplibregl.LngLatBounds();
     for (const feature of displayFeatures) allBounds.extend(boundsForFeature(feature));
     displayMap.fitBounds(allBounds, { padding: 48, duration: 0, maxZoom: 10.2 });
+    renderDisplayLabels();
   });
 }
 
@@ -262,9 +455,11 @@ async function refreshDisplayData() {
     applyDisplaySharedData(JSON.parse(decodeDisplayBase64(payload.content)));
     displayDataSha = payload.sha;
     filterDisplayAssignments();
+    renderStaffFilter();
     renderStats();
     renderLegend();
     updateDisplayMap();
+    renderPersonDetail();
   } catch (error) {
     console.warn("Unable to refresh display data", error);
   }
@@ -273,10 +468,25 @@ async function refreshDisplayData() {
 async function initDisplay() {
   try {
     await loadDisplayData();
+    renderStaffFilter();
     renderStats();
     renderLegend();
+    renderPersonDetail();
+    renderDisplayControls();
     createDisplayMap();
     displayDom.search.addEventListener("input", updateDisplayMap);
+    displayDom.staffFilter.addEventListener("change", () => selectStaff(displayDom.staffFilter.value, true));
+    displayDom.clearStaffFilter.addEventListener("click", () => selectStaff(""));
+    displayDom.tambonLabelsButton.addEventListener("click", () => {
+      displayUi.showTambonLabels = !displayUi.showTambonLabels;
+      renderDisplayControls();
+      renderDisplayLabels();
+    });
+    displayDom.districtLabelsButton.addEventListener("click", () => {
+      displayUi.showDistrictLabels = !displayUi.showDistrictLabels;
+      renderDisplayControls();
+      renderDisplayLabels();
+    });
     window.setInterval(refreshDisplayData, 30000);
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) refreshDisplayData();

@@ -27,12 +27,31 @@
           <p>พิมพ์ชื่อตำบล อำเภอ หรือชื่อผู้รับผิดชอบ ระบบจะแสดงผลบนแผนที่ทันที</p>
           <p id="central-notice" class="central-notice" hidden></p>
         </div>
-        <label class="search-box" for="search-input">
-          <span>ค้นหา</span>
+        <div class="search-box">
+          <label for="search-input">ค้นหา</label>
           <input id="search-input" type="search" autocomplete="off" placeholder="เช่น ทะเลชุบศร หรือ ชื่อผู้รับผิดชอบ" />
-        </label>
+          <div id="search-results" class="search-results" aria-live="polite"></div>
+        </div>
         <div id="overview-stats" class="overview-stats" aria-live="polite"></div>
       </section>
+
+      <section class="display-controls" aria-label="ควบคุมการแสดงผลแผนที่">
+        <div class="control-group">
+          <span class="control-label">ชื่อบนแผนที่</span>
+          <div class="toggle-group">
+            <button id="toggle-tambon-labels" class="map-toggle" type="button" aria-pressed="false">ชื่อตำบล</button>
+            <button id="toggle-district-labels" class="map-toggle" type="button" aria-pressed="false">ชื่ออำเภอ</button>
+          </div>
+          <small class="control-hint">ซูมเข้าเล็กน้อยเพื่ออ่านชื่อตำบลชัดเจน</small>
+        </div>
+        <label class="person-filter" for="staff-filter">
+          <span>แสดงเฉพาะบุคคล</span>
+          <select id="staff-filter"><option value="">ทุกคน</option></select>
+        </label>
+        <button id="clear-staff-filter" class="clear-filter" type="button" hidden>แสดงทั้งหมด</button>
+      </section>
+
+      <section id="person-detail" class="person-detail" aria-live="polite" hidden></section>
 
       <section class="map-frame" aria-label="แผนที่ภาพรวมการมอบหมาย">
         <div class="map-frame-header">
@@ -45,7 +64,6 @@
         <div class="display-content">
           <div class="map-column">
             <div id="display-map" class="display-map" aria-label="แผนที่เขตศาลจังหวัดลพบุรี"></div>
-            <div id="search-results" class="search-results" aria-live="polite"></div>
           </div>
           <aside class="legend-panel" aria-label="คำอธิบายสี">
             <h3>คำอธิบายสี</h3>

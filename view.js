@@ -4,6 +4,7 @@ const DISPLAY_MAIN_COURT_DISTRICTS = new Set(["เมืองลพบุรี
 
 const displayDom = {
   loading: document.querySelector("#loading"),
+  title: document.querySelector("#display-title"),
   search: document.querySelector("#search-input"),
   stats: document.querySelector("#overview-stats"),
   updatedAt: document.querySelector("#updated-at"),
@@ -24,6 +25,26 @@ let displayMap;
 let displayDataSha = null;
 let displayLabelMarkers = { tambon: [], district: [] };
 let displayUi = { selectedStaffId: "", showTambonLabels: true, showDistrictLabels: true };
+
+function typeDisplayTitle() {
+  const title = displayDom.title;
+  if (!title || title.dataset.typed === "true") return;
+  const fullText = title.dataset.text || title.textContent.trim();
+  if (!fullText) return;
+  title.dataset.typed = "true";
+  title.setAttribute("aria-label", fullText);
+  title.textContent = "";
+  const graphemes = typeof Intl.Segmenter === "function"
+    ? [...new Intl.Segmenter("th", { granularity: "grapheme" }).segment(fullText)].map((item) => item.segment)
+    : Array.from(fullText);
+  let index = 0;
+  const typeNext = () => {
+    title.textContent += graphemes[index] || "";
+    index += 1;
+    if (index < graphemes.length) window.setTimeout(typeNext, 48);
+  };
+  typeNext();
+}
 
 function displayAreaId(feature) {
   return String(feature.properties.ADMIN_ID3 || feature.properties.OBJECTID || feature.id);
@@ -105,7 +126,7 @@ function renderStats() {
     ? `ปรับปรุงล่าสุด: ${new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(displayState.updatedAt))}`
     : "ยังไม่มีการบันทึกการมอบหมาย";
   if (displayDom.coverageSummary) {
-    displayDom.coverageSummary.textContent = `เขตทั้งหมดรวม ${districtCount} อำเภอ · ตำบลทั้งหมด ${total} ตำบล (ไม่รวมเขตศาลจังหวัดชัยบาดาล: ชัยบาดาล, โคกเจริญ, สระโบสถ์, ท่าหลวง และลำสนธิ)`;
+    displayDom.coverageSummary.textContent = `เขตทั้งหมดรวม ${districtCount} อำเภอ · ตำบลทั้งหมด ${total} ตำบล (ไม่รวมเขตศาลจังหวัดชัยบาดาล)`;
   }
   const hasCentralAssignments = displayState.staff.length > 0 || Object.keys(displayState.assignments).length > 0;
   displayDom.centralNotice.hidden = hasCentralAssignments;
@@ -479,6 +500,7 @@ async function refreshDisplayData() {
 }
 
 async function initDisplay() {
+  typeDisplayTitle();
   try {
     await loadDisplayData();
     renderStaffFilter();

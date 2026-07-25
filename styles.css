@@ -161,6 +161,7 @@ input:focus, select:focus { outline: 3px solid rgb(76 151 193 / 24%); border-col
 .map-card, .legend-card { min-width: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #fcfeff; }
 .map-card-heading { min-height: 64px; padding: 12px 14px; background: #f7fafb; border-bottom: 1px solid var(--line); }
 .map-card-heading p { font-size: .76rem; color: var(--muted); margin-top: 3px; line-height: 1.35; }
+.map-card-options { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .map-option { align-self: center; background: #fff; border-color: #cbd8e0; color: #39556a; white-space: nowrap; padding: 7px 8px; font-size: .76rem; }
 .map-option[aria-pressed="true"] { background: #daf0f7; border-color: #85c2d6; color: #12445e; }
 .map-canvas { position: relative; width: 100%; height: clamp(430px, 60vh, 730px); background: #eef5f7; }
@@ -184,7 +185,9 @@ input:focus, select:focus { outline: 3px solid rgb(76 151 193 / 24%); border-col
 .maplibregl-popup-content { padding: 10px 12px; font-family: inherit; font-size: .82rem; color: #263f52; }
 .popup-title { font-weight: 700; margin-bottom: 3px; }
 .popup-sub { color: #637485; }
-.map-tambon-label { pointer-events: none; color: #153d55; font: 600 12px/1.2 "Noto Sans Thai", "Leelawadee UI", Tahoma, sans-serif; white-space: nowrap; text-shadow: 0 1px 0 #fff, 1px 0 0 #fff, -1px 0 0 #fff, 0 -1px 0 #fff; }
+.map-tambon-label, .map-district-label { pointer-events: none; white-space: nowrap; font-family: "Noto Sans Thai", "Leelawadee UI", Tahoma, sans-serif; }
+.map-tambon-label { color: #153d55; font-size: 12px; font-weight: 600; text-shadow: 0 1px 0 #fff, 1px 0 0 #fff, -1px 0 0 #fff, 0 -1px 0 #fff; }
+.map-district-label { border: 1px solid rgb(17 73 107 / 28%); border-radius: 999px; padding: 3px 7px; background: rgb(255 255 255 / 88%); color: #12445e; font-size: 12px; font-weight: 800; box-shadow: 0 1px 5px rgb(20 50 70 / 13%); }
 
 @media (max-width: 1050px) {
   .app-shell { grid-template-columns: 300px minmax(0, 1fr); }

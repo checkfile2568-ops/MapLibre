@@ -23,7 +23,7 @@ let displayState = { staff: [], assignments: {}, updatedAt: null };
 let displayMap;
 let displayDataSha = null;
 let displayLabelMarkers = { tambon: [], district: [] };
-let displayUi = { selectedStaffId: "", showTambonLabels: false, showDistrictLabels: false };
+let displayUi = { selectedStaffId: "", showTambonLabels: true, showDistrictLabels: true };
 
 function displayAreaId(feature) {
   return String(feature.properties.ADMIN_ID3 || feature.properties.OBJECTID || feature.id);
@@ -217,6 +217,15 @@ function focusFeatures(featuresToFocus) {
   displayMap.fitBounds(bounds, { padding: 70, maxZoom: 11.5, duration: 650 });
 }
 
+function fitDisplayToAssignedAreas({ duration = 0 } = {}) {
+  if (!displayMap || !displayFeatures.length) return;
+  const assigned = displayFeatures.filter((feature) => Boolean(displayOwner(feature)));
+  const featuresToFit = assigned.length ? assigned : displayFeatures;
+  const bounds = new maplibregl.LngLatBounds();
+  for (const feature of featuresToFit) bounds.extend(boundsForFeature(feature));
+  displayMap.fitBounds(bounds, { padding: 52, maxZoom: 10.5, duration });
+}
+
 function renderStaffFilter() {
   const current = displayUi.selectedStaffId;
   displayDom.staffFilter.replaceChildren();
@@ -312,7 +321,7 @@ function renderDisplayLabels() {
   const filtered = displayFeatures.filter(featureMatchesSelectedStaff);
   const bounds = displayMap.getBounds();
 
-  if (displayUi.showTambonLabels && displayMap.getZoom() >= 9.4) {
+  if (displayUi.showTambonLabels && displayMap.getZoom() >= 8.1) {
     const occupied = [];
     for (const feature of filtered.map((feature) => ({ feature, coordinate: labelPosition(feature) })).filter(({ coordinate }) => bounds.contains(coordinate))) {
       const point = displayMap.project(feature.coordinate);
@@ -405,9 +414,7 @@ function createDisplayMap() {
       if (!feature) return;
       new maplibregl.Popup({ offset: 12 }).setLngLat(event.lngLat).setDOMContent(popupForFeature(feature)).addTo(displayMap);
     });
-    const allBounds = new maplibregl.LngLatBounds();
-    for (const feature of displayFeatures) allBounds.extend(boundsForFeature(feature));
-    displayMap.fitBounds(allBounds, { padding: 48, duration: 0, maxZoom: 10.2 });
+    fitDisplayToAssignedAreas();
     renderDisplayLabels();
   });
 }
@@ -465,6 +472,7 @@ async function refreshDisplayData() {
     renderLegend();
     updateDisplayMap();
     renderPersonDetail();
+    if (!displayUi.selectedStaffId && !displaySearchText()) fitDisplayToAssignedAreas();
   } catch (error) {
     console.warn("Unable to refresh display data", error);
   }

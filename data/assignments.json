@@ -1,10 +1,11 @@
 {
-  "version": 2,
+  "version": 3,
   "staff": [
     {
       "id": "staff-1784987702700-q10g5",
       "name": "นายชนินทร์​ โพธิ์ศรี",
-      "color": "#1377b5"
+      "color": "#1377b5",
+      "active": true
     }
   ],
   "assignments": {

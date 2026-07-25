@@ -24,6 +24,8 @@ const dom = {
   colorSwatch: document.querySelector("#color-swatch"),
   staffHelp: document.querySelector("#staff-help"),
   newColorButton: document.querySelector("#new-color-button"),
+  toggleStaffManagement: document.querySelector("#toggle-staff-management"),
+  staffManagementContent: document.querySelector("#staff-management-content"),
   staffManagementList: document.querySelector("#staff-management-list"),
   districtList: document.querySelector("#district-list"),
   tambonSearch: document.querySelector("#tambon-search"),
@@ -62,6 +64,7 @@ let toastTimer;
 let state = loadState();
 let shared = { available: false, loading: false, sha: null, error: null };
 let tokenCheck = { checking: false, status: "idle", message: "", expiresAt: null, login: null };
+let staffManagementOpen = false;
 
 function initialState() {
   return { version: 3, staff: [], assignments: {}, showLabels: true, showDistrictLabels: true, updatedAt: null, pendingChanges: false };
@@ -676,6 +679,13 @@ function deleteStaff(person) {
   persist(`ลบ ${person.name} ออกจากรายชื่อแล้ว`);
 }
 
+function renderStaffManagementVisibility() {
+  if (!dom.staffManagementContent || !dom.toggleStaffManagement) return;
+  dom.staffManagementContent.hidden = !staffManagementOpen;
+  dom.toggleStaffManagement.setAttribute("aria-expanded", String(staffManagementOpen));
+  dom.toggleStaffManagement.textContent = staffManagementOpen ? "ซ่อนข้อมูล" : "แสดงข้อมูล";
+}
+
 function renderStaffManagement() {
   if (!state.staff.length) {
     dom.staffManagementList.innerHTML = '<p class="empty-result">ยังไม่มีรายชื่อเจ้าหน้าที่</p>';
@@ -1229,6 +1239,7 @@ function renderAll() {
   if (!features.length) return;
   renderStaffSelect();
   renderStaffManagement();
+  renderStaffManagementVisibility();
   renderReportStaffSelect();
   renderReportSummary();
   renderDistrictList();
@@ -1534,6 +1545,10 @@ function bindEvents() {
     }
   });
   dom.staffSelect.addEventListener("change", renderAll);
+  dom.toggleStaffManagement.addEventListener("click", () => {
+    staffManagementOpen = !staffManagementOpen;
+    renderStaffManagementVisibility();
+  });
   dom.newColorButton.addEventListener("click", reassignSelectedColor);
   dom.tambonSearch.addEventListener("input", renderTambonList);
   dom.validateButton.addEventListener("click", () => {

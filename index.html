@@ -53,9 +53,12 @@
               <p class="eyebrow">จัดการรายชื่อ</p>
               <h2>เจ้าหน้าที่</h2>
             </div>
+            <button id="toggle-staff-management" class="text-button" type="button" aria-expanded="false" aria-controls="staff-management-content">แสดงข้อมูล</button>
           </div>
-          <p class="helper-text">แก้ชื่อ ปิดใช้งาน หรือโอนพื้นที่ก่อนลบ เพื่อไม่ให้ตำบลค้างกับรายชื่อเดิม</p>
-          <div id="staff-management-list" class="staff-management-list" aria-live="polite"></div>
+          <div id="staff-management-content" class="staff-management-content" hidden>
+            <p class="helper-text">แก้ชื่อ ปิดใช้งาน หรือโอนพื้นที่ก่อนลบ เพื่อไม่ให้ตำบลค้างกับรายชื่อเดิม</p>
+            <div id="staff-management-list" class="staff-management-list" aria-live="polite"></div>
+          </div>
         </section>
 
         <section class="panel-section sharing-section">

@@ -8,7 +8,9 @@ const displayDom = {
   search: document.querySelector("#search-input"),
   stats: document.querySelector("#overview-stats"),
   updatedAt: document.querySelector("#updated-at"),
-  coverageSummary: document.querySelector("#coverage-summary"),
+  dataStatus: document.querySelector("#data-status"),
+  coverageMain: document.querySelector("#coverage-main"),
+  coverageExclusion: document.querySelector("#coverage-exclusion"),
   legend: document.querySelector("#legend"),
   results: document.querySelector("#search-results"),
   centralNotice: document.querySelector("#central-notice"),
@@ -25,6 +27,7 @@ let displayMap;
 let displayDataSha = null;
 let displayLabelMarkers = { tambon: [], district: [] };
 let displayUi = { selectedStaffId: "", showTambonLabels: true, showDistrictLabels: true };
+let displayResizeTimer;
 
 function typeDisplayTitle() {
   const title = displayDom.title;
@@ -41,9 +44,24 @@ function typeDisplayTitle() {
   const typeNext = () => {
     title.textContent += graphemes[index] || "";
     index += 1;
-    if (index < graphemes.length) window.setTimeout(typeNext, 48);
+    if (index < graphemes.length) window.setTimeout(typeNext, 105);
   };
-  typeNext();
+  window.setTimeout(typeNext, 1000);
+}
+
+function formatDisplayDate(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("th-TH", { day: "numeric", month: "short", year: "2-digit" }).format(date);
+}
+
+function renderDataStatus(online = true) {
+  if (!displayDom.dataStatus) return;
+  const version = displayDataSha ? displayDataSha.slice(0, 7) : "—";
+  const status = online ? "● ออนไลน์" : "● ออฟไลน์";
+  displayDom.dataStatus.textContent = `${status} · ข้อมูลล่าสุด v${version} · ${formatDisplayDate(displayState.updatedAt)}`;
+  displayDom.dataStatus.className = `read-only-badge ${online ? "online" : "offline"}`;
 }
 
 function displayAreaId(feature) {
@@ -125,9 +143,9 @@ function renderStats() {
   displayDom.updatedAt.textContent = displayState.updatedAt
     ? `ปรับปรุงล่าสุด: ${new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(displayState.updatedAt))}`
     : "ยังไม่มีการบันทึกการมอบหมาย";
-  if (displayDom.coverageSummary) {
-    displayDom.coverageSummary.textContent = `เขตทั้งหมดรวม ${districtCount} อำเภอ · ตำบลทั้งหมด ${total} ตำบล (ไม่รวมเขตศาลจังหวัดชัยบาดาล)`;
-  }
+  if (displayDom.coverageMain) displayDom.coverageMain.textContent = `เขตทั้งหมดรวม ${districtCount} อำเภอ · ตำบลทั้งหมด ${total} ตำบล`;
+  if (displayDom.coverageExclusion) displayDom.coverageExclusion.textContent = "(ไม่รวมเขตศาลจังหวัดชัยบาดาล)";
+  renderDataStatus(true);
   const hasCentralAssignments = displayState.staff.length > 0 || Object.keys(displayState.assignments).length > 0;
   displayDom.centralNotice.hidden = hasCentralAssignments;
   displayDom.centralNotice.textContent = hasCentralAssignments
@@ -238,13 +256,31 @@ function focusFeatures(featuresToFocus) {
   displayMap.fitBounds(bounds, { padding: 70, maxZoom: 11.5, duration: 650 });
 }
 
+function displayFitPadding() {
+  const container = displayMap?.getContainer?.();
+  const isLandscape = container && container.clientWidth > container.clientHeight;
+  return isLandscape
+    ? { top: 48, right: 72, bottom: 58, left: 72 }
+    : { top: 66, right: 74, bottom: 82, left: 74 };
+}
+
 function fitDisplayToAssignedAreas({ duration = 0 } = {}) {
   if (!displayMap || !displayFeatures.length) return;
   const assigned = displayFeatures.filter((feature) => Boolean(displayOwner(feature)));
   const featuresToFit = assigned.length ? assigned : displayFeatures;
   const bounds = new maplibregl.LngLatBounds();
   for (const feature of featuresToFit) bounds.extend(boundsForFeature(feature));
-  displayMap.fitBounds(bounds, { padding: 52, maxZoom: 10.5, duration });
+  displayMap.fitBounds(bounds, { padding: displayFitPadding(), maxZoom: 10.3, duration });
+}
+
+function refitDisplayForViewport() {
+  window.clearTimeout(displayResizeTimer);
+  displayResizeTimer = window.setTimeout(() => {
+    if (!displayMap) return;
+    displayMap.resize();
+    if (!displayUi.selectedStaffId && !displaySearchText()) fitDisplayToAssignedAreas();
+    renderDisplayLabels();
+  }, 160);
 }
 
 function renderStaffFilter() {
@@ -373,7 +409,7 @@ function renderDisplayLabels() {
       const element = document.createElement("span");
       element.className = "display-district-label";
       element.textContent = `อำเภอ${district}`;
-      displayLabelMarkers.district.push(new maplibregl.Marker({ element, anchor: "center" }).setLngLat(center).addTo(displayMap));
+      displayLabelMarkers.district.push(new maplibregl.Marker({ element, anchor: "bottom", offset: [0, -7] }).setLngLat(center).addTo(displayMap));
     }
   }
 }
@@ -482,9 +518,15 @@ async function refreshDisplayData() {
       headers: { Accept: "application/vnd.github+json" },
       cache: "no-store",
     });
-    if (!response.ok) return;
+    if (!response.ok) {
+      renderDataStatus(false);
+      return;
+    }
     const payload = await response.json();
-    if (!payload.sha || payload.sha === displayDataSha) return;
+    if (!payload.sha || payload.sha === displayDataSha) {
+      renderDataStatus(true);
+      return;
+    }
     applyDisplaySharedData(JSON.parse(decodeDisplayBase64(payload.content)));
     displayDataSha = payload.sha;
     filterDisplayAssignments();
@@ -496,6 +538,7 @@ async function refreshDisplayData() {
     if (!displayUi.selectedStaffId && !displaySearchText()) fitDisplayToAssignedAreas();
   } catch (error) {
     console.warn("Unable to refresh display data", error);
+    renderDataStatus(false);
   }
 }
 
@@ -522,6 +565,8 @@ async function initDisplay() {
       renderDisplayControls();
       renderDisplayLabels();
     });
+    window.addEventListener("resize", refitDisplayForViewport);
+    window.addEventListener("orientationchange", refitDisplayForViewport);
     window.setInterval(refreshDisplayData, 30000);
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) refreshDisplayData();
@@ -529,6 +574,7 @@ async function initDisplay() {
   } catch (error) {
     console.error(error);
     displayDom.updatedAt.textContent = "ไม่สามารถโหลดข้อมูลได้ กรุณารีเฟรชหน้าเว็บ";
+    renderDataStatus(false);
   } finally {
     displayDom.loading.hidden = true;
   }

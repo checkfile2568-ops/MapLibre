@@ -28,7 +28,11 @@ h1, h2, h3, p { margin: 0; }
 .display-header h1 { margin-top: 3px; font-size: clamp(1.18rem, 2.2vw, 1.85rem); line-height: 1.27; }
 .latest-summary { display: grid; justify-items: end; gap: 6px; }
 .read-only-badge { border: 1px solid rgb(255 255 255 / 34%); border-radius: 999px; padding: 7px 10px; background: rgb(255 255 255 / 12%); font-size: .78rem; white-space: nowrap; }
+.read-only-badge.online { border-color: rgb(156 241 184 / 52%); background: rgb(22 108 72 / 32%); color: #e1ffe9; }
+.read-only-badge.offline { border-color: rgb(255 207 126 / 48%); background: rgb(113 74 13 / 30%); color: #fff0cc; }
 .coverage-summary { max-width: min(540px, 56vw); color: rgb(255 255 255 / 82%); font-size: .68rem; line-height: 1.45; text-align: right; }
+.coverage-summary span { display: block; }
+.coverage-exclusion { margin-top: 1px; opacity: .86; }
 
 .display-shell { width: min(1440px, 100%); margin: 0 auto; padding: clamp(14px, 2.5vw, 34px); }
 .overview-card, .map-frame { border: 1px solid var(--line); border-radius: 14px; background: #fff; box-shadow: 0 10px 30px rgb(31 58 77 / 7%); }
@@ -71,7 +75,7 @@ h1, h2, h3, p { margin: 0; }
 .updated-at { color: var(--muted); font-size: .76rem; text-align: right; }
 .display-content { display: grid; grid-template-columns: minmax(0, 1fr) minmax(230px, .3fr); }
 .map-column { min-width: 0; }
-.display-map { width: 100%; height: min(66vh, 720px); min-height: 440px; background: #edf4f5; }
+.display-map { width: 100%; height: min(62vh, 680px); min-height: 420px; background: #edf4f5; }
 .legend-panel { padding: 18px; border-left: 1px solid var(--line); background: #fcfeff; }
 .legend-panel h3 { font-size: 1rem; }
 .legend-panel > p { color: var(--muted); font-size: .76rem; line-height: 1.4; margin-top: 3px; }
@@ -126,7 +130,7 @@ h1, h2, h3, p { margin: 0; }
   .clear-filter { width: 100%; }
   .map-frame-header { align-items: flex-start; flex-direction: column; padding: 14px; }
   .updated-at { text-align: left; }
-  .display-map { height: 55svh; min-height: 340px; }
+  .display-map { height: min(58svh, 500px); min-height: 340px; }
   .legend-panel { padding: 14px; }
 }
 
@@ -137,7 +141,7 @@ h1, h2, h3, p { margin: 0; }
   .display-shell { padding: 10px; }
   .overview-card { grid-template-columns: minmax(180px, .75fr) minmax(260px, 1.1fr) auto; gap: 12px; padding: 12px; margin-bottom: 10px; }
   .overview-copy > p:not(.eyebrow):not(.central-notice) { display: none; }
-  .display-map { height: calc(100svh - 190px); min-height: 250px; }
+  .display-map { height: calc(100svh - 170px); min-height: 280px; }
   .legend-panel { padding: 12px; }
   .legend { margin-top: 8px; max-height: calc(100svh - 245px); }
 }

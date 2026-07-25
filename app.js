@@ -8,7 +8,6 @@ const STORAGE_KEY = "lopburi-notice-area-manager-v1";
 const SHARED_BRANCH = "main";
 const SHARED_DATA_API = "https://api.github.com/repos/checkfile2568-ops/MapLibre/contents/data/assignments.json";
 const MAIN_COURT_DISTRICTS = new Set(["เมืองลพบุรี", "พัฒนานิคม", "โคกสำโรง", "ท่าวุ้ง", "บ้านหมี่", "หนองม่วง"]);
-const OUTSIDE_COURT_DISTRICTS = new Set(["ชัยบาดาล", "ท่าหลวง", "สระโบสถ์", "โคกเจริญ", "ลำสนธิ"]);
 const PALETTE = [
   "#1377b5", "#ca5d35", "#2c9a6d", "#7757b5", "#c04662", "#27858f",
   "#ae791a", "#4772af", "#a04d9a", "#537c3c", "#9c623f", "#27725a",
@@ -44,7 +43,7 @@ const dom = {
 };
 
 let features = [];
-let maps = { main: null, outside: null };
+let maps = { main: null };
 let toastTimer;
 let state = loadState();
 let shared = { available: false, loading: false, sha: null, error: null };
@@ -129,12 +128,17 @@ function isMainDistrict(feature) {
   return MAIN_COURT_DISTRICTS.has(featureDistrict(feature));
 }
 
-function isOutsideDistrict(feature) {
-  return OUTSIDE_COURT_DISTRICTS.has(featureDistrict(feature));
+function availableFeatures() {
+  return features.filter(isMainDistrict);
 }
 
-function availableFeatures() {
-  return features.filter((feature) => isMainDistrict(feature) || isOutsideDistrict(feature));
+function removeAreasOutsideLopburiCourt() {
+  if (!features.length) return 0;
+  const allowedIds = new Set(availableFeatures().map(areaId));
+  const entries = Object.entries(state.assignments);
+  const keptEntries = entries.filter(([id]) => allowedIds.has(id));
+  state.assignments = Object.fromEntries(keptEntries);
+  return entries.length - keptEntries.length;
 }
 
 function currentAssignments() {
@@ -220,6 +224,7 @@ async function loadSharedState({ forceRemote = false } = {}) {
     } else {
       state.pendingChanges = true;
     }
+    if (removeAreasOutsideLopburiCourt() > 0) state.pendingChanges = true;
     shared = { available: true, loading: false, sha: payload.sha, error: null };
     saveLocalState();
     renderAll();
@@ -318,13 +323,6 @@ function nextDistinctColor(excluded = []) {
     if (excluded.every((color) => colorDistance(candidate, color) > 95)) return candidate;
   }
   return hslToHex((state.staff.length * 71) % 360, 65, 45);
-}
-
-function mutedColor(hex) {
-  const [red, green, blue] = hexToRgb(hex);
-  const average = (red + green + blue) / 3;
-  const blend = (channel) => Math.round(channel * 0.46 + average * 0.30 + 255 * 0.24);
-  return `#${[blend(red), blend(green), blend(blue)].map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
 }
 
 function addStaff(name) {
@@ -447,8 +445,8 @@ function renderDistrictList() {
     text.className = "district-label";
     text.textContent = district;
     const count = document.createElement("span");
-    count.className = "outside-tag";
-    count.textContent = isOutsideDistrict(districtFeatures[0]) ? `เขตย่อ · ${districtFeatures.length}` : `${districtFeatures.length} ตำบล`;
+    count.className = "count-tag";
+    count.textContent = `${districtFeatures.length} ตำบล`;
     label.append(input, text, count);
     fragment.append(label);
   }
@@ -513,11 +511,10 @@ function renderLegend() {
 function renderSummary() {
   const total = availableFeatures().length;
   const assigned = assignmentCount();
-  const outsideAssigned = features.filter(isOutsideDistrict).filter((feature) => state.assignments[areaId(feature)]).length;
   const pills = [
     `${state.staff.length} ผู้รับผิดชอบ`,
     `มอบหมายแล้ว ${assigned}/${total} ตำบล`,
-    `เขตย่อ ${outsideAssigned} ตำบล`,
+    `เขตศาลจังหวัดลพบุรี`,
   ];
   dom.summary.replaceChildren(...pills.map((text) => {
     const pill = document.createElement("span");
@@ -558,22 +555,21 @@ function renderValidation() {
   }));
 }
 
-function mapData(zone) {
+function mapData() {
   const sourceFeatures = features
-    .filter(zone === "main" ? isMainDistrict : isOutsideDistrict)
+    .filter(isMainDistrict)
     .map((feature) => {
       const id = areaId(feature);
       const owner = getStaff(state.assignments[id]);
-      const isOutside = zone === "outside";
       return {
         ...feature,
         id,
         properties: {
           ...feature.properties,
           id,
-          label: state.showLabels && zone === "main" ? featureTambon(feature) : "",
-          color: owner ? (isOutside ? mutedColor(owner.color) : owner.color) : (isOutside ? "#d5dee3" : "#dce6ea"),
-          height: owner ? (isOutside ? 500 : 1250) : (isOutside ? 180 : 340),
+          label: state.showLabels ? featureTambon(feature) : "",
+          color: owner ? owner.color : "#dce6ea",
+          height: owner ? 1250 : 340,
           assigned: Boolean(owner),
         },
       };
@@ -581,17 +577,15 @@ function mapData(zone) {
   return { type: "FeatureCollection", features: sourceFeatures };
 }
 
-function createMap(container, zone) {
-  const config = zone === "main"
-    ? { center: [100.68, 14.83], zoom: 8.9, pitch: 47, bearing: -13 }
-    : { center: [101.11, 15.16], zoom: 8.0, pitch: 43, bearing: -11 };
+function createMap(container) {
+  const config = { center: [100.68, 14.83], zoom: 8.9, pitch: 47, bearing: -13 };
   const map = new maplibregl.Map({
     container,
     style: {
       version: 8,
       glyphs: "https://fonts.openmaptiles.org/{fontstack}/{range}.pbf",
       sources: {},
-      layers: [{ id: "background", type: "background", paint: { "background-color": zone === "main" ? "#edf4f5" : "#f0f3f3" } }],
+      layers: [{ id: "background", type: "background", paint: { "background-color": "#edf4f5" } }],
     },
     ...config,
     antialias: true,
@@ -599,12 +593,12 @@ function createMap(container, zone) {
   });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
   map.on("load", () => {
-    map.addSource("tambons", { type: "geojson", data: mapData(zone), promoteId: "id" });
+    map.addSource("tambons", { type: "geojson", data: mapData(), promoteId: "id" });
     map.addLayer({
       id: "tambon-ground",
       type: "fill",
       source: "tambons",
-      paint: { "fill-color": ["get", "color"], "fill-opacity": zone === "main" ? 0.74 : 0.5 },
+      paint: { "fill-color": ["get", "color"], "fill-opacity": 0.74 },
     });
     map.addLayer({
       id: "tambon-3d",
@@ -614,14 +608,14 @@ function createMap(container, zone) {
         "fill-extrusion-color": ["get", "color"],
         "fill-extrusion-height": ["get", "height"],
         "fill-extrusion-base": 0,
-        "fill-extrusion-opacity": zone === "main" ? 0.82 : 0.58,
+        "fill-extrusion-opacity": 0.82,
       },
     });
     map.addLayer({
       id: "tambon-outline",
       type: "line",
       source: "tambons",
-      paint: { "line-color": zone === "main" ? "#ffffff" : "#f8fbfc", "line-width": zone === "main" ? 1.1 : 0.8, "line-opacity": 0.96 },
+      paint: { "line-color": "#ffffff", "line-width": 1.1, "line-opacity": 0.96 },
     });
     map.addLayer({
       id: "tambon-label",
@@ -650,19 +644,16 @@ function createMap(container, zone) {
   return map;
 }
 
-function updateMapSource(map, zone) {
+function updateMapSource(map) {
   if (!map || !map.isStyleLoaded() || !map.getSource("tambons")) return;
-  map.getSource("tambons").setData(mapData(zone));
+  map.getSource("tambons").setData(mapData());
 }
 
 function fitMapsToData() {
-  for (const [zone, map] of Object.entries(maps)) {
-    const zoneFeatures = features.filter(zone === "main" ? isMainDistrict : isOutsideDistrict);
-    if (!map || !zoneFeatures.length) continue;
-    const bounds = new maplibregl.LngLatBounds();
-    for (const feature of zoneFeatures) extendBounds(bounds, feature.geometry.coordinates);
-    map.fitBounds(bounds, { padding: zone === "main" ? 46 : 28, duration: 0, maxZoom: zone === "main" ? 10.2 : 9.2 });
-  }
+  if (!maps.main || !availableFeatures().length) return;
+  const bounds = new maplibregl.LngLatBounds();
+  for (const feature of availableFeatures()) extendBounds(bounds, feature.geometry.coordinates);
+  maps.main.fitBounds(bounds, { padding: 46, duration: 0, maxZoom: 10.2 });
 }
 
 function extendBounds(bounds, coordinates) {
@@ -674,8 +665,7 @@ function extendBounds(bounds, coordinates) {
 }
 
 function renderMaps() {
-  updateMapSource(maps.main, "main");
-  updateMapSource(maps.outside, "outside");
+  updateMapSource(maps.main);
   dom.labelsButton.setAttribute("aria-pressed", String(state.showLabels));
   dom.labelsButton.textContent = state.showLabels ? "ซ่อนชื่อตำบล" : "แสดงชื่อตำบล";
 }
@@ -707,8 +697,7 @@ async function loadBoundaries() {
   features = collection.features
     .filter((feature) => feature.properties?.ADMIN_ID3 && feature.properties?.NAME2 && feature.properties?.NAME3)
     .map((feature) => ({ ...feature, id: areaId(feature) }));
-  const currentIds = new Set(features.map(areaId));
-  state.assignments = Object.fromEntries(Object.entries(state.assignments).filter(([id]) => currentIds.has(id)));
+  removeAreasOutsideLopburiCourt();
 }
 
 function downloadBlob(blob, filename) {
@@ -731,7 +720,6 @@ async function exportPng() {
   dom.exportButton.textContent = "กำลังสร้าง PNG…";
   try {
     maps.main.resize();
-    maps.outside.resize();
     await new Promise((resolve) => setTimeout(resolve, 250));
     const canvas = await window.html2canvas(dom.printable, {
       backgroundColor: "#ffffff",
@@ -845,13 +833,8 @@ async function init() {
   try {
     await loadBoundaries();
     await loadSharedState();
-    maps.main = createMap("main-map", "main");
-    maps.outside = createMap("outside-map", "outside");
+    maps.main = createMap("main-map");
     maps.main.once("load", () => {
-      fitMapsToData();
-      renderMaps();
-    });
-    maps.outside.once("load", () => {
       fitMapsToData();
       renderMaps();
     });

@@ -43,13 +43,17 @@ h3 { font-size: 1rem; }
   font-weight: 650;
   font-size: .86rem;
   line-height: 1.15;
+  text-decoration: none;
   transition: background .15s, border-color .15s, transform .15s;
 }
+.button { display: inline-flex; align-items: center; }
 .button:hover, .text-button:hover, .map-option:hover { transform: translateY(-1px); }
 .button-primary { background: #e1a14d; color: #1b2b38; }
 .button-primary:hover { background: #edb560; }
 .button-secondary { color: #fff; background: rgb(255 255 255 / 12%); border-color: rgb(255 255 255 / 28%); }
 .button-secondary:hover { background: rgb(255 255 255 / 21%); }
+.button-muted { color: #214f6b; background: #f6fafc; border-color: #c6d7e1; }
+.button-muted:hover { background: #e9f3f7; }
 .text-button { padding: 2px 0; background: transparent; color: var(--navy); border: 0; text-decoration: underline; text-underline-offset: 3px; }
 
 .app-shell { display: grid; grid-template-columns: minmax(270px, 330px) minmax(0, 1fr); gap: 18px; padding: 18px; max-width: 1760px; margin: 0 auto; }
@@ -72,6 +76,9 @@ input:focus, select:focus { outline: 3px solid rgb(76 151 193 / 24%); border-col
 .shared-status.synced { background: #edf8ef; color: #23623c; }
 .shared-status.pending { background: #fff6e4; color: #7e520e; }
 .shared-status.offline { background: #ffebeb; color: #912f2f; }
+.shared-actions, .tool-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.shared-actions .button, .tool-grid .button { text-align: center; justify-content: center; }
+.tool-grid .button:last-child { grid-column: 1 / -1; }
 
 .district-list, .tambon-list { max-height: 210px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: #fbfdfe; }
 .district-list { margin-top: 5px; }
@@ -80,7 +87,7 @@ input:focus, select:focus { outline: 3px solid rgb(76 151 193 / 24%); border-col
 .district-option:hover, .tambon-option:hover { background: #f0f7fa; }
 .district-option input, .tambon-option input { width: auto; min-height: auto; accent-color: var(--navy); }
 .district-label { flex: 1; }
-.outside-tag { color: #6d7c88; font-size: .7rem; white-space: nowrap; }
+.count-tag { color: #6d7c88; font-size: .7rem; white-space: nowrap; }
 .tambon-list { margin-top: 6px; min-height: 42px; }
 .tambon-option small { color: var(--muted); margin-left: auto; font-size: .72rem; }
 .empty-result { padding: 10px; font-size: .8rem; color: var(--muted); }
@@ -97,7 +104,9 @@ input:focus, select:focus { outline: 3px solid rgb(76 151 193 / 24%); border-col
 .summary-pills { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .summary-pill { border-radius: 999px; background: #e8f0f4; padding: 5px 9px; font-size: .77rem; color: #355165; white-space: nowrap; }
 .maps-layout { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(260px, .86fr); gap: 14px; }
+.maps-layout-single { grid-template-columns: minmax(0, 1fr) minmax(240px, .34fr); }
 .right-rail { display: grid; gap: 14px; grid-template-rows: minmax(230px, 1.25fr) minmax(130px, .75fr); }
+.legend-rail { grid-template-rows: 1fr; }
 .map-card, .legend-card { min-width: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #fcfeff; }
 .map-card-heading { min-height: 64px; padding: 12px 14px; background: #f7fafb; border-bottom: 1px solid var(--line); }
 .map-card-heading p { font-size: .76rem; color: var(--muted); margin-top: 3px; line-height: 1.35; }
@@ -129,6 +138,8 @@ input:focus, select:focus { outline: 3px solid rgb(76 151 193 / 24%); border-col
   .app-shell { grid-template-columns: 300px minmax(0, 1fr); }
   .maps-layout { grid-template-columns: 1fr; }
   .right-rail { grid-template-columns: 1fr 1fr; grid-template-rows: minmax(240px, 38vh); }
+  .maps-layout-single { grid-template-columns: 1fr; }
+  .maps-layout-single .legend-rail { grid-template-columns: 1fr; grid-template-rows: auto; }
   .main-map-card .map-canvas { height: 56vh; }
 }
 @media (max-width: 760px) {
@@ -152,6 +163,7 @@ input:focus, select:focus { outline: 3px solid rgb(76 151 193 / 24%); border-col
   .control-panel { max-height: calc(100svh - 78px); overflow-y: auto; }
   .panel-section { padding: 12px; }
   .maps-layout { grid-template-columns: minmax(0, 1.55fr) minmax(225px, .8fr); gap: 10px; }
+  .maps-layout-single { grid-template-columns: minmax(0, 1.55fr) minmax(210px, .55fr); }
   .right-rail { grid-template-columns: 1fr; grid-template-rows: minmax(220px, 1fr) auto; gap: 10px; }
   .map-card-heading { min-height: 46px; padding: 8px 10px; }
   .map-card-heading p { display: none; }

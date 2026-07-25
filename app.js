@@ -5,6 +5,8 @@
 
 const GIS_QUERY_URL = "https://services1.arcgis.com/jSaRWj2TDlcN1zOC/arcgis/rest/services/Thailand_Subdistrict_Boundaries_%28%E0%B8%82%E0%B9%89%E0%B8%AD%E0%B8%A1%E0%B8%B9%E0%B8%A5%E0%B8%82%E0%B8%AD%E0%B8%9A%E0%B9%80%E0%B8%82%E0%B8%95%E0%B8%95%E0%B8%B3%E0%B8%9A%E0%B8%A5%E0%B8%9B%E0%B8%A3%E0%B8%B0%E0%B9%80%E0%B8%97%E0%B8%A8%E0%B9%84%E0%B8%97%E0%B8%A2%29/FeatureServer/1/query";
 const STORAGE_KEY = "lopburi-notice-area-manager-v1";
+const SHARED_BRANCH = "main";
+const SHARED_DATA_API = "https://api.github.com/repos/checkfile2568-ops/MapLibre/contents/data/assignments.json";
 const MAIN_COURT_DISTRICTS = new Set(["เมืองลพบุรี", "พัฒนานิคม", "โคกสำโรง", "ท่าวุ้ง", "บ้านหมี่", "หนองม่วง"]);
 const OUTSIDE_COURT_DISTRICTS = new Set(["ชัยบาดาล", "ท่าหลวง", "สระโบสถ์", "โคกเจริญ", "ลำสนธิ"]);
 const PALETTE = [
@@ -32,6 +34,10 @@ const dom = {
   exportButton: document.querySelector("#export-button"),
   backupButton: document.querySelector("#backup-button"),
   restoreInput: document.querySelector("#restore-input"),
+  saveSharedButton: document.querySelector("#save-shared-button"),
+  reloadSharedButton: document.querySelector("#reload-shared-button"),
+  githubToken: document.querySelector("#github-token"),
+  sharedStatus: document.querySelector("#shared-status"),
   updatedAt: document.querySelector("#updated-at"),
   toast: document.querySelector("#toast"),
   printable: document.querySelector("#printable"),
@@ -41,32 +47,56 @@ let features = [];
 let maps = { main: null, outside: null };
 let toastTimer;
 let state = loadState();
+let shared = { available: false, loading: false, sha: null, error: null };
 
 function initialState() {
-  return { version: 1, staff: [], assignments: {}, showLabels: false, updatedAt: null };
+  return { version: 2, staff: [], assignments: {}, showLabels: false, updatedAt: null, pendingChanges: false };
+}
+
+function normalizeState(raw) {
+  if (!raw || !Array.isArray(raw.staff) || typeof raw.assignments !== "object") return initialState();
+  return {
+    version: 2,
+    staff: raw.staff
+      .filter((person) => person && person.id && person.name && person.color)
+      .map((person) => ({ id: String(person.id), name: String(person.name), color: String(person.color) })),
+    assignments: Object.fromEntries(Object.entries(raw.assignments).map(([area, person]) => [String(area), String(person)])),
+    showLabels: Boolean(raw.showLabels),
+    updatedAt: raw.updatedAt || null,
+    pendingChanges: Boolean(raw.pendingChanges),
+  };
 }
 
 function loadState() {
   try {
-    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (!raw || !Array.isArray(raw.staff) || typeof raw.assignments !== "object") return initialState();
-    return {
-      version: 1,
-      staff: raw.staff
-        .filter((person) => person && person.id && person.name && person.color)
-        .map((person) => ({ id: String(person.id), name: String(person.name), color: String(person.color) })),
-      assignments: Object.fromEntries(Object.entries(raw.assignments).map(([area, person]) => [String(area), String(person)])),
-      showLabels: Boolean(raw.showLabels),
-      updatedAt: raw.updatedAt || null,
-    };
+    return normalizeState(JSON.parse(localStorage.getItem(STORAGE_KEY)));
   } catch {
     return initialState();
   }
 }
 
+function serializableState() {
+  return {
+    version: 2,
+    staff: state.staff,
+    assignments: state.assignments,
+    showLabels: state.showLabels,
+    updatedAt: state.updatedAt,
+  };
+}
+
+function hasAssignmentsOrStaff(candidate) {
+  return candidate.staff.length > 0 || Object.keys(candidate.assignments).length > 0;
+}
+
+function saveLocalState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
 function persist(message) {
   state.updatedAt = new Date().toISOString();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  state.pendingChanges = true;
+  saveLocalState();
   renderAll();
   if (message) showToast(message);
 }
@@ -127,6 +157,134 @@ function showToast(message) {
   dom.toast.classList.add("show");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => dom.toast.classList.remove("show"), 3100);
+}
+
+function decodeBase64Utf8(value) {
+  const bytes = Uint8Array.from(atob(value.replace(/\n/g, "")), (character) => character.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+function encodeBase64Utf8(value) {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  }
+  return btoa(binary);
+}
+
+function sharedDataUrl() {
+  const url = new URL(SHARED_DATA_API);
+  url.searchParams.set("ref", SHARED_BRANCH);
+  url.searchParams.set("_", String(Date.now()));
+  return url;
+}
+
+function renderSharedStatus() {
+  if (!dom.sharedStatus) return;
+  let message = "กำลังเชื่อมต่อข้อมูลส่วนกลาง…";
+  let statusClass = "";
+  if (shared.loading) {
+    message = "กำลังโหลดข้อมูลส่วนกลาง…";
+  } else if (state.pendingChanges) {
+    message = "มีการแก้ไขในเครื่องที่ยังไม่ได้บันทึกส่วนกลาง";
+    statusClass = "pending";
+  } else if (shared.available) {
+    message = "เชื่อมต่อข้อมูลส่วนกลางแล้ว — ทุกเครื่องจะเห็นค่าชุดเดียวกัน";
+    statusClass = "synced";
+  } else {
+    message = "ยังเชื่อมต่อข้อมูลส่วนกลางไม่ได้ กำลังใช้สำเนาในเครื่อง";
+    statusClass = "offline";
+  }
+  dom.sharedStatus.textContent = message;
+  dom.sharedStatus.className = `shared-status ${statusClass}`.trim();
+  dom.saveSharedButton.disabled = shared.loading;
+  dom.reloadSharedButton.disabled = shared.loading;
+}
+
+async function loadSharedState({ forceRemote = false } = {}) {
+  shared.loading = true;
+  shared.error = null;
+  renderSharedStatus();
+  try {
+    const response = await fetch(sharedDataUrl(), {
+      headers: { Accept: "application/vnd.github+json" },
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error(`GitHub responded ${response.status}`);
+    const payload = await response.json();
+    const remoteState = normalizeState(JSON.parse(decodeBase64Utf8(payload.content)));
+    const shouldUseRemote = forceRemote || hasAssignmentsOrStaff(remoteState) || !hasAssignmentsOrStaff(state);
+    if (shouldUseRemote) {
+      state = { ...remoteState, pendingChanges: false };
+    } else {
+      state.pendingChanges = true;
+    }
+    shared = { available: true, loading: false, sha: payload.sha, error: null };
+    saveLocalState();
+    renderAll();
+    return true;
+  } catch (error) {
+    console.error(error);
+    shared = { ...shared, available: false, loading: false, error: error.message };
+    renderAll();
+    return false;
+  }
+}
+
+async function reloadSharedState() {
+  if (state.pendingChanges && !window.confirm("มีการแก้ไขในเครื่องที่ยังไม่ได้บันทึกส่วนกลาง ต้องการละทิ้งแล้วโหลดข้อมูลกลางใหม่หรือไม่?")) return;
+  const loaded = await loadSharedState({ forceRemote: true });
+  showToast(loaded ? "โหลดข้อมูลส่วนกลางล่าสุดแล้ว" : "ไม่สามารถโหลดข้อมูลส่วนกลางได้");
+}
+
+async function saveSharedState() {
+  const token = dom.githubToken.value.trim();
+  if (!token) {
+    showToast("กรุณาวาง Fine-grained GitHub token ที่มีสิทธิ์ Contents: Read and write ก่อนบันทึก");
+    return;
+  }
+  if (!shared.sha && !(await loadSharedState())) {
+    showToast("ไม่พบข้อมูลส่วนกลาง จึงยังบันทึกไม่ได้");
+    return;
+  }
+  shared.loading = true;
+  renderSharedStatus();
+  try {
+    const response = await fetch(SHARED_DATA_API, {
+      method: "PUT",
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: "Update Lopburi notice area assignments",
+        content: encodeBase64Utf8(JSON.stringify(serializableState(), null, 2)),
+        branch: SHARED_BRANCH,
+        sha: shared.sha,
+      }),
+    });
+    if (!response.ok) {
+      if (response.status === 409 || response.status === 422) {
+        throw new Error("ข้อมูลส่วนกลางถูกแก้ไขจากเครื่องอื่นแล้ว กรุณาโหลดค่ากลางใหม่ก่อนบันทึกอีกครั้ง");
+      }
+      throw new Error(`GitHub responded ${response.status}`);
+    }
+    const result = await response.json();
+    shared = { available: true, loading: false, sha: result.content?.sha || shared.sha, error: null };
+    state.pendingChanges = false;
+    state.updatedAt = new Date().toISOString();
+    saveLocalState();
+    renderAll();
+    dom.githubToken.value = "";
+    showToast("บันทึกข้อมูลส่วนกลางแล้ว ทุกเครื่องจะเห็นค่าใหม่นี้");
+  } catch (error) {
+    console.error(error);
+    shared = { ...shared, loading: false, error: error.message };
+    renderAll();
+    showToast(error.message || "บันทึกข้อมูลส่วนกลางไม่สำเร็จ");
+  }
 }
 
 function hexToRgb(hex) {
@@ -523,6 +681,7 @@ function renderMaps() {
 }
 
 function renderAll() {
+  renderSharedStatus();
   if (!features.length) return;
   renderStaffSelect();
   renderDistrictList();
@@ -597,7 +756,7 @@ async function exportPng() {
 }
 
 function backupState() {
-  const backup = { ...state, exportedAt: new Date().toISOString(), note: "Lopburi Notice Area Manager backup" };
+  const backup = { ...serializableState(), exportedAt: new Date().toISOString(), note: "Lopburi Notice Area Manager backup" };
   downloadBlob(new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" }), `lopburi-notice-areas-backup-${new Date().toISOString().slice(0, 10)}.json`);
   showToast("ดาวน์โหลดไฟล์สำรองแล้ว");
 }
@@ -608,18 +767,12 @@ async function restoreState(file) {
     const restored = JSON.parse(await file.text());
     if (!Array.isArray(restored.staff) || typeof restored.assignments !== "object") throw new Error("รูปแบบไฟล์ไม่ถูกต้อง");
     if (!window.confirm("ต้องการแทนที่ข้อมูลการมอบหมายปัจจุบันด้วยไฟล์สำรองหรือไม่?")) return;
-    state = {
-      version: 1,
-      staff: restored.staff
-        .filter((person) => person && person.id && person.name && /^#[0-9a-f]{6}$/i.test(person.color || ""))
-        .map((person) => ({ id: String(person.id), name: String(person.name), color: String(person.color) })),
-      assignments: Object.fromEntries(Object.entries(restored.assignments).map(([id, person]) => [String(id), String(person)])),
-      showLabels: Boolean(restored.showLabels),
-      updatedAt: new Date().toISOString(),
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    state = normalizeState(restored);
+    state.updatedAt = new Date().toISOString();
+    state.pendingChanges = true;
+    saveLocalState();
     renderAll();
-    showToast("กู้คืนข้อมูลสำเร็จ");
+    showToast("กู้คืนข้อมูลสำเร็จ กรุณาบันทึกส่วนกลางเพื่อใช้ทุกเครื่อง");
   } catch (error) {
     console.error(error);
     showToast("ไม่สามารถอ่านไฟล์สำรองนี้ได้");
@@ -681,6 +834,8 @@ function bindEvents() {
   });
   dom.exportButton.addEventListener("click", exportPng);
   dom.backupButton.addEventListener("click", backupState);
+  dom.saveSharedButton.addEventListener("click", saveSharedState);
+  dom.reloadSharedButton.addEventListener("click", reloadSharedState);
   dom.restoreInput.addEventListener("change", (event) => restoreState(event.target.files[0]));
   dom.staffImportInput.addEventListener("change", (event) => importStaff(event.target.files[0]));
 }
@@ -689,6 +844,7 @@ async function init() {
   bindEvents();
   try {
     await loadBoundaries();
+    await loadSharedState();
     maps.main = createMap("main-map", "main");
     maps.outside = createMap("outside-map", "outside");
     maps.main.once("load", () => {

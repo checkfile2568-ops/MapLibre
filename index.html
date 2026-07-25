@@ -2,8 +2,9 @@
 <html lang="th">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="ระบบบริหารเขตพื้นที่งานส่งหมาย ศาลจังหวัดลพบุรี" />
+    <meta name="theme-color" content="#104a6f" />
     <title>ระบบบริหารเขตงานส่งหมาย | ลพบุรี</title>
     <link rel="preconnect" href="https://unpkg.com" />
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.20.0/dist/maplibre-gl.css" />
@@ -16,6 +17,8 @@
         <h1>ระบบบริหารเขตพื้นที่งานส่งหมาย</h1>
       </div>
       <div class="header-actions" aria-label="การจัดการข้อมูล">
+        <button id="reload-shared-button" class="button button-secondary" type="button">โหลดค่ากลาง</button>
+        <button id="save-shared-button" class="button button-primary" type="button">บันทึกส่วนกลาง</button>
         <label class="button button-secondary" for="restore-input">กู้คืนข้อมูล</label>
         <input id="restore-input" type="file" accept="application/json" hidden />
         <button id="backup-button" class="button button-secondary" type="button">สำรองข้อมูล</button>
@@ -47,6 +50,19 @@
             <input id="staff-import-input" type="file" accept=".csv,.txt,text/csv,text/plain" hidden />
           </div>
           <p id="staff-help" class="helper-text">เพิ่มรายชื่อก่อน แล้วระบบจะคละสีที่ต่างกันชัดเจนให้</p>
+        </section>
+
+        <section class="panel-section sharing-section">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">ข้อมูลร่วมทุกเครื่อง</p>
+              <h2>บันทึกส่วนกลาง</h2>
+            </div>
+          </div>
+          <p id="shared-status" class="shared-status" role="status">กำลังเชื่อมต่อข้อมูลส่วนกลาง…</p>
+          <label for="github-token">รหัสบันทึก GitHub</label>
+          <input id="github-token" type="password" autocomplete="off" spellcheck="false" placeholder="วาง Fine-grained token เมื่อบันทึก" />
+          <p class="helper-text">ใช้เฉพาะผู้มีสิทธิ์แก้ไข ระบบไม่เก็บรหัสนี้ในเครื่อง เมื่อกดบันทึก ข้อมูลจะเห็นตรงกันทุกอุปกรณ์ที่เปิดลิงก์นี้</p>
         </section>
 
         <section class="panel-section">

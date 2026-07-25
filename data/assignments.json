@@ -3,13 +3,13 @@
   "staff": [
     {
       "id": "staff-1784987702700-q10g5",
-      "name": "นายชนินทร์​ โพธิ์ศรี",
+      "name": "ชนินทร์​",
       "color": "#1377b5",
       "active": true
     },
     {
       "id": "staff-1784993803984-w6gmn",
-      "name": "นายณรงค์​ นวลอินทร์",
+      "name": "ณรงค์​",
       "color": "#ca5d35",
       "active": true
     },
@@ -101,5 +101,5 @@
     "161103": "legacy-nawaparat"
   },
   "showLabels": true,
-  "updatedAt": "2026-07-25T16:45:38.965Z"
+  "updatedAt": "2026-07-25T16:46:27.086Z"
 }

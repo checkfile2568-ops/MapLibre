@@ -45,11 +45,11 @@
           </div>
           <span id="updated-at" class="updated-at">กำลังโหลดข้อมูล…</span>
         </div>
-        <div class="display-content">
+        <div id="display-content" class="display-content">
           <div class="map-column">
             <div id="display-map" class="display-map" aria-label="แผนที่เขตศาลจังหวัดลพบุรี"></div>
           </div>
-          <aside class="legend-panel" aria-label="คำอธิบายสี">
+          <aside id="legend-panel" class="legend-panel" aria-label="คำอธิบายสี">
             <h3>คำอธิบายสี</h3>
             <p>หนึ่งสีแทนผู้รับผิดชอบหนึ่งคน</p>
             <div id="legend" class="legend" aria-live="polite"></div>
@@ -63,6 +63,7 @@
           <div class="toggle-group">
             <button id="toggle-tambon-labels" class="map-toggle" type="button" aria-pressed="false">ชื่อตำบล</button>
             <button id="toggle-district-labels" class="map-toggle" type="button" aria-pressed="false">ชื่ออำเภอ</button>
+            <button id="toggle-legend-button" class="map-toggle" type="button" aria-pressed="true">ซ่อนคำอธิบายสี</button>
           </div>
           <small class="control-hint">กดเปิดหรือปิดชื่อตำบลและชื่ออำเภอตามต้องการ</small>
         </div>

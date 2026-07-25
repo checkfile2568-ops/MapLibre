@@ -12,11 +12,14 @@ const displayDom = {
   dataStatus: document.querySelector("#data-status"),
   coverageMain: document.querySelector("#coverage-main"),
   coverageExclusion: document.querySelector("#coverage-exclusion"),
+  displayContent: document.querySelector("#display-content"),
+  legendPanel: document.querySelector("#legend-panel"),
   legend: document.querySelector("#legend"),
   results: document.querySelector("#search-results"),
   centralNotice: document.querySelector("#central-notice"),
   tambonLabelsButton: document.querySelector("#toggle-tambon-labels"),
   districtLabelsButton: document.querySelector("#toggle-district-labels"),
+  legendToggleButton: document.querySelector("#toggle-legend-button"),
   staffFilter: document.querySelector("#staff-filter"),
   clearStaffFilter: document.querySelector("#clear-staff-filter"),
   personDetail: document.querySelector("#person-detail"),
@@ -27,7 +30,7 @@ let displayState = { staff: [], assignments: {}, updatedAt: null };
 let displayMap;
 let displayDataRevision = null;
 let displayLabelMarkers = { tambon: [], district: [] };
-let displayUi = { selectedStaffId: "", showTambonLabels: true, showDistrictLabels: true };
+let displayUi = { selectedStaffId: "", showTambonLabels: true, showDistrictLabels: true, showLegend: true };
 let displayResizeTimer;
 
 function typeDisplayTitle() {
@@ -463,6 +466,10 @@ function renderDisplayControls() {
   displayDom.districtLabelsButton.setAttribute("aria-pressed", String(displayUi.showDistrictLabels));
   displayDom.tambonLabelsButton.textContent = displayUi.showTambonLabels ? "ซ่อนชื่อตำบล" : "แสดงชื่อตำบล";
   displayDom.districtLabelsButton.textContent = displayUi.showDistrictLabels ? "ซ่อนชื่ออำเภอ" : "แสดงชื่ออำเภอ";
+  displayDom.legendPanel.hidden = !displayUi.showLegend;
+  displayDom.displayContent.classList.toggle("legend-hidden", !displayUi.showLegend);
+  displayDom.legendToggleButton.setAttribute("aria-pressed", String(displayUi.showLegend));
+  displayDom.legendToggleButton.textContent = displayUi.showLegend ? "ซ่อนคำอธิบายสี" : "แสดงคำอธิบายสี";
 }
 
 function popupForFeature(feature) {
@@ -496,6 +503,7 @@ function createDisplayMap() {
     antialias: true,
   });
   displayMap.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+  displayMap.addControl(createDisplayResetControl(() => fitDisplayToAssignedAreas()), "top-right");
   configureDisplayMapInteraction();
   displayMap.on("load", () => {
     displayMap.addSource("tambons", { type: "geojson", data: displayMapData(), promoteId: "id" });
@@ -519,6 +527,25 @@ function createDisplayMap() {
     fitDisplayToAssignedAreas();
     scheduleDisplayLabels();
   });
+}
+
+function createDisplayResetControl(onReset) {
+  return {
+    onAdd() {
+      const container = document.createElement("div");
+      container.className = "maplibregl-ctrl maplibregl-ctrl-group map-reset-control";
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "map-reset-button";
+      button.title = "กลับพิกัดเริ่มต้น";
+      button.setAttribute("aria-label", "กลับพิกัดเริ่มต้นของแผนที่");
+      button.textContent = "⌖";
+      button.addEventListener("click", onReset);
+      container.append(button);
+      return container;
+    },
+    onRemove() {},
+  };
 }
 
 async function loadDisplayData() {
@@ -607,6 +634,11 @@ async function initDisplay() {
       displayUi.showDistrictLabels = !displayUi.showDistrictLabels;
       renderDisplayControls();
       renderDisplayLabels();
+    });
+    displayDom.legendToggleButton.addEventListener("click", () => {
+      displayUi.showLegend = !displayUi.showLegend;
+      renderDisplayControls();
+      refitDisplayForViewport();
     });
     window.addEventListener("resize", refitDisplayForViewport);
     window.addEventListener("orientationchange", refitDisplayForViewport);

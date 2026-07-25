@@ -124,6 +124,11 @@ input:focus, select:focus { outline: 3px solid rgb(76 151 193 / 24%); border-col
 .shared-actions, .tool-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
 .shared-actions .button, .tool-grid .button { text-align: center; justify-content: center; }
 .tool-grid .button:last-child { grid-column: 1 / -1; }
+.print-settings { margin-top: 10px; border: 1px solid #dbe5eb; border-radius: 8px; padding: 8px 9px; background: #fbfdfe; }
+.print-settings summary { color: var(--navy); cursor: pointer; font-size: .78rem; font-weight: 750; }
+.print-settings[open] summary { margin-bottom: 6px; }
+.print-settings label { display: inline-flex; align-items: center; gap: 6px; margin: 5px 10px 3px 0; color: #385064; font-size: .74rem; font-weight: 650; }
+.print-settings input { width: auto; min-height: auto; margin: 0; accent-color: var(--navy); }
 .report-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
 .report-actions .button { justify-content: center; text-align: center; }
 .report-summary { display: grid; gap: 7px; margin-top: 12px; }
@@ -158,6 +163,7 @@ input:focus, select:focus { outline: 3px solid rgb(76 151 193 / 24%); border-col
 .summary-pill { flex: 0 0 auto; border-radius: 999px; background: #e8f0f4; padding: 4px 6px; font-size: clamp(.52rem, 1.4vw, .72rem); color: #355165; white-space: nowrap; }
 .maps-layout { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(260px, .86fr); gap: 14px; }
 .maps-layout-single { grid-template-columns: minmax(0, 1fr) minmax(240px, .34fr); }
+.maps-layout-single.legend-hidden { grid-template-columns: minmax(0, 1fr); }
 .right-rail { display: grid; gap: 14px; grid-template-rows: minmax(230px, 1.25fr) minmax(130px, .75fr); }
 .legend-rail { grid-template-rows: 1fr; }
 .map-card, .legend-card { min-width: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #fcfeff; }
@@ -184,6 +190,8 @@ input:focus, select:focus { outline: 3px solid rgb(76 151 193 / 24%); border-col
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .maplibregl-ctrl-group { box-shadow: 0 2px 8px rgb(28 56 74 / 15%) !important; }
+.map-reset-control { margin-top: 0 !important; }
+.map-reset-button { color: #25485d; font: 700 20px/29px Arial, sans-serif; }
 .maplibregl-popup-content { padding: 10px 12px; font-family: inherit; font-size: .82rem; color: #263f52; }
 .popup-title { font-weight: 700; margin-bottom: 3px; }
 .popup-sub { color: #637485; }

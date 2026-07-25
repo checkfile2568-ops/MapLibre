@@ -75,6 +75,7 @@ h1, h2, h3, p { margin: 0; }
 .map-frame-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 19px; border-bottom: 1px solid var(--line); background: #f7fafb; }
 .updated-at { color: var(--muted); font-size: .76rem; text-align: right; }
 .display-content { display: grid; grid-template-columns: minmax(0, 1fr) minmax(230px, .3fr); }
+.display-content.legend-hidden { grid-template-columns: minmax(0, 1fr); }
 .map-column { min-width: 0; }
 .display-map { width: 100%; height: min(62vh, 680px); min-height: 420px; background: #edf4f5; }
 .legend-panel { padding: 18px; border-left: 1px solid var(--line); background: #fcfeff; }
@@ -97,6 +98,8 @@ h1, h2, h3, p { margin: 0; }
 .result:hover { border-color: #72aeca; background: #f0f8fa; }
 .result small { display: block; color: var(--muted); margin-top: 1px; }
 .maplibregl-ctrl-group { box-shadow: 0 2px 8px rgb(28 56 74 / 15%) !important; }
+.map-reset-control { margin-top: 0 !important; }
+.map-reset-button { color: #25485d; font: 700 20px/29px Arial, sans-serif; }
 .maplibregl-popup-content { color: #263f52; padding: 10px 12px; font: .84rem "Noto Sans Thai", "Leelawadee UI", Tahoma, sans-serif; }
 .popup-title { font-weight: 700; margin-bottom: 3px; }
 .popup-sub { color: #637485; }

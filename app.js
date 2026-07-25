@@ -34,10 +34,19 @@ const dom = {
   validationList: document.querySelector("#validation-list"),
   validateButton: document.querySelector("#validate-button"),
   summary: document.querySelector("#assignment-summary"),
+  mapsLayout: document.querySelector("#maps-layout"),
+  mainMapCard: document.querySelector("#main-map-card"),
+  legendRail: document.querySelector("#legend-rail"),
   legend: document.querySelector("#legend"),
+  legendToggleButton: document.querySelector("#toggle-legend-button"),
   labelsButton: document.querySelector("#labels-button"),
   districtLabelsButton: document.querySelector("#district-labels-button"),
   exportButton: document.querySelector("#export-button"),
+  printMapButton: document.querySelector("#print-map-button"),
+  printTambonLabels: document.querySelector("#print-tambon-labels"),
+  printDistrictLabels: document.querySelector("#print-district-labels"),
+  printLegend: document.querySelector("#print-legend"),
+  printAreaSummary: document.querySelector("#print-area-summary"),
   backupButton: document.querySelector("#backup-button"),
   restoreInput: document.querySelector("#restore-input"),
   reportStaffSelect: document.querySelector("#report-staff-select"),
@@ -68,7 +77,7 @@ let tokenCheck = { checking: false, status: "idle", message: "", expiresAt: null
 let staffManagementOpen = false;
 
 function initialState() {
-  return { version: 3, staff: [], assignments: {}, showLabels: true, showDistrictLabels: true, updatedAt: null, pendingChanges: false };
+  return { version: 3, staff: [], assignments: {}, showLabels: true, showDistrictLabels: true, showLegend: true, updatedAt: null, pendingChanges: false };
 }
 
 function normalizeState(raw) {
@@ -81,6 +90,7 @@ function normalizeState(raw) {
     assignments: Object.fromEntries(Object.entries(raw.assignments).map(([area, person]) => [String(area), String(person)])),
     showLabels: raw.showLabels !== false,
     showDistrictLabels: raw.showDistrictLabels !== false,
+    showLegend: raw.showLegend !== false,
     updatedAt: raw.updatedAt || null,
     pendingChanges: Boolean(raw.pendingChanges),
   };
@@ -101,6 +111,7 @@ function serializableState() {
     assignments: state.assignments,
     showLabels: state.showLabels,
     showDistrictLabels: state.showDistrictLabels,
+    showLegend: state.showLegend,
     updatedAt: state.updatedAt,
   };
 }
@@ -939,6 +950,7 @@ function renderStaffSelect() {
 }
 
 function renderDistrictList() {
+  if (!dom.districtList) return;
   const staff = selectedStaff();
   const fragment = document.createDocumentFragment();
   const indeterminateInputs = [];
@@ -969,11 +981,15 @@ function renderDistrictList() {
 
 function renderTambonList() {
   const query = dom.tambonSearch.value.trim().toLocaleLowerCase("th");
+  if (!query) {
+    dom.tambonList.innerHTML = '<p class="empty-result">พิมพ์ชื่อตำบลเพื่อค้นหาและเลือกพื้นที่</p>';
+    return;
+  }
   const staff = selectedStaff();
   const matches = availableFeatures()
     .filter((feature) => `${featureTambon(feature)} ${featureDistrict(feature)}`.toLocaleLowerCase("th").includes(query))
     .sort((a, b) => `${featureDistrict(a)} ${featureTambon(a)}`.localeCompare(`${featureDistrict(b)} ${featureTambon(b)}`, "th"))
-    .slice(0, query ? 80 : 25);
+    .slice(0, 80);
   if (!matches.length) {
     dom.tambonList.innerHTML = '<p class="empty-result">ไม่พบตำบลที่ค้นหา</p>';
     return;
@@ -1103,6 +1119,10 @@ function createMap(container) {
     preserveDrawingBuffer: true,
   });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+  map.addControl(createMapResetControl(() => {
+    fitMapsToData();
+    renderMaps();
+  }), "top-right");
   configureMapInteraction(map);
   map.on("load", () => {
     map.addSource("tambons", { type: "geojson", data: mapData(), promoteId: "id" });
@@ -1141,6 +1161,25 @@ function createMap(container) {
     map.on("moveend", () => renderMapLabels(map));
   });
   return map;
+}
+
+function createMapResetControl(onReset) {
+  return {
+    onAdd() {
+      const container = document.createElement("div");
+      container.className = "maplibregl-ctrl maplibregl-ctrl-group map-reset-control";
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "map-reset-button";
+      button.title = "กลับพิกัดเริ่มต้น";
+      button.setAttribute("aria-label", "กลับพิกัดเริ่มต้นของแผนที่");
+      button.textContent = "⌖";
+      button.addEventListener("click", onReset);
+      container.append(button);
+      return container;
+    },
+    onRemove() {},
+  };
 }
 
 function usesCompactTouchLandscape() {
@@ -1270,6 +1309,10 @@ function renderMaps() {
   dom.labelsButton.textContent = state.showLabels ? "ซ่อนชื่อตำบล" : "แสดงชื่อตำบล";
   dom.districtLabelsButton.setAttribute("aria-pressed", String(state.showDistrictLabels));
   dom.districtLabelsButton.textContent = state.showDistrictLabels ? "ซ่อนชื่ออำเภอ" : "แสดงชื่ออำเภอ";
+  dom.legendRail.hidden = !state.showLegend;
+  dom.mapsLayout.classList.toggle("legend-hidden", !state.showLegend);
+  dom.legendToggleButton.setAttribute("aria-expanded", String(state.showLegend));
+  dom.legendToggleButton.textContent = state.showLegend ? "ซ่อนคำอธิบายสี" : "แสดงคำอธิบายสี";
 }
 
 function renderAll() {
@@ -1515,6 +1558,82 @@ async function exportPng() {
   }
 }
 
+function printLegendMarkup() {
+  return state.staff.map((person) => {
+    const count = assignedAreasFor(person.id).length;
+    return `<span class="legend-entry"><i style="background:${escapeHtml(person.color)}"></i>${escapeHtml(person.name)} (${count} ตำบล)</span>`;
+  }).join("");
+}
+
+function printAreaSummaryMarkup() {
+  return state.staff.map((person) => {
+    const workload = workloadFor(person);
+    const districts = workload.districts.map((district) => `อ.${escapeHtml(district)}`).join(", ") || "ยังไม่มีพื้นที่";
+    return `<article class="staff-summary"><div><i style="background:${escapeHtml(person.color)}"></i><strong>${escapeHtml(person.name)}</strong><span>${workload.areas.length} ตำบล · ${workload.districts.length} อำเภอ</span></div><p>${districts}</p></article>`;
+  }).join("");
+}
+
+async function printMapA4() {
+  if (!window.html2canvas || !maps.main) {
+    showToast("ไม่พบเครื่องมือสร้างแผนพิมพ์ กรุณารีเฟรชแล้วลองใหม่");
+    return;
+  }
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) {
+    showToast("เบราว์เซอร์ปิดหน้าต่างพิมพ์ไว้ กรุณาอนุญาตป๊อปอัปแล้วลองใหม่");
+    return;
+  }
+  printWindow.opener = null;
+  printWindow.document.write('<!doctype html><title>กำลังสร้างแผนพิมพ์…</title><p>กำลังสร้างแผนที่สำหรับพิมพ์…</p>');
+  const originalLabels = { showLabels: state.showLabels, showDistrictLabels: state.showDistrictLabels };
+  const showLegend = Boolean(dom.printLegend.checked);
+  const showAreaSummary = Boolean(dom.printAreaSummary.checked);
+  try {
+    state.showLabels = Boolean(dom.printTambonLabels.checked);
+    state.showDistrictLabels = Boolean(dom.printDistrictLabels.checked);
+    renderMaps();
+    maps.main.resize();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    scheduleMapLabels(maps.main);
+    await new Promise((resolve) => setTimeout(resolve, 260));
+    const mapCanvas = await window.html2canvas(document.querySelector("#main-map"), {
+      backgroundColor: "#edf4f5",
+      scale: 2,
+      useCORS: true,
+      logging: false,
+    });
+    const mapImage = mapCanvas.toDataURL("image/png");
+    const printedAt = new Intl.DateTimeFormat("th-TH", { dateStyle: "medium" }).format(new Date());
+    const legend = showLegend ? `<div class="legend-print">${printLegendMarkup()}</div>` : "";
+    const summary = showAreaSummary ? `<section class="summary-grid">${printAreaSummaryMarkup()}</section>` : "";
+    printWindow.document.open();
+    printWindow.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>แผนที่เขตพื้นที่ส่งหมาย</title><style>
+      @page { size: A4 landscape; margin: 9mm; }
+      * { box-sizing: border-box; }
+      body { margin: 0; color: #172b3a; font-family: "Noto Sans Thai", "Leelawadee UI", Tahoma, sans-serif; }
+      h1 { margin: 0; font-size: 18px; } .meta { margin: 2px 0 6px; color: #5e7180; font-size: 9px; }
+      .map { display:block; width:100%; height: 98mm; object-fit:contain; border:1px solid #d8e3e9; border-radius:5px; background:#edf4f5; }
+      .legend-print { display:flex; flex-wrap:wrap; gap:3px 9px; margin:5px 0; font-size:8px; color:#345468; }
+      .legend-entry { white-space:nowrap; } i { display:inline-block; width:8px; height:8px; margin-right:4px; border-radius:50%; vertical-align:middle; box-shadow:0 0 0 1px rgb(0 0 0 / 12%); }
+      .summary-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:3px 8px; margin-top:5px; }
+      .staff-summary { min-width:0; padding:4px 5px; border:1px solid #dce6eb; border-radius:4px; background:#fbfdfe; break-inside:avoid; }
+      .staff-summary div { display:flex; align-items:center; gap:3px; font-size:8.2px; } .staff-summary strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .staff-summary span { margin-left:auto; color:#5e7180; white-space:nowrap; font-size:7.6px; }
+      .staff-summary p { margin:2px 0 0 12px; color:#486171; font-size:7.5px; line-height:1.3; }
+      .foot { margin-top:4px; color:#6a7a86; font-size:7px; text-align:right; }
+    </style></head><body><h1>แผนที่เขตพื้นที่ส่งหมาย — ศาลจังหวัดลพบุรี</h1><p class="meta">สรุปการมอบหมาย ณ วันที่ ${escapeHtml(printedAt)} · A4 แนวนอน</p><img class="map" src="${mapImage}" alt="แผนที่เขตพื้นที่ส่งหมาย" />${legend}${summary}<p class="foot">ข้อมูลขอบเขตตำบล: Thailand Subdistrict Boundaries 2025 (NOSTRA / MERKATOR)</p></body></html>`);
+    printWindow.document.close();
+    printWindow.onload = () => printWindow.print();
+  } catch (error) {
+    console.error(error);
+    printWindow.close();
+    showToast("สร้างแผนพิมพ์ไม่สำเร็จ โปรดลองใหม่อีกครั้ง");
+  } finally {
+    state.showLabels = originalLabels.showLabels;
+    state.showDistrictLabels = originalLabels.showDistrictLabels;
+    renderMaps();
+  }
+}
+
 function backupState() {
   const backup = { ...serializableState(), exportedAt: new Date().toISOString(), note: "Lopburi Notice Area Manager backup" };
   downloadBlob(new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" }), `lopburi-notice-areas-backup-${new Date().toISOString().slice(0, 10)}.json`);
@@ -1602,7 +1721,12 @@ function bindEvents() {
     state.showDistrictLabels = !state.showDistrictLabels;
     persist();
   });
+  dom.legendToggleButton.addEventListener("click", () => {
+    state.showLegend = !state.showLegend;
+    persist();
+  });
   dom.exportButton.addEventListener("click", exportPng);
+  dom.printMapButton.addEventListener("click", printMapA4);
   dom.backupButton.addEventListener("click", backupState);
   dom.excelReportButton.addEventListener("click", exportExcelReport);
   dom.pdfReportButton.addEventListener("click", printStaffPdf);

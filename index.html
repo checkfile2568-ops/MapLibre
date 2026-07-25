@@ -98,7 +98,15 @@
             <input id="restore-input" type="file" accept="application/json" hidden />
             <button id="backup-button" class="button button-muted" type="button">สำรองข้อมูล</button>
             <button id="export-button" class="button button-primary" type="button">ดาวน์โหลด PNG</button>
+            <button id="print-map-button" class="button button-muted" type="button">พิมพ์แผนที่ A4</button>
           </div>
+          <details class="print-settings">
+            <summary>เลือกข้อมูลในแผนพิมพ์ A4</summary>
+            <label><input id="print-tambon-labels" type="checkbox" checked /> แสดงชื่อตำบล</label>
+            <label><input id="print-district-labels" type="checkbox" checked /> แสดงชื่ออำเภอ</label>
+            <label><input id="print-legend" type="checkbox" checked /> แสดงคำอธิบายสี</label>
+            <label><input id="print-area-summary" type="checkbox" checked /> สรุปเขตของผู้รับผิดชอบแต่ละคน</label>
+          </details>
         </section>
 
         <section class="panel-section report-section">
@@ -124,12 +132,8 @@
               <h2>เลือกพื้นที่</h2>
             </div>
           </div>
-          <label for="district-search">เลือกทั้งอำเภอ</label>
-          <div id="district-list" class="district-list" aria-live="polite">
-            <p class="helper-text">กำลังโหลดข้อมูลอำเภอ…</p>
-          </div>
-          <label for="tambon-search">ค้นหาหรือเลือกตำบล</label>
-          <input id="tambon-search" type="search" placeholder="พิมพ์ชื่อตำบลหรืออำเภอ" autocomplete="off" />
+          <label for="tambon-search">ค้นหาตำบล</label>
+          <input id="tambon-search" type="search" placeholder="พิมพ์ชื่อตำบล แล้วเลือกจากรายการทันที" autocomplete="off" />
           <div id="tambon-list" class="tambon-list" aria-live="polite"></div>
           <p class="helper-text">คลิกพื้นที่บนแผนที่เพื่อมอบหมายหรือยกเลิกได้เช่นกัน</p>
         </section>
@@ -155,8 +159,8 @@
           <div id="assignment-summary" class="summary-pills" aria-live="polite"></div>
         </div>
 
-        <div class="maps-layout maps-layout-single">
-          <article class="map-card main-map-card">
+        <div id="maps-layout" class="maps-layout maps-layout-single">
+          <article id="main-map-card" class="map-card main-map-card">
             <div class="map-card-heading">
               <div>
                 <h3>เขตหลัก</h3>
@@ -165,12 +169,13 @@
               <div class="map-card-options">
                 <button id="labels-button" class="map-option" type="button" aria-pressed="true">ซ่อนชื่อตำบล</button>
                 <button id="district-labels-button" class="map-option" type="button" aria-pressed="true">ซ่อนชื่ออำเภอ</button>
+                <button id="toggle-legend-button" class="map-option" type="button" aria-expanded="true">ซ่อนคำอธิบายสี</button>
               </div>
             </div>
             <div id="main-map" class="map-canvas" aria-label="แผนที่เขตศาลจังหวัดลพบุรี"></div>
           </article>
 
-          <aside class="right-rail legend-rail">
+          <aside id="legend-rail" class="right-rail legend-rail">
             <article class="legend-card">
               <div class="map-card-heading">
                 <div>

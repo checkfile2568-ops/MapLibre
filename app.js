@@ -1036,7 +1036,7 @@ function renderSummary() {
     return pill;
   }));
   dom.updatedAt.textContent = state.updatedAt
-    ? `ปรับปรุง: ${new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(state.updatedAt))}`
+    ? `ปรับปรุง: ${new Intl.DateTimeFormat("th-TH", { dateStyle: "medium" }).format(new Date(state.updatedAt))}`
     : "ยังไม่มีการบันทึก";
 }
 
@@ -1103,6 +1103,7 @@ function createMap(container) {
     preserveDrawingBuffer: true,
   });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+  configureMapInteraction(map);
   map.on("load", () => {
     map.addSource("tambons", { type: "geojson", data: mapData(), promoteId: "id" });
     map.addLayer({
@@ -1140,6 +1141,26 @@ function createMap(container) {
     map.on("moveend", () => renderMapLabels(map));
   });
   return map;
+}
+
+function usesCompactTouchLandscape() {
+  const query = window.matchMedia?.("(pointer: coarse) and (orientation: landscape) and (max-height: 620px)");
+  return Boolean(query?.matches);
+}
+
+function configureMapInteraction(map) {
+  if (!map) return;
+  const compactTouch = usesCompactTouchLandscape();
+  if (compactTouch) {
+    map.dragPan.disable();
+    map.touchZoomRotate.disable();
+    map.getCanvas().style.touchAction = "pan-y";
+    return;
+  }
+  map.dragPan.enable();
+  map.touchZoomRotate.enable();
+  map.touchZoomRotate.disableRotation();
+  map.getCanvas().style.touchAction = "";
 }
 
 function updateMapSource(map) {
@@ -1214,6 +1235,17 @@ function renderMapLabels(map) {
   }
 }
 
+function scheduleMapLabels(map) {
+  if (!map) return;
+  const renderWhenReady = () => {
+    if (!map.isStyleLoaded()) return;
+    map.resize();
+    renderMapLabels(map);
+  };
+  map.once("idle", renderWhenReady);
+  window.setTimeout(renderWhenReady, 220);
+}
+
 function fitMapsToData() {
   if (!maps.main || !availableFeatures().length) return;
   const assigned = availableFeatures().filter((feature) => Boolean(getStaff(state.assignments[areaId(feature)])));
@@ -1221,6 +1253,7 @@ function fitMapsToData() {
   const bounds = new maplibregl.LngLatBounds();
   for (const feature of featuresToFit) extendBounds(bounds, feature.geometry.coordinates);
   maps.main.fitBounds(bounds, { padding: 52, duration: 0, maxZoom: 10.5 });
+  scheduleMapLabels(maps.main);
 }
 
 function extendBounds(bounds, coordinates) {
@@ -1614,6 +1647,14 @@ async function init() {
     maps.main.once("load", () => {
       fitMapsToData();
       renderMaps();
+    });
+    window.addEventListener("resize", () => {
+      configureMapInteraction(maps.main);
+      scheduleMapLabels(maps.main);
+    });
+    window.addEventListener("orientationchange", () => {
+      configureMapInteraction(maps.main);
+      scheduleMapLabels(maps.main);
     });
     renderAll();
   } catch (error) {

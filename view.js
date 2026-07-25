@@ -146,7 +146,7 @@ function renderStats() {
     return item;
   }));
   displayDom.updatedAt.textContent = displayState.updatedAt
-    ? `ปรับปรุงล่าสุด: ${new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(displayState.updatedAt))}`
+    ? `ปรับปรุงล่าสุด: ${new Intl.DateTimeFormat("th-TH", { dateStyle: "medium" }).format(new Date(displayState.updatedAt))}`
     : "ยังไม่มีการบันทึกการมอบหมาย";
   if (displayDom.coverageMain) displayDom.coverageMain.textContent = `เขตทั้งหมดรวม ${districtCount} อำเภอ · ตำบลทั้งหมด ${total} ตำบล`;
   if (displayDom.coverageExclusion) displayDom.coverageExclusion.textContent = "(ไม่รวมเขตศาลจังหวัดชัยบาดาล)";
@@ -280,7 +280,10 @@ function fitDisplayToAssignedAreas({ duration = 0 } = {}) {
     displayMap.zoomTo(Math.min(displayMap.getZoom() + 1, 12), { duration: 0 });
   };
   displayMap.fitBounds(bounds, { padding: displayFitPadding(), maxZoom: 10.3, duration });
-  window.setTimeout(zoomInOneStep, Math.max(duration, 0));
+  window.setTimeout(() => {
+    zoomInOneStep();
+    scheduleDisplayLabels();
+  }, Math.max(duration, 0));
 }
 
 function refitDisplayForViewport() {
@@ -288,8 +291,9 @@ function refitDisplayForViewport() {
   displayResizeTimer = window.setTimeout(() => {
     if (!displayMap) return;
     displayMap.resize();
+    configureDisplayMapInteraction();
     if (!displayUi.selectedStaffId && !displaySearchText()) fitDisplayToAssignedAreas();
-    renderDisplayLabels();
+    scheduleDisplayLabels();
   }, 160);
 }
 
@@ -424,6 +428,36 @@ function renderDisplayLabels() {
   }
 }
 
+function scheduleDisplayLabels() {
+  if (!displayMap) return;
+  const renderWhenReady = () => {
+    if (!displayMap?.isStyleLoaded()) return;
+    displayMap.resize();
+    renderDisplayLabels();
+  };
+  displayMap.once("idle", renderWhenReady);
+  window.setTimeout(renderWhenReady, 220);
+}
+
+function usesCompactDisplayTouchLandscape() {
+  const query = window.matchMedia?.("(pointer: coarse) and (orientation: landscape) and (max-height: 620px)");
+  return Boolean(query?.matches);
+}
+
+function configureDisplayMapInteraction() {
+  if (!displayMap) return;
+  if (usesCompactDisplayTouchLandscape()) {
+    displayMap.dragPan.disable();
+    displayMap.touchZoomRotate.disable();
+    displayMap.getCanvas().style.touchAction = "pan-y";
+    return;
+  }
+  displayMap.dragPan.enable();
+  displayMap.touchZoomRotate.enable();
+  displayMap.touchZoomRotate.disableRotation();
+  displayMap.getCanvas().style.touchAction = "";
+}
+
 function renderDisplayControls() {
   displayDom.tambonLabelsButton.setAttribute("aria-pressed", String(displayUi.showTambonLabels));
   displayDom.districtLabelsButton.setAttribute("aria-pressed", String(displayUi.showDistrictLabels));
@@ -462,6 +496,7 @@ function createDisplayMap() {
     antialias: true,
   });
   displayMap.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+  configureDisplayMapInteraction();
   displayMap.on("load", () => {
     displayMap.addSource("tambons", { type: "geojson", data: displayMapData(), promoteId: "id" });
     displayMap.addLayer({ id: "tambon-ground", type: "fill", source: "tambons", paint: { "fill-color": ["get", "color"], "fill-opacity": 0.74 } });
@@ -482,7 +517,7 @@ function createDisplayMap() {
       new maplibregl.Popup({ offset: 12 }).setLngLat(event.lngLat).setDOMContent(popupForFeature(feature)).addTo(displayMap);
     });
     fitDisplayToAssignedAreas();
-    renderDisplayLabels();
+    scheduleDisplayLabels();
   });
 }
 

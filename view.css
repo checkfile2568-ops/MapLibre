@@ -45,8 +45,9 @@ h1, h2, h3, p { margin: 0; }
 .search-box label, .person-filter > span, .control-label { color: #385064; font-size: .82rem; font-weight: 700; }
 .search-box input { min-height: 46px; width: 100%; border: 1px solid #aebfca; border-radius: 9px; padding: 9px 12px; color: var(--ink); font: inherit; background: #fff; }
 .search-box input:focus { outline: 3px solid rgb(76 151 193 / 24%); border-color: #4c97c1; }
-.overview-stats { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
-.stat { border-radius: 999px; background: #e8f0f4; color: #355165; padding: 6px 10px; font-size: .78rem; white-space: nowrap; }
+.overview-stats { display: flex; flex-wrap: nowrap; justify-content: flex-end; gap: 4px; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.overview-stats::-webkit-scrollbar { display: none; }
+.stat { flex: 0 0 auto; border-radius: 999px; background: #e8f0f4; color: #355165; padding: 4px 6px; font-size: clamp(.48rem, 1.85vw, .72rem); line-height: 1.25; white-space: nowrap; }
 
 .display-controls, .person-detail { border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: 0 8px 24px rgb(31 58 77 / 5%); }
 .display-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 18px; padding: 13px 16px; margin-bottom: 16px; }
@@ -131,6 +132,8 @@ h1, h2, h3, p { margin: 0; }
   .map-frame-header { align-items: flex-start; flex-direction: column; padding: 14px; }
   .updated-at { text-align: left; }
   .display-map { height: min(58svh, 500px); min-height: 340px; }
+  .overview-stats { gap: 3px; }
+  .stat { padding: 4px 5px; font-size: clamp(.48rem, 2.05vw, .64rem); }
   .legend-panel { padding: 14px; }
 }
 
@@ -141,7 +144,8 @@ h1, h2, h3, p { margin: 0; }
   .display-shell { padding: 10px; }
   .overview-card { grid-template-columns: minmax(180px, .75fr) minmax(260px, 1.1fr) auto; gap: 12px; padding: 12px; margin-bottom: 10px; }
   .overview-copy > p:not(.eyebrow):not(.central-notice) { display: none; }
-  .display-map { height: calc(100svh - 170px); min-height: 280px; }
+  .display-map { height: clamp(250px, 52svh, 360px); min-height: 250px; }
+  .display-map .maplibregl-canvas { touch-action: pan-y; }
   .legend-panel { padding: 12px; }
   .legend { margin-top: 8px; max-height: calc(100svh - 245px); }
 }

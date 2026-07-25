@@ -153,8 +153,9 @@ input:focus, select:focus { outline: 3px solid rgb(76 151 193 / 24%); border-col
 .map-workspace { min-width: 0; border-radius: 12px; padding: clamp(13px, 1.7vw, 22px); }
 .workspace-topline { margin-bottom: 14px; align-items: center; }
 .workspace-topline .eyebrow { color: var(--muted); opacity: 1; margin-bottom: 3px; }
-.summary-pills { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
-.summary-pill { border-radius: 999px; background: #e8f0f4; padding: 5px 9px; font-size: .77rem; color: #355165; white-space: nowrap; }
+.summary-pills { display: flex; flex-wrap: nowrap; justify-content: flex-end; gap: 4px; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.summary-pills::-webkit-scrollbar { display: none; }
+.summary-pill { flex: 0 0 auto; border-radius: 999px; background: #e8f0f4; padding: 4px 6px; font-size: clamp(.52rem, 1.4vw, .72rem); color: #355165; white-space: nowrap; }
 .maps-layout { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(260px, .86fr); gap: 14px; }
 .maps-layout-single { grid-template-columns: minmax(0, 1fr) minmax(240px, .34fr); }
 .right-rail { display: grid; gap: 14px; grid-template-rows: minmax(230px, 1.25fr) minmax(130px, .75fr); }
@@ -215,15 +216,16 @@ input:focus, select:focus { outline: 3px solid rgb(76 151 193 / 24%); border-col
   .app-header h1 { font-size: 1.05rem; }
   .header-actions { gap: 5px; }
   .button { padding: 7px 9px; font-size: .75rem; }
-  .app-shell { grid-template-columns: minmax(255px, 31vw) minmax(0, 1fr); gap: 10px; padding: 10px; }
-  .control-panel { max-height: calc(100svh - 78px); overflow-y: auto; }
+  .app-shell { grid-template-columns: minmax(225px, 31vw) minmax(0, 1fr); align-items: start; gap: 10px; padding: 10px; }
+  .control-panel { max-height: none; overflow: visible; }
   .panel-section { padding: 12px; }
   .maps-layout { grid-template-columns: minmax(0, 1.55fr) minmax(225px, .8fr); gap: 10px; }
   .maps-layout-single { grid-template-columns: minmax(0, 1.55fr) minmax(210px, .55fr); }
   .right-rail { grid-template-columns: 1fr; grid-template-rows: minmax(220px, 1fr) auto; gap: 10px; }
   .map-card-heading { min-height: 46px; padding: 8px 10px; }
   .map-card-heading p { display: none; }
-  .main-map-card .map-canvas { height: calc(100svh - 175px); min-height: 245px; }
+  .main-map-card .map-canvas { height: clamp(250px, 52svh, 360px); min-height: 250px; }
+  .map-canvas .maplibregl-canvas { touch-action: pan-y; }
   .inset-map-card .map-canvas { min-height: 190px; }
   .workspace-topline { margin-bottom: 8px; }
   .map-footer { padding-top: 6px; }

@@ -1,6 +1,7 @@
 const DISPLAY_GIS_QUERY_URL = "https://services1.arcgis.com/jSaRWj2TDlcN1zOC/arcgis/rest/services/Thailand_Subdistrict_Boundaries_%28%E0%B8%82%E0%B9%89%E0%B8%AD%E0%B8%A1%E0%B8%B9%E0%B8%A5%E0%B8%82%E0%B8%AD%E0%B8%9A%E0%B9%80%E0%B8%82%E0%B8%95%E0%B8%95%E0%B8%B3%E0%B8%9A%E0%B8%A5%E0%B8%9B%E0%B8%A3%E0%B8%B0%E0%B9%80%E0%B8%97%E0%B8%A8%E0%B9%84%E0%B8%97%E0%B8%A2%29/FeatureServer/1/query";
 const DISPLAY_SHARED_DATA_API = "https://api.github.com/repos/checkfile2568-ops/MapLibre/contents/data/assignments.json";
 const DISPLAY_MAIN_COURT_DISTRICTS = new Set(["เมืองลพบุรี", "พัฒนานิคม", "โคกสำโรง", "ท่าวุ้ง", "บ้านหมี่", "หนองม่วง"]);
+const DISPLAY_VERSION = "V1.0";
 
 const displayDom = {
   loading: document.querySelector("#loading"),
@@ -58,9 +59,8 @@ function formatDisplayDate(value) {
 
 function renderDataStatus(online = true) {
   if (!displayDom.dataStatus) return;
-  const version = displayDataSha ? displayDataSha.slice(0, 7) : "—";
   const status = online ? "● ออนไลน์" : "● ออฟไลน์";
-  displayDom.dataStatus.textContent = `${status} · ข้อมูลล่าสุด v${version} · ${formatDisplayDate(displayState.updatedAt)}`;
+  displayDom.dataStatus.textContent = `${status} · ข้อมูลล่าสุด ${DISPLAY_VERSION} · ${formatDisplayDate(displayState.updatedAt)}`;
   displayDom.dataStatus.className = `read-only-badge ${online ? "online" : "offline"}`;
 }
 
@@ -270,7 +270,12 @@ function fitDisplayToAssignedAreas({ duration = 0 } = {}) {
   const featuresToFit = assigned.length ? assigned : displayFeatures;
   const bounds = new maplibregl.LngLatBounds();
   for (const feature of featuresToFit) bounds.extend(boundsForFeature(feature));
+  const zoomInOneStep = () => {
+    if (typeof displayMap?.getZoom !== "function" || typeof displayMap?.zoomTo !== "function") return;
+    displayMap.zoomTo(Math.min(displayMap.getZoom() + 1, 12), { duration: 0 });
+  };
   displayMap.fitBounds(bounds, { padding: displayFitPadding(), maxZoom: 10.3, duration });
+  window.setTimeout(zoomInOneStep, Math.max(duration, 0));
 }
 
 function refitDisplayForViewport() {

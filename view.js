@@ -9,11 +9,13 @@ const displayDom = {
   updatedAt: document.querySelector("#updated-at"),
   legend: document.querySelector("#legend"),
   results: document.querySelector("#search-results"),
+  centralNotice: document.querySelector("#central-notice"),
 };
 
 let displayFeatures = [];
 let displayState = { staff: [], assignments: {}, updatedAt: null };
 let displayMap;
+let displayDataSha = null;
 
 function displayAreaId(feature) {
   return String(feature.properties.ADMIN_ID3 || feature.properties.OBJECTID || feature.id);
@@ -82,6 +84,11 @@ function renderStats() {
   displayDom.updatedAt.textContent = displayState.updatedAt
     ? `ปรับปรุงล่าสุด: ${new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(displayState.updatedAt))}`
     : "ยังไม่มีการบันทึกการมอบหมาย";
+  const hasCentralAssignments = displayState.staff.length > 0 || Object.keys(displayState.assignments).length > 0;
+  displayDom.centralNotice.hidden = hasCentralAssignments;
+  displayDom.centralNotice.textContent = hasCentralAssignments
+    ? ""
+    : "ยังไม่มีข้อมูลการมอบหมายในข้อมูลกลาง ผู้ดูแลต้องกด “บันทึกส่วนกลาง” จากหน้าจัดการก่อน ข้อมูลจึงจะแสดงบนลิงก์นี้และทุกเครื่อง";
 }
 
 function renderLegend() {
@@ -222,17 +229,45 @@ async function loadDisplayData() {
   if (!boundariesResponse.ok) throw new Error("ไม่สามารถโหลดขอบเขตตำบลได้");
   if (!sharedResponse.ok) throw new Error("ไม่สามารถโหลดข้อมูลการมอบหมายได้");
   const [collection, sharedPayload] = await Promise.all([boundariesResponse.json(), sharedResponse.json()]);
-  const sharedData = JSON.parse(decodeDisplayBase64(sharedPayload.content));
+  applyDisplaySharedData(JSON.parse(decodeDisplayBase64(sharedPayload.content)));
+  displayDataSha = sharedPayload.sha || null;
+  displayFeatures = collection.features
+    .filter((feature) => feature.properties?.ADMIN_ID3 && DISPLAY_MAIN_COURT_DISTRICTS.has(feature.properties.NAME2))
+    .map((feature) => ({ ...feature, id: displayAreaId(feature) }));
+  filterDisplayAssignments();
+}
+
+function applyDisplaySharedData(sharedData) {
   displayState = {
     staff: Array.isArray(sharedData.staff) ? sharedData.staff : [],
     assignments: sharedData.assignments && typeof sharedData.assignments === "object" ? sharedData.assignments : {},
     updatedAt: sharedData.updatedAt || null,
   };
-  displayFeatures = collection.features
-    .filter((feature) => feature.properties?.ADMIN_ID3 && DISPLAY_MAIN_COURT_DISTRICTS.has(feature.properties.NAME2))
-    .map((feature) => ({ ...feature, id: displayAreaId(feature) }));
+}
+
+function filterDisplayAssignments() {
   const validIds = new Set(displayFeatures.map(displayAreaId));
   displayState.assignments = Object.fromEntries(Object.entries(displayState.assignments).filter(([id]) => validIds.has(id)));
+}
+
+async function refreshDisplayData() {
+  try {
+    const response = await fetch(`${DISPLAY_SHARED_DATA_API}?ref=main&_=${Date.now()}`, {
+      headers: { Accept: "application/vnd.github+json" },
+      cache: "no-store",
+    });
+    if (!response.ok) return;
+    const payload = await response.json();
+    if (!payload.sha || payload.sha === displayDataSha) return;
+    applyDisplaySharedData(JSON.parse(decodeDisplayBase64(payload.content)));
+    displayDataSha = payload.sha;
+    filterDisplayAssignments();
+    renderStats();
+    renderLegend();
+    updateDisplayMap();
+  } catch (error) {
+    console.warn("Unable to refresh display data", error);
+  }
 }
 
 async function initDisplay() {
@@ -242,6 +277,10 @@ async function initDisplay() {
     renderLegend();
     createDisplayMap();
     displayDom.search.addEventListener("input", updateDisplayMap);
+    window.setInterval(refreshDisplayData, 30000);
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) refreshDisplayData();
+    });
   } catch (error) {
     console.error(error);
     displayDom.updatedAt.textContent = "ไม่สามารถโหลดข้อมูลได้ กรุณารีเฟรชหน้าเว็บ";

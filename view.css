@@ -34,6 +34,7 @@ h1, h2, h3, p { margin: 0; }
 .overview-card .eyebrow, .map-frame-header .eyebrow { color: var(--muted); opacity: 1; margin-bottom: 4px; }
 .overview-card h2, .map-frame-header h2 { font-size: clamp(1.1rem, 1.7vw, 1.38rem); }
 .overview-copy > p:last-child { margin-top: 7px; color: var(--muted); font-size: .85rem; line-height: 1.5; }
+.central-notice { margin-top: 10px !important; border-radius: 8px; padding: 9px 10px; background: #fff6e4; color: #7e520e !important; font-size: .8rem !important; }
 .search-box { display: grid; gap: 5px; color: #385064; font-size: .82rem; font-weight: 700; }
 .search-box input { min-height: 46px; width: 100%; border: 1px solid #aebfca; border-radius: 9px; padding: 9px 12px; color: var(--ink); font: inherit; background: #fff; }
 .search-box input:focus { outline: 3px solid rgb(76 151 193 / 24%); border-color: #4c97c1; }

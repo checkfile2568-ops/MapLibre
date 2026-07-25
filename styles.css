@@ -138,6 +138,7 @@ input:focus, select:focus { outline: 3px solid rgb(76 151 193 / 24%); border-col
 .maplibregl-popup-content { padding: 10px 12px; font-family: inherit; font-size: .82rem; color: #263f52; }
 .popup-title { font-weight: 700; margin-bottom: 3px; }
 .popup-sub { color: #637485; }
+.map-tambon-label { pointer-events: none; color: #153d55; font: 600 12px/1.2 "Noto Sans Thai", "Leelawadee UI", Tahoma, sans-serif; white-space: nowrap; text-shadow: 0 1px 0 #fff, 1px 0 0 #fff, -1px 0 0 #fff, 0 -1px 0 #fff; }
 
 @media (max-width: 1050px) {
   .app-shell { grid-template-columns: 300px minmax(0, 1fr); }

@@ -46,6 +46,7 @@ const dom = {
 
 let features = [];
 let maps = { main: null };
+let labelMarkers = { main: [] };
 let toastTimer;
 let state = loadState();
 let shared = { available: false, loading: false, sha: null, error: null };
@@ -293,7 +294,7 @@ function renderSharedStatus() {
   if (shared.loading) {
     message = "กำลังโหลดข้อมูลส่วนกลาง…";
   } else if (state.pendingChanges) {
-    message = "มีการแก้ไขในเครื่องที่ยังไม่ได้บันทึกส่วนกลาง";
+    message = "ข้อมูลบนหน้านี้ยังอยู่ในเครื่องเท่านั้น — หน้าจอแสดงผลและเครื่องอื่นจะเห็นข้อมูลหลังจากกด “บันทึกส่วนกลาง”";
     statusClass = "pending";
   } else if (shared.available) {
     message = "เชื่อมต่อข้อมูลส่วนกลางแล้ว — ทุกเครื่องจะเห็นค่าชุดเดียวกัน";
@@ -680,7 +681,6 @@ function mapData() {
         properties: {
           ...feature.properties,
           id,
-          label: state.showLabels ? featureTambon(feature) : "",
           color: owner ? owner.color : "#dce6ea",
           height: owner ? 1250 : 340,
           assigned: Boolean(owner),
@@ -696,7 +696,6 @@ function createMap(container) {
     container,
     style: {
       version: 8,
-      glyphs: "https://fonts.openmaptiles.org/{fontstack}/{range}.pbf",
       sources: {},
       layers: [{ id: "background", type: "background", paint: { "background-color": "#edf4f5" } }],
     },
@@ -730,20 +729,6 @@ function createMap(container) {
       source: "tambons",
       paint: { "line-color": "#ffffff", "line-width": 1.1, "line-opacity": 0.96 },
     });
-    map.addLayer({
-      id: "tambon-label",
-      type: "symbol",
-      source: "tambons",
-      layout: {
-        "text-field": ["get", "label"],
-        "text-font": ["Noto Sans Thai Regular"],
-        "text-size": ["interpolate", ["linear"], ["zoom"], 8, 9, 10, 11],
-        "text-max-width": 7,
-        "text-allow-overlap": false,
-        "text-ignore-placement": false,
-      },
-      paint: { "text-color": "#153d55", "text-halo-color": "#ffffff", "text-halo-width": 1.25 },
-    });
     map.on("mouseenter", "tambon-3d", () => { map.getCanvas().style.cursor = "pointer"; });
     map.on("mouseleave", "tambon-3d", () => { map.getCanvas().style.cursor = ""; });
     map.on("click", "tambon-3d", (event) => {
@@ -753,6 +738,7 @@ function createMap(container) {
       if (!original) return;
       toggleFeatureFromMap(original);
     });
+    map.on("moveend", () => renderMapLabels(map));
   });
   return map;
 }
@@ -760,6 +746,54 @@ function createMap(container) {
 function updateMapSource(map) {
   if (!map || !map.isStyleLoaded() || !map.getSource("tambons")) return;
   map.getSource("tambons").setData(mapData());
+  renderMapLabels(map);
+}
+
+function labelPosition(feature) {
+  const bounds = new maplibregl.LngLatBounds();
+  extendBounds(bounds, feature.geometry.coordinates);
+  const center = bounds.getCenter();
+  return [center.lng, center.lat];
+}
+
+function clearMapLabels(mapKey = "main") {
+  for (const marker of labelMarkers[mapKey] || []) marker.remove();
+  labelMarkers[mapKey] = [];
+}
+
+function labelsOverlap(first, second) {
+  return first.left < second.right && first.right > second.left && first.top < second.bottom && first.bottom > second.top;
+}
+
+function renderMapLabels(map) {
+  clearMapLabels();
+  if (!map || !map.isStyleLoaded() || !state.showLabels || map.getZoom() < 9.4) return;
+
+  const occupied = [];
+  const visible = availableFeatures()
+    .map((feature) => {
+      const coordinate = labelPosition(feature);
+      return { feature, coordinate, point: map.project(coordinate) };
+    })
+    .filter(({ coordinate }) => map.getBounds().contains(coordinate))
+    .sort((first, second) => {
+      const firstAssigned = Boolean(getStaff(state.assignments[areaId(first.feature)]));
+      const secondAssigned = Boolean(getStaff(state.assignments[areaId(second.feature)]));
+      return Number(secondAssigned) - Number(firstAssigned);
+    });
+
+  for (const { feature, coordinate, point } of visible) {
+    const name = featureTambon(feature);
+    const width = Math.max(34, name.length * 7.8);
+    const box = { left: point.x - width / 2, right: point.x + width / 2, top: point.y - 10, bottom: point.y + 10 };
+    if (occupied.some((other) => labelsOverlap(box, other))) continue;
+    occupied.push(box);
+    const element = document.createElement("span");
+    element.className = "map-tambon-label";
+    element.textContent = name;
+    const marker = new maplibregl.Marker({ element, anchor: "center" }).setLngLat(coordinate).addTo(map);
+    labelMarkers.main.push(marker);
+  }
 }
 
 function fitMapsToData() {
@@ -932,6 +966,7 @@ function bindEvents() {
   dom.labelsButton.addEventListener("click", () => {
     state.showLabels = !state.showLabels;
     persist();
+    if (state.showLabels && maps.main?.getZoom() < 9.4) showToast("ซูมแผนที่เข้าเล็กน้อยเพื่อดูชื่อตำบลเป็นคำชัดเจน");
   });
   dom.exportButton.addEventListener("click", exportPng);
   dom.backupButton.addEventListener("click", backupState);

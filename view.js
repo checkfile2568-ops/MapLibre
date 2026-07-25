@@ -7,6 +7,7 @@ const displayDom = {
   search: document.querySelector("#search-input"),
   stats: document.querySelector("#overview-stats"),
   updatedAt: document.querySelector("#updated-at"),
+  coverageSummary: document.querySelector("#coverage-summary"),
   legend: document.querySelector("#legend"),
   results: document.querySelector("#search-results"),
   centralNotice: document.querySelector("#central-notice"),
@@ -89,6 +90,7 @@ function displayMapData() {
 
 function renderStats() {
   const total = displayFeatures.length;
+  const districtCount = new Set(displayFeatures.map(displayDistrict)).size;
   const assigned = displayFeatures.filter((feature) => displayOwner(feature)).length;
   const selected = displayState.staff.find((person) => person.id === displayUi.selectedStaffId);
   const values = [`${displayState.staff.length} ผู้รับผิดชอบ`, `มอบหมายแล้ว ${assigned}/${total} ตำบล`, `ยังไม่มอบหมาย ${total - assigned} ตำบล`];
@@ -102,6 +104,9 @@ function renderStats() {
   displayDom.updatedAt.textContent = displayState.updatedAt
     ? `ปรับปรุงล่าสุด: ${new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(displayState.updatedAt))}`
     : "ยังไม่มีการบันทึกการมอบหมาย";
+  if (displayDom.coverageSummary) {
+    displayDom.coverageSummary.textContent = `เขตทั้งหมดรวม ${districtCount} อำเภอ · ตำบลทั้งหมด ${total} ตำบล (ไม่รวมเขตศาลจังหวัดชัยบาดาล: ชัยบาดาล, โคกเจริญ, สระโบสถ์, ท่าหลวง และลำสนธิ)`;
+  }
   const hasCentralAssignments = displayState.staff.length > 0 || Object.keys(displayState.assignments).length > 0;
   displayDom.centralNotice.hidden = hasCentralAssignments;
   displayDom.centralNotice.textContent = hasCentralAssignments
@@ -285,15 +290,15 @@ function renderPersonDetail() {
   displayDom.personDetail.append(heading, summary, list);
 }
 
+function clearDisplayLabels(type) {
+  for (const marker of displayLabelMarkers[type]) marker.remove();
+  displayLabelMarkers[type] = [];
+}
+
 function labelPosition(feature) {
   const bounds = boundsForFeature(feature);
   const center = bounds.getCenter();
   return [center.lng, center.lat];
-}
-
-function clearDisplayLabels(type) {
-  for (const marker of displayLabelMarkers[type]) marker.remove();
-  displayLabelMarkers[type] = [];
 }
 
 function labelBoxesOverlap(first, second) {

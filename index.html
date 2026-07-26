@@ -8,7 +8,7 @@
   <title>ระบบบริหารเขตงานส่งหมาย | ศาลจังหวัดลพบุรี</title>
   <link rel="preconnect" href="https://unpkg.com">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.20.0/dist/maplibre-gl.css">
-  <link rel="stylesheet" href="styles.css?v=4.1.0">
+  <link rel="stylesheet" href="styles.css?v=4.1.1">
 </head>
 <body>
   <header class="app-header">
@@ -95,7 +95,7 @@
       <div class="workspace-topline"><div><p class="eyebrow">ภาพรวมการมอบหมาย</p><h2>เขตศาลจังหวัดลพบุรี</h2></div><div id="assignment-summary" class="summary-pills"></div></div>
       <div id="maps-layout" class="maps-layout maps-layout-single">
         <article class="map-card main-map-card">
-          <div class="map-card-heading"><div><h3>แผนที่เขตหลัก</h3><p>สีแทนผู้รับผิดชอบ และป้ายยอดแยกรายตำบล</p></div><div class="map-card-options"><button id="labels-button" class="map-option" type="button">ซ่อนชื่อตำบล</button><button id="district-labels-button" class="map-option" type="button">ซ่อนชื่ออำเภอ</button><button id="landmarks-button" class="map-option" type="button">ซ่อนสถานที่สำคัญ 3D</button><button id="price-labels-button" class="map-option" type="button">ซ่อนยอด</button><button id="toggle-legend-button" class="map-option" type="button">ซ่อนคำอธิบายสี</button></div></div>
+          <div class="map-card-heading"><div><h3>แผนที่เขตหลัก</h3><p>สีแทนผู้รับผิดชอบ และป้ายยอดแยกรายตำบล</p></div><div class="map-card-options"><button id="labels-button" class="map-option" type="button">ซ่อนชื่อตำบล</button><button id="district-labels-button" class="map-option" type="button">ซ่อนชื่ออำเภอ</button><button id="price-labels-button" class="map-option" type="button">ซ่อนยอด</button><button id="toggle-legend-button" class="map-option" type="button">ซ่อนคำอธิบายสี</button></div></div>
           <div id="main-map" class="map-canvas"></div>
         </article>
         <aside id="legend-rail" class="right-rail legend-rail"><article class="legend-card"><div class="map-card-heading"><div><h3>คำอธิบายสี</h3><p>จำนวนพื้นที่และยอดรวมรายบุคคล</p></div></div><div id="legend" class="legend"></div></article></aside>
@@ -111,7 +111,6 @@
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="core.js"></script>
-  <script src="landmarks.js?v=1"></script>
-  <script src="app.js?v=4.1.0"></script>
+  <script src="app.js?v=4.1.1"></script>
 </body>
 </html>

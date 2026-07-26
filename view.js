@@ -11,15 +11,15 @@ const DISPLAY_UPDATED_LABEL = "ปรับปรุงล่าสุด: 24 �
 const dom = Object.fromEntries([
   "loading", "display-title", "search-input", "overview-stats", "updated-at", "data-status", "coverage-main", "coverage-exclusion",
   "display-content", "search-menu", "legend-panel", "legend", "search-results", "central-notice", "toggle-tambon-labels", "toggle-district-labels",
-  "toggle-price-labels", "toggle-legend-button", "staff-filter", "clear-staff-filter", "person-detail", "price-privacy-note"
+  "toggle-legend-button", "staff-filter", "clear-staff-filter", "person-detail", "price-privacy-note"
 ].map((id) => [id.replaceAll("-", "_"), document.getElementById(id)]));
 
 let features = [];
 let state = Core.initialState();
 let map = null;
 let revision = null;
-let markers = { tambon: [], district: [], price: [] };
-let ui = { selectedStaffId: "", showTambonLabels: true, showDistrictLabels: true, showPriceLabels: true, showLegend: true };
+let markers = { tambon: [], district: [] };
+let ui = { selectedStaffId: "", showTambonLabels: true, showDistrictLabels: true, showLegend: true };
 let resizeTimer = null;
 
 function sharedDataUrl() {
@@ -58,19 +58,13 @@ function searchText() {
   return Core.sanitizeName(dom.search_input.value).toLocaleLowerCase("th");
 }
 
-function priceSearchTokens(feature) {
-  if (!publicPricesEnabled()) return "";
-  const value = areaPrice(feature);
-  return value === null ? "" : `${value} ${Core.formatAmount(value)}`;
-}
-
 function matchesSelectedStaff(feature) {
   return !ui.selectedStaffId || owner(feature)?.id === ui.selectedStaffId;
 }
 
 function matchesSearch(feature, query = searchText()) {
   if (!query) return true;
-  return `${Core.tambonName(feature)} ${Core.districtName(feature)} ${owner(feature)?.name || ""} ${priceSearchTokens(feature)}`.toLocaleLowerCase("th").includes(query);
+  return `${Core.tambonName(feature)} ${Core.districtName(feature)} ${owner(feature)?.name || ""}`.toLocaleLowerCase("th").includes(query);
 }
 
 function matchesDisplay(feature, query = searchText()) {
@@ -116,13 +110,8 @@ function renderDataStatus(online = true) {
 function renderStats() {
   const total = features.length;
   const assigned = features.filter((feature) => owner(feature)).length;
-  const priced = features.filter((feature) => areaPrice(feature) !== null).length;
   const selected = state.staff.find((person) => person.id === ui.selectedStaffId);
   const values = [`${state.staff.length} ผู้รับผิดชอบ`, `มอบหมาย ${assigned}/${total} ตำบล`, `ยังไม่มอบหมาย ${total - assigned} ตำบล`];
-  if (publicPricesEnabled()) {
-    values.push(`กำหนดยอด ${priced}/${total} ตำบล`);
-    values.push(`ยอดรวม ${Core.formatAmount(Core.sumPrices(features, state.prices))}`);
-  }
   if (selected) values.push(`กำลังแสดง: ${selected.name}`);
   dom.overview_stats.replaceChildren(...values.map((text) => { const span = document.createElement("span"); span.className = "stat"; span.textContent = text; return span; }));
   dom.updated_at.textContent = DISPLAY_UPDATED_LABEL;
@@ -143,7 +132,7 @@ function renderLegend() {
     const row = document.createElement("button"); row.type = "button"; row.className = "legend-item legend-person"; row.setAttribute("aria-pressed", String(person.id === ui.selectedStaffId));
     const dot = document.createElement("span"); dot.className = "legend-dot"; dot.style.background = person.color;
     const name = document.createElement("strong"); name.textContent = person.name;
-    const summary = document.createElement("span"); summary.className = "legend-count"; summary.textContent = publicPricesEnabled() ? `${areas.length} ตำบล · ${Core.formatAmount(Core.sumPrices(areas, state.prices))}` : `${areas.length} ตำบล`;
+    const summary = document.createElement("span"); summary.className = "legend-count"; summary.textContent = `${areas.length} ตำบล`;
     row.append(dot, name, summary); row.addEventListener("click", () => selectStaff(person.id === ui.selectedStaffId ? "" : person.id, true)); fragment.append(row);
   }
   dom.legend.replaceChildren(fragment);
@@ -159,7 +148,7 @@ function renderSearchResults() {
   for (const feature of matches) {
     const row = document.createElement("button"); row.type = "button"; row.className = "result";
     const first = document.createElement("span"); first.textContent = `${Core.tambonName(feature)} · ${owner(feature)?.name || "ยังไม่มอบหมาย"}`;
-    const small = document.createElement("small"); small.textContent = publicPricesEnabled() ? `${Core.districtName(feature)} · ${Core.formatAmount(areaPrice(feature))}` : Core.districtName(feature);
+    const small = document.createElement("small"); small.textContent = Core.districtName(feature);
     row.append(first, small); row.addEventListener("click", () => focusFeature(feature)); list.append(row);
   }
   dom.search_results.replaceChildren(heading, list);
@@ -186,7 +175,7 @@ function renderPersonDetail() {
   const title = document.createElement("h3"); title.textContent = `เขตรับผิดชอบ: ${person.name}`;
   const zoom = document.createElement("button"); zoom.type = "button"; zoom.className = "clear-filter"; zoom.textContent = "ซูมดูพื้นที่"; zoom.addEventListener("click", () => focusFeatures(assigned)); heading.append(title, zoom);
   const summary = document.createElement("div"); summary.className = "person-summary";
-  const values = [`${assigned.length} ตำบล`, `${byDistrict.size} อำเภอ`]; if (publicPricesEnabled()) values.push(Core.formatAmount(Core.sumPrices(assigned, state.prices)));
+  const values = [`${assigned.length} ตำบล`, `${byDistrict.size} อำเภอ`];
   for (const text of values) { const span = document.createElement("span"); span.textContent = text; summary.append(span); }
   const groups = document.createElement("div"); groups.className = "district-assignment-list";
   for (const [district, districtFeatures] of [...byDistrict.entries()].sort(([a], [b]) => a.localeCompare(b, "th"))) {
@@ -195,7 +184,7 @@ function renderPersonDetail() {
     const chips = document.createElement("div"); chips.className = "area-chip-list";
     for (const feature of districtFeatures.sort((a, b) => Core.tambonName(a).localeCompare(Core.tambonName(b), "th"))) {
       const chip = document.createElement("button"); chip.type = "button"; chip.className = "area-chip";
-      chip.textContent = publicPricesEnabled() ? `${Core.tambonName(feature)} · ${Core.formatAmount(areaPrice(feature))}` : Core.tambonName(feature);
+      chip.textContent = Core.tambonName(feature);
       chip.addEventListener("click", () => focusFeature(feature)); chips.append(chip);
     }
     section.append(h4, chips); groups.append(section);
@@ -204,10 +193,8 @@ function renderPersonDetail() {
 }
 
 function renderControls() {
-  ui.showPriceLabels = publicPricesEnabled() && ui.showPriceLabels;
   dom.toggle_tambon_labels.setAttribute("aria-checked", String(ui.showTambonLabels));
   dom.toggle_district_labels.setAttribute("aria-checked", String(ui.showDistrictLabels));
-  dom.toggle_price_labels.hidden = !publicPricesEnabled(); dom.toggle_price_labels.setAttribute("aria-checked", String(ui.showPriceLabels));
   dom.legend_panel.hidden = !ui.showLegend; dom.search_menu.classList.toggle("legend-hidden", !ui.showLegend); dom.toggle_legend_button.setAttribute("aria-checked", String(ui.showLegend));
 }
 
@@ -316,7 +303,7 @@ function clearMarkers(type) { for (const marker of markers[type]) marker.remove(
 function boxesOverlap(a, b) { return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top; }
 
 function renderLabels() {
-  clearMarkers("tambon"); clearMarkers("district"); clearMarkers("price");
+  clearMarkers("tambon"); clearMarkers("district");
   if (!map?.isStyleLoaded()) return;
   const bounds = map.getBounds(); const filtered = currentFeatures(); const visible = filtered.filter((feature) => bounds.contains(centerForFeature(feature)));
   const occupied = [];
@@ -325,11 +312,6 @@ function renderLabels() {
       const center = centerForFeature(feature); const point = map.project(center); const text = Core.tambonName(feature); const width = Math.max(34, text.length * 7.8); const box = { left: point.x - width / 2, right: point.x + width / 2, top: point.y - 10, bottom: point.y + 10 };
       if (occupied.some((item) => boxesOverlap(box, item))) continue; occupied.push(box);
       const el = document.createElement("span"); el.className = "display-tambon-label"; el.textContent = text; markers.tambon.push(new maplibregl.Marker({ element: el }).setLngLat(center).addTo(map));
-    }
-  }
-  if (publicPricesEnabled() && ui.showPriceLabels) {
-    for (const feature of visible) {
-      const price = areaPrice(feature); if (price === null) continue; const el = document.createElement("span"); el.className = "display-price-label"; el.textContent = Core.formatAmount(price); markers.price.push(new maplibregl.Marker({ element: el, anchor: "top", offset: [0, 10] }).setLngLat(centerForFeature(feature)).addTo(map));
     }
   }
   if (ui.showDistrictLabels) {
@@ -352,7 +334,7 @@ async function loadData() {
   const [collection, rawState] = await Promise.all([boundariesResponse.json(), dataResponse.json()]);
   features = collection.features.filter((feature) => Core.areaId(feature) && Core.isCourtFeature(feature)).map((feature) => ({ ...feature, id: Core.areaId(feature) }));
   if (!features.length) throw new Error("ไม่พบตำบลในเขตศาลจังหวัดลพบุรี");
-  state = Core.filterStateToFeatures(Core.normalizeState(rawState), features); revision = rawState.updatedAt || JSON.stringify(rawState); ui.showPriceLabels = state.showPriceLabels !== false;
+  state = Core.filterStateToFeatures(Core.normalizeState(rawState), features); revision = rawState.updatedAt || JSON.stringify(rawState);
 }
 
 async function refreshData() {
@@ -362,7 +344,6 @@ async function refreshData() {
     const raw = await response.json(); const nextRevision = raw.updatedAt || JSON.stringify(raw);
     if (nextRevision === revision) return renderDataStatus(true);
     state = Core.filterStateToFeatures(Core.normalizeState(raw), features); revision = nextRevision;
-    if (!publicPricesEnabled()) ui.showPriceLabels = false;
     renderStaffFilter(); renderStats(); renderLegend(); renderPersonDetail(); renderControls(); updateMap();
   } catch (error) { console.warn(error); renderDataStatus(false); }
 }
@@ -373,7 +354,6 @@ function bindEvents() {
   dom.clear_staff_filter.addEventListener("click", () => selectStaff("", true));
   dom.toggle_tambon_labels.addEventListener("click", () => { ui.showTambonLabels = !ui.showTambonLabels; renderControls(); renderLabels(); });
   dom.toggle_district_labels.addEventListener("click", () => { ui.showDistrictLabels = !ui.showDistrictLabels; renderControls(); renderLabels(); });
-  dom.toggle_price_labels.addEventListener("click", () => { ui.showPriceLabels = !ui.showPriceLabels; renderControls(); renderLabels(); });
   dom.toggle_legend_button.addEventListener("click", () => { ui.showLegend = !ui.showLegend; renderControls(); refitViewport(); });
   addEventListener("resize", refitViewport); addEventListener("orientationchange", refitViewport);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshData(); });

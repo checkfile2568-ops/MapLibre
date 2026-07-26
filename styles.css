@@ -23,3 +23,9 @@ label{color:#385064;font-size:.86rem;font-weight:650;display:block;margin:12px 0
 @media(max-width:760px){.app-header{min-height:0;align-items:flex-start;flex-direction:column;padding-bottom:13px}.header-actions{justify-content:flex-start}.app-shell{grid-template-columns:1fr;padding:10px}.control-panel{max-width:none}.map-canvas{height:58svh;min-height:380px}.map-footer{flex-direction:column;gap:3px}.summary-pills{justify-content:flex-start}.price-input{width:92px;flex-basis:92px}}
 @media(max-width:1000px) and (max-height:620px) and (orientation:landscape){.app-header{min-height:58px;padding-top:8px;padding-bottom:8px}.app-header .eyebrow{display:none}.app-header h1{font-size:1.05rem}.app-shell{grid-template-columns:minmax(235px,31vw) minmax(0,1fr);gap:10px;padding:10px}.panel-section{padding:12px}.map-card-heading{min-height:46px;padding:8px 10px}.map-card-heading p{display:none}.map-canvas{height:clamp(260px,54svh,380px);min-height:260px}.maplibregl-canvas{touch-action:pan-y}.workspace-topline{margin-bottom:8px}}
 .app-header .button-secondary{background:rgb(255 255 255 / 12%);border-color:rgb(255 255 255 / 28%);color:#fff}.app-header .button-secondary:hover{background:rgb(255 255 255 / 21%)}
+
+/* Compact map framing: retain the entire court area while avoiding excess empty canvas. */
+.map-canvas{height:clamp(360px,55vh,620px);min-height:360px}
+@media(max-width:1100px){.map-canvas{height:clamp(340px,52vh,560px);min-height:340px}}
+@media(max-width:760px){.map-canvas{height:clamp(320px,48svh,460px);min-height:320px}}
+@media(max-width:1000px) and (max-height:620px) and (orientation:landscape){.map-canvas{height:clamp(235px,50svh,320px);min-height:235px}}

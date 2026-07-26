@@ -5,11 +5,11 @@ const Core = window.MapLibreCore;
 // display-only endpoint returned HTTP 400, so MapLibre was never created.
 const GIS_QUERY_URL = "https://services1.arcgis.com/jSaRWj2TDlcN1zOC/arcgis/rest/services/Thailand_Subdistrict_Boundaries_%28%E0%B8%82%E0%B9%89%E0%B8%AD%E0%B8%A1%E0%B8%B9%E0%B8%A5%E0%B8%82%E0%B8%AD%E0%B8%9A%E0%B9%80%E0%B8%82%E0%B8%95%E0%B8%95%E0%B8%B3%E0%B8%9A%E0%B8%A5%E0%B8%9B%E0%B8%A3%E0%B8%B0%E0%B9%80%E0%B8%97%E0%B8%A8%E0%B9%84%E0%B8%97%E0%B8%A2%29/FeatureServer/1/query";
 const SHARED_DATA_URL = "data/assignments.json";
-const DISPLAY_VERSION = "V4.0.1";
+const DISPLAY_VERSION = "V4.0.2";
 
 const dom = Object.fromEntries([
   "loading", "display-title", "search-input", "overview-stats", "updated-at", "data-status", "coverage-main", "coverage-exclusion",
-  "display-content", "legend-panel", "legend", "search-results", "central-notice", "toggle-tambon-labels", "toggle-district-labels",
+  "display-content", "search-menu", "legend-panel", "legend", "search-results", "central-notice", "toggle-tambon-labels", "toggle-district-labels",
   "toggle-price-labels", "toggle-legend-button", "staff-filter", "clear-staff-filter", "person-detail", "price-privacy-note"
 ].map((id) => [id.replaceAll("-", "_"), document.getElementById(id)]));
 
@@ -203,10 +203,10 @@ function renderPersonDetail() {
 
 function renderControls() {
   ui.showPriceLabels = publicPricesEnabled() && ui.showPriceLabels;
-  dom.toggle_tambon_labels.setAttribute("aria-pressed", String(ui.showTambonLabels)); dom.toggle_tambon_labels.textContent = ui.showTambonLabels ? "ซ่อนชื่อตำบล" : "แสดงชื่อตำบล";
-  dom.toggle_district_labels.setAttribute("aria-pressed", String(ui.showDistrictLabels)); dom.toggle_district_labels.textContent = ui.showDistrictLabels ? "ซ่อนชื่ออำเภอ" : "แสดงชื่ออำเภอ";
-  dom.toggle_price_labels.hidden = !publicPricesEnabled(); dom.toggle_price_labels.setAttribute("aria-pressed", String(ui.showPriceLabels)); dom.toggle_price_labels.textContent = ui.showPriceLabels ? "ซ่อนยอด" : "แสดงยอด";
-  dom.legend_panel.hidden = !ui.showLegend; dom.display_content.classList.toggle("legend-hidden", !ui.showLegend); dom.toggle_legend_button.setAttribute("aria-pressed", String(ui.showLegend)); dom.toggle_legend_button.textContent = ui.showLegend ? "ซ่อนคำอธิบายสี" : "แสดงคำอธิบายสี";
+  dom.toggle_tambon_labels.setAttribute("aria-checked", String(ui.showTambonLabels));
+  dom.toggle_district_labels.setAttribute("aria-checked", String(ui.showDistrictLabels));
+  dom.toggle_price_labels.hidden = !publicPricesEnabled(); dom.toggle_price_labels.setAttribute("aria-checked", String(ui.showPriceLabels));
+  dom.legend_panel.hidden = !ui.showLegend; dom.search_menu.classList.toggle("legend-hidden", !ui.showLegend); dom.toggle_legend_button.setAttribute("aria-checked", String(ui.showLegend));
 }
 
 function selectStaff(id, focus = false) {
@@ -240,7 +240,7 @@ function focusFeatures(items) {
 function fitMap({ duration = 0 } = {}) {
   if (!map || !features.length) return;
   const assigned = features.filter((feature) => owner(feature)); const items = assigned.length ? assigned : features; const bounds = new maplibregl.LngLatBounds(); for (const feature of items) bounds.extend(boundsForFeature(feature));
-  map.fitBounds(bounds, { padding: { top: 55, right: 70, bottom: 70, left: 70 }, maxZoom: 10.3, duration }); scheduleLabels();
+  map.fitBounds(bounds, { padding: { top: 28, right: 30, bottom: 28, left: 30 }, maxZoom: 10.8, duration }); scheduleLabels();
 }
 
 function popupForFeature(feature) {
@@ -261,7 +261,7 @@ function supportsWebGL() {
 function createMap() {
   if (!window.maplibregl) throw new Error("ไม่พบ MapLibre GL");
   if (!supportsWebGL() && !window.__MAPLIBRE_TEST__) throw new Error("อุปกรณ์นี้ไม่รองรับ WebGL");
-  map = new maplibregl.Map({ container: "display-map", style: { version: 8, sources: {}, layers: [{ id: "background", type: "background", paint: { "background-color": "#edf4f5" } }] }, center: [100.68, 14.83], zoom: 8.9, pitch: 47, bearing: -13, antialias: true });
+  map = new maplibregl.Map({ container: "display-map", style: { version: 8, sources: {}, layers: [{ id: "background", type: "background", paint: { "background-color": "#edf4f5" } }] }, center: [100.68, 14.83], zoom: 8.9, pitch: 30, bearing: -5, antialias: true });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
   map.addControl({ onAdd() { const group = document.createElement("div"); group.className = "maplibregl-ctrl maplibregl-ctrl-group"; const btn = document.createElement("button"); btn.type = "button"; btn.className = "map-reset-button"; btn.textContent = "⌖"; btn.addEventListener("click", () => fitMap()); group.append(btn); return group; }, onRemove() {} }, "top-right");
   configureInteraction();

@@ -745,7 +745,7 @@ function createMap() {
   map = new maplibregl.Map({
     container: "main-map",
     style: { version: 8, sources: {}, layers: [{ id: "background", type: "background", paint: { "background-color": "#edf4f5" } }] },
-    center: [100.68, 14.83], zoom: 8.9, pitch: 47, bearing: -13, antialias: true, preserveDrawingBuffer: true,
+    center: [100.68, 14.83], zoom: 8.9, pitch: 30, bearing: -5, antialias: true, preserveDrawingBuffer: true,
   });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
   map.addControl(createResetControl(() => fitMapToData()), "top-right");
@@ -787,7 +787,7 @@ function fitMapToData() {
   if (!map || !availableFeatures().length) return;
   const assigned = availableFeatures().filter((feature) => getStaff(state.assignments[Core.areaId(feature)]));
   const bounds = new maplibregl.LngLatBounds(); for (const feature of (assigned.length ? assigned : availableFeatures())) extendBounds(bounds, feature.geometry.coordinates);
-  map.fitBounds(bounds, { padding: 52, duration: 0, maxZoom: 10.5 }); scheduleMapLabels();
+  map.fitBounds(bounds, { padding: 28, duration: 0, maxZoom: 10.8 }); scheduleMapLabels();
 }
 
 function clearMarkers(type) { for (const marker of labelMarkers[type]) marker.remove(); labelMarkers[type] = []; }

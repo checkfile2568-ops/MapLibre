@@ -8,7 +8,7 @@
   <title>ระบบบริหารเขตงานส่งหมาย | ศาลจังหวัดลพบุรี</title>
   <link rel="preconnect" href="https://unpkg.com">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.20.0/dist/maplibre-gl.css">
-  <link rel="stylesheet" href="styles.css?v=4.0.2">
+  <link rel="stylesheet" href="styles.css?v=4.0.3">
 </head>
 <body>
   <header class="app-header">
@@ -24,6 +24,7 @@
         <select id="staff-select"><option value="">— เลือกผู้รับผิดชอบ —</option></select>
         <div class="add-staff-row"><input id="new-staff-name" type="text" maxlength="80" placeholder="เพิ่มชื่อผู้ส่งหมาย"><button id="add-staff-button" class="button button-secondary" type="button">เพิ่ม</button></div>
         <div class="compact-actions"><button id="new-color-button" class="text-button" type="button">คละสีใหม่</button><label class="text-button" for="staff-import-input">นำเข้ารายชื่อ</label><input id="staff-import-input" type="file" accept=".csv,.txt,text/csv,text/plain" hidden></div>
+        <p class="helper-text import-format">รูปแบบนำเข้า: ไฟล์ CSV หรือ TXT โดยใส่ <strong>1 ชื่อต่อ 1 บรรทัด</strong> หรือใช้คอลัมน์แรกเป็นชื่อ ระบบข้ามหัวตาราง “ชื่อ” หรือ “Name” ให้อัตโนมัติ</p>
         <p id="staff-help" class="helper-text"></p>
       </section>
 
@@ -110,6 +111,6 @@
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="core.js"></script>
-  <script src="app.js?v=4.0.2"></script>
+  <script src="app.js?v=4.0.3"></script>
 </body>
 </html>

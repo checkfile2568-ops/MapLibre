@@ -5,7 +5,8 @@ const Core = window.MapLibreCore;
 // display-only endpoint returned HTTP 400, so MapLibre was never created.
 const GIS_QUERY_URL = "https://services1.arcgis.com/jSaRWj2TDlcN1zOC/arcgis/rest/services/Thailand_Subdistrict_Boundaries_%28%E0%B8%82%E0%B9%89%E0%B8%AD%E0%B8%A1%E0%B8%B9%E0%B8%A5%E0%B8%82%E0%B8%AD%E0%B8%9A%E0%B9%80%E0%B8%82%E0%B8%95%E0%B8%95%E0%B8%B3%E0%B8%9A%E0%B8%A5%E0%B8%9B%E0%B8%A3%E0%B8%B0%E0%B9%80%E0%B8%97%E0%B8%A8%E0%B9%84%E0%B8%97%E0%B8%A2%29/FeatureServer/1/query";
 const SHARED_DATA_URL = "data/assignments.json";
-const DISPLAY_VERSION = "V4.0.2";
+const DISPLAY_VERSION = "V4.0.3";
+const DISPLAY_UPDATED_LABEL = "ปรับปรุงล่าสุด: 24 ก.ค. 2569";
 
 const dom = Object.fromEntries([
   "loading", "display-title", "search-input", "overview-stats", "updated-at", "data-status", "coverage-main", "coverage-exclusion",
@@ -87,6 +88,7 @@ function mapData() {
     const person = owner(feature);
     const match = matchesDisplay(feature, query);
     const dimmed = filtered && !match;
+    const selected = Boolean(ui.selectedStaffId && person?.id === ui.selectedStaffId);
     return {
       ...feature,
       id: Core.areaId(feature),
@@ -94,7 +96,7 @@ function mapData() {
         ...feature.properties,
         id: Core.areaId(feature),
         color: dimmed ? "#dce5e9" : person ? person.color : (match && query ? "#e1a14d" : "#d4e1e6"),
-        height: dimmed ? 180 : (match && query ? 1450 : person ? 1100 : 320),
+        height: dimmed ? 180 : (selected ? 2450 : (match && query ? 1450 : person ? 1100 : 320)),
       },
     };
   }) };
@@ -123,7 +125,7 @@ function renderStats() {
   }
   if (selected) values.push(`กำลังแสดง: ${selected.name}`);
   dom.overview_stats.replaceChildren(...values.map((text) => { const span = document.createElement("span"); span.className = "stat"; span.textContent = text; return span; }));
-  dom.updated_at.textContent = state.updatedAt ? `ปรับปรุงล่าสุด: ${formatDate(state.updatedAt)}` : "ยังไม่มีการบันทึก";
+  dom.updated_at.textContent = DISPLAY_UPDATED_LABEL;
   dom.coverage_main.textContent = `เขตทั้งหมด ${new Set(features.map(Core.districtName)).size} อำเภอ · ${total} ตำบล`;
   dom.coverage_exclusion.textContent = "(ไม่รวมเขตศาลจังหวัดชัยบาดาล)";
   const hasData = Core.hasSharedData(state);
@@ -214,7 +216,16 @@ function selectStaff(id, focus = false) {
   dom.staff_filter.value = id;
   dom.clear_staff_filter.hidden = !id;
   renderStats(); renderLegend(); renderPersonDetail(); updateMap();
-  if (focus && id) focusFeatures(features.filter((feature) => owner(feature)?.id === id));
+  if (focus) {
+    if (id) focusFeatures(features.filter((feature) => owner(feature)?.id === id));
+    else fitMap({ duration: 500 });
+  }
+}
+
+function resetMapToOverview() {
+  dom.search_input.value = "";
+  selectStaff("", false);
+  fitMap({ duration: 350 });
 }
 
 function boundsForFeature(feature) {
@@ -263,9 +274,11 @@ function createMap() {
   if (!supportsWebGL() && !window.__MAPLIBRE_TEST__) throw new Error("อุปกรณ์นี้ไม่รองรับ WebGL");
   map = new maplibregl.Map({ container: "display-map", style: { version: 8, sources: {}, layers: [{ id: "background", type: "background", paint: { "background-color": "#edf4f5" } }] }, center: [100.68, 14.83], zoom: 8.9, pitch: 30, bearing: -5, antialias: true });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
-  map.addControl({ onAdd() { const group = document.createElement("div"); group.className = "maplibregl-ctrl maplibregl-ctrl-group"; const btn = document.createElement("button"); btn.type = "button"; btn.className = "map-reset-button"; btn.textContent = "⌖"; btn.addEventListener("click", () => fitMap()); group.append(btn); return group; }, onRemove() {} }, "top-right");
+  map.addControl({ onAdd() { const group = document.createElement("div"); group.className = "maplibregl-ctrl maplibregl-ctrl-group"; const btn = document.createElement("button"); btn.type = "button"; btn.className = "map-reset-button"; btn.textContent = "⌖"; btn.addEventListener("click", resetMapToOverview); group.append(btn); return group; }, onRemove() {} }, "top-right");
+  decorateMapControls();
   configureInteraction();
   map.on("load", () => {
+    decorateMapControls();
     map.addSource("tambons", { type: "geojson", data: mapData(), promoteId: "id" });
     map.addLayer({ id: "tambon-ground", type: "fill", source: "tambons", paint: { "fill-color": ["get", "color"], "fill-opacity": .74 } });
     map.addLayer({ id: "tambon-3d", type: "fill-extrusion", source: "tambons", paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-height": ["get", "height"], "fill-extrusion-base": 0, "fill-extrusion-opacity": .84 } });
@@ -273,6 +286,23 @@ function createMap() {
     map.on("click", "tambon-3d", (event) => { const id = String(event.features?.[0]?.properties?.id || ""); const feature = features.find((item) => Core.areaId(item) === id); if (feature) new maplibregl.Popup({ offset: 12 }).setLngLat(event.lngLat).setDOMContent(popupForFeature(feature)).addTo(map); });
     map.on("moveend", renderLabels); fitMap(); scheduleLabels();
   });
+}
+
+function decorateMapControls() {
+  if (!map) return;
+  const controls = [
+    [".maplibregl-ctrl-zoom-in", "ขยายภาพ"],
+    [".maplibregl-ctrl-zoom-out", "ลดขนาดภาพ"],
+    [".maplibregl-ctrl-compass", "ปรับมุมมอง 3 มิติ"],
+    [".map-reset-button", "กลับสู่ภาพรวม"],
+  ];
+  for (const [selector, label] of controls) {
+    const button = map.getContainer().querySelector(selector);
+    if (!button) continue;
+    button.dataset.tooltip = label;
+    button.title = label;
+    button.setAttribute("aria-label", label);
+  }
 }
 
 function configureInteraction() {
@@ -340,7 +370,7 @@ async function refreshData() {
 function bindEvents() {
   dom.search_input.addEventListener("input", updateMap);
   dom.staff_filter.addEventListener("change", () => selectStaff(dom.staff_filter.value, true));
-  dom.clear_staff_filter.addEventListener("click", () => selectStaff(""));
+  dom.clear_staff_filter.addEventListener("click", () => selectStaff("", true));
   dom.toggle_tambon_labels.addEventListener("click", () => { ui.showTambonLabels = !ui.showTambonLabels; renderControls(); renderLabels(); });
   dom.toggle_district_labels.addEventListener("click", () => { ui.showDistrictLabels = !ui.showDistrictLabels; renderControls(); renderLabels(); });
   dom.toggle_price_labels.addEventListener("click", () => { ui.showPriceLabels = !ui.showPriceLabels; renderControls(); renderLabels(); });

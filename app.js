@@ -749,8 +749,10 @@ function createMap() {
   });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
   map.addControl(createResetControl(() => fitMapToData()), "top-right");
+  decorateMapControls();
   configureMapInteraction();
   map.on("load", () => {
+    decorateMapControls();
     map.addSource("tambons", { type: "geojson", data: mapData(), promoteId: "id" });
     map.addLayer({ id: "tambon-ground", type: "fill", source: "tambons", paint: { "fill-color": ["get", "color"], "fill-opacity": 0.74 } });
     map.addLayer({ id: "tambon-3d", type: "fill-extrusion", source: "tambons", paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-height": ["get", "height"], "fill-extrusion-base": 0, "fill-extrusion-opacity": 0.82 } });
@@ -765,6 +767,23 @@ function createMap() {
 
 function createResetControl(onReset) {
   return { onAdd() { const group = document.createElement("div"); group.className = "maplibregl-ctrl maplibregl-ctrl-group"; group.append(button("⌖", "map-reset-button", onReset)); return group; }, onRemove() {} };
+}
+
+function decorateMapControls() {
+  if (!map) return;
+  const controls = [
+    [".maplibregl-ctrl-zoom-in", "ขยายภาพ"],
+    [".maplibregl-ctrl-zoom-out", "ลดขนาดภาพ"],
+    [".maplibregl-ctrl-compass", "ปรับมุมมอง 3 มิติ"],
+    [".map-reset-button", "กลับสู่ภาพรวม"],
+  ];
+  for (const [selector, label] of controls) {
+    const control = map.getContainer().querySelector(selector);
+    if (!control) continue;
+    control.dataset.tooltip = label;
+    control.title = label;
+    control.setAttribute("aria-label", label);
+  }
 }
 
 function configureMapInteraction() {
@@ -898,6 +917,114 @@ async function printMapA4() {
   finally { Object.assign(state, original); renderMapControls(); renderMapLabels(); }
 }
 
+async function captureCurrentMapImage() {
+  if (!map) throw new Error("ยังไม่พร้อมสร้างภาพแผนที่");
+  map.resize();
+  renderMapLabels();
+  await new Promise((resolve) => {
+    let completed = false;
+    const finish = () => { if (!completed) { completed = true; resolve(); } };
+    if (map.isStyleLoaded()) map.once("idle", finish);
+    setTimeout(finish, 500);
+  });
+  const image = map.getCanvas().toDataURL("image/png");
+  if (!image.startsWith("data:image/png")) throw new Error("ไม่สามารถอ่านภาพแผนที่ได้");
+  return image;
+}
+
+async function createPrintableMapCopy(image) {
+  const copy = dom.printable.cloneNode(true);
+  const mapCopy = copy.querySelector("#main-map");
+  copy.removeAttribute("id");
+  copy.classList.add("export-print-copy");
+  copy.style.position = "fixed";
+  copy.style.left = "-100000px";
+  copy.style.top = "0";
+  copy.style.width = `${Math.ceil(dom.printable.getBoundingClientRect().width)}px`;
+  copy.style.zIndex = "-1";
+  if (mapCopy) {
+    mapCopy.id = "export-map-snapshot";
+    const imageElement = new Image();
+    imageElement.className = "export-map-image";
+    imageElement.alt = "แผนที่เขตพื้นที่ส่งหมาย";
+    imageElement.src = image;
+    mapCopy.replaceChildren(imageElement);
+    await imageElement.decode();
+  }
+  document.body.append(copy);
+  return copy;
+}
+
+function groupedAreaMarkup(person) {
+  const workload = workloadFor(person);
+  const byDistrict = new Map();
+  for (const feature of workload.areas) {
+    const district = Core.districtName(feature);
+    if (!byDistrict.has(district)) byDistrict.set(district, []);
+    byDistrict.get(district).push(feature);
+  }
+  const districts = [...byDistrict.entries()].sort(([first], [second]) => first.localeCompare(second, "th"));
+  if (!districts.length) return '<p class="print-empty">ยังไม่มีพื้นที่รับผิดชอบ</p>';
+  return districts.map(([district, items]) => `<section class="print-district"><h4>อำเภอ${escapeHtml(district)} <span>${items.length} ตำบล</span></h4><ul>${items.sort((first, second) => Core.tambonName(first).localeCompare(Core.tambonName(second), "th")).map((feature) => `<li><span>ตำบล${escapeHtml(Core.tambonName(feature))}</span><b>${escapeHtml(Core.formatAmount(featurePrice(feature)))}</b></li>`).join("")}</ul></section>`).join("");
+}
+
+function professionalStaffCardsMarkup() {
+  return state.staff.map((person) => {
+    const workload = workloadFor(person);
+    return `<article class="print-staff-card" style="--staff-color:${escapeHtml(person.color)}"><header><i></i><div><h3>${escapeHtml(person.name)}</h3><p>${person.active ? "ปฏิบัติงาน" : "ปิดใช้งาน"} · ${workload.areas.length} ตำบล · ${workload.districts.length} อำเภอ · ${escapeHtml(Core.formatAmount(workload.totalAmount))}</p></div></header>${groupedAreaMarkup(person)}</article>`;
+  }).join("");
+}
+
+async function exportProfessionalPng() {
+  if (!window.html2canvas || !map) return showToast("โหลดเครื่องมือ PNG ไม่สำเร็จ");
+  const original = dom.export_button.textContent;
+  dom.export_button.disabled = true;
+  dom.export_button.textContent = "กำลังสร้าง PNG…";
+  let copy;
+  try {
+    copy = await createPrintableMapCopy(await captureCurrentMapImage());
+    const canvas = await html2canvas(copy, { backgroundColor: "#fff", scale: 2, useCORS: true, logging: false });
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+    if (!blob) throw new Error("ไม่สามารถสร้างไฟล์ PNG ได้");
+    downloadBlob(blob, `lopburi-notice-areas-${new Date().toISOString().slice(0, 10)}.png`);
+    showToast("ดาวน์โหลด PNG แผนที่สีจริงแล้ว");
+  } catch (error) {
+    console.error(error);
+    showToast("ส่งออก PNG ไม่สำเร็จ");
+  } finally {
+    copy?.remove();
+    dom.export_button.disabled = false;
+    dom.export_button.textContent = original;
+  }
+}
+
+async function printProfessionalMapA4() {
+  if (!map) return showToast("แผนที่ยังโหลดไม่เสร็จ");
+  const printWindow = open("", "_blank");
+  if (!printWindow) return showToast("กรุณาอนุญาตป๊อปอัป");
+  const original = { showLabels: state.showLabels, showDistrictLabels: state.showDistrictLabels, showPriceLabels: state.showPriceLabels };
+  try {
+    state.showLabels = dom.print_tambon_labels.checked;
+    state.showDistrictLabels = dom.print_district_labels.checked;
+    state.showPriceLabels = dom.print_price_labels.checked;
+    renderMapControls();
+    const image = await captureCurrentMapImage();
+    const legend = dom.print_legend.checked ? `<div class="print-legend">${printLegendMarkup()}</div>` : "";
+    const staffCards = dom.print_area_summary.checked ? `<section class="print-staff-section"><h2>สรุปเขตรับผิดชอบรายบุคคล</h2><div class="print-staff-grid">${professionalStaffCardsMarkup()}</div></section>` : "";
+    printWindow.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>แผนที่เขตพื้นที่ส่งหมาย</title><style>@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}body{margin:0;color:#142638;font-family:"Noto Sans Thai","Leelawadee UI",Tahoma,sans-serif}.print-header{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:6px}.print-header h1{margin:0;font-size:18px;color:#123d5a}.print-header p{margin:3px 0 0;font-size:9px;color:#607482}.print-map{display:block;width:100%;height:103mm;object-fit:contain;background:#edf4f5;border:1px solid #d8e3e9}.print-legend{display:flex;flex-wrap:wrap;gap:4px 10px;margin:5px 0 0;font-size:8px}.legend-entry{white-space:nowrap}.legend-entry i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px}.print-staff-section{margin-top:8px;break-before:page}.print-staff-section h2{margin:0 0 6px;font-size:16px;color:#123d5a}.print-staff-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.print-staff-card{break-inside:avoid;border:1px solid #d7e2e8;border-left:5px solid var(--staff-color);border-radius:6px;padding:7px 8px;background:#fff}.print-staff-card header{display:flex;gap:7px;align-items:center}.print-staff-card header i{width:10px;height:10px;border-radius:50%;background:var(--staff-color);flex:0 0 10px}.print-staff-card h3{margin:0;font-size:12px;color:#173f59}.print-staff-card header p{margin:1px 0 0;font-size:8px;color:#5f7280}.print-district{margin-top:7px}.print-district h4{margin:0 0 3px;font-size:9px;color:#2b5874}.print-district h4 span{margin-left:4px;color:#6a7c87;font-weight:400}.print-district ul{margin:0;padding:0;list-style:none;columns:2;column-gap:13px}.print-district li{display:flex;justify-content:space-between;gap:7px;padding:2px 0;border-bottom:1px dotted #dce6eb;font-size:8px;break-inside:avoid}.print-district li b{white-space:nowrap;color:#315a70}.print-empty{margin:6px 0 0;font-size:8px;color:#6b7d88}</style></head><body><header class="print-header"><div><h1>แผนที่เขตพื้นที่ส่งหมาย</h1><p>ศาลจังหวัดลพบุรี · ภาพแผนที่ตามการแสดงผลปัจจุบัน</p></div><p>${escapeHtml(new Date().toLocaleDateString("th-TH", { dateStyle: "medium" }))}</p></header><img class="print-map" src="${image}" alt="แผนที่เขตพื้นที่ส่งหมาย">${legend}${staffCards}</body></html>`);
+    printWindow.document.close();
+    printWindow.onload = () => printWindow.print();
+  } catch (error) {
+    console.error(error);
+    printWindow.close();
+    showToast("สร้างแผนพิมพ์ไม่สำเร็จ");
+  } finally {
+    Object.assign(state, original);
+    renderMapControls();
+    renderMapLabels();
+  }
+}
+
 function backupState() { downloadBlob(new Blob([JSON.stringify({ ...serializableState(), exportedAt: new Date().toISOString(), note: "Lopburi Notice Area Manager v4 backup" }, null, 2)], { type: "application/json" }), `lopburi-notice-v4-${new Date().toISOString().slice(0, 10)}.json`); showToast("ดาวน์โหลดไฟล์สำรองแล้ว"); }
 
 async function restoreState(file) {
@@ -943,7 +1070,7 @@ function bindEvents() {
   dom.district_labels_button.addEventListener("click", () => { state.showDistrictLabels = !state.showDistrictLabels; persist(); });
   dom.price_labels_button.addEventListener("click", () => { state.showPriceLabels = !state.showPriceLabels; persist(); });
   dom.toggle_legend_button.addEventListener("click", () => { state.showLegend = !state.showLegend; persist(); });
-  dom.export_button.addEventListener("click", exportPng); dom.print_map_button.addEventListener("click", printMapA4);
+  dom.export_button.addEventListener("click", exportProfessionalPng); dom.print_map_button.addEventListener("click", printProfessionalMapA4);
   dom.backup_button.addEventListener("click", backupState); dom.restore_input.addEventListener("change", (event) => restoreState(event.target.files[0]));
   dom.excel_report_button.addEventListener("click", exportExcel); dom.pdf_report_button.addEventListener("click", printPersonReport); dom.report_staff_select.addEventListener("change", renderReportSummary);
   dom.check_token_button.addEventListener("click", async () => { const result = await verifyGitHubToken(); showToast(result.valid ? "ตรวจสอบรหัสแล้ว" : result.reason); });

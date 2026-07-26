@@ -1,189 +1,116 @@
-/*
- * ระบบบริหารเขตงานส่งหมาย — ข้อมูลการมอบหมายถูกเก็บในเบราว์เซอร์ของเครื่องผู้ใช้
- * ขอบเขตตำบลถูกเรียกจาก ArcGIS Feature Service แบบอ่านอย่างเดียว
- */
+"use strict";
 
+const Core = window.MapLibreCore;
 const GIS_QUERY_URL = "https://services1.arcgis.com/jSaRWj2TDlcN1zOC/arcgis/rest/services/Thailand_Subdistrict_Boundaries_%28%E0%B8%82%E0%B9%89%E0%B8%AD%E0%B8%A1%E0%B8%B9%E0%B8%A5%E0%B8%82%E0%B8%AD%E0%B8%9A%E0%B9%80%E0%B8%82%E0%B8%95%E0%B8%95%E0%B8%B3%E0%B8%9A%E0%B8%A5%E0%B8%9B%E0%B8%A3%E0%B8%B0%E0%B9%80%E0%B8%97%E0%B8%A8%E0%B9%84%E0%B8%97%E0%B8%A2%29/FeatureServer/1/query";
-const STORAGE_KEY = "lopburi-notice-area-manager-v1";
-const REMEMBERED_TOKEN_KEY = STORAGE_KEY + ":github-token";
-const REMEMBERED_TOKEN_METADATA_KEY = STORAGE_KEY + ":github-token-metadata";
-const SHARED_BRANCH = "main";
 const SHARED_DATA_URL = "data/assignments.json";
 const SHARED_DATA_API = "https://api.github.com/repos/checkfile2568-ops/MapLibre/contents/data/assignments.json";
-const MAIN_COURT_DISTRICTS = new Set(["เมืองลพบุรี", "พัฒนานิคม", "โคกสำโรง", "ท่าวุ้ง", "บ้านหมี่", "หนองม่วง"]);
-const PALETTE = [
-  "#1377b5", "#ca5d35", "#2c9a6d", "#7757b5", "#c04662", "#27858f",
-  "#ae791a", "#4772af", "#a04d9a", "#537c3c", "#9c623f", "#27725a",
-];
+const SHARED_BRANCH = "main";
+const TOKEN_KEY = `${Core.STORAGE_KEY}:github-token`;
+const TOKEN_META_KEY = `${Core.STORAGE_KEY}:github-token-metadata`;
+const PALETTE = ["#1377b5", "#ca5d35", "#2c9a6d", "#7757b5", "#c04662", "#27858f", "#ae791a", "#4772af", "#a04d9a", "#537c3c", "#9c623f", "#27725a"];
 
-const dom = {
-  loading: document.querySelector("#loading"),
-  staffSelect: document.querySelector("#staff-select"),
-  newStaffName: document.querySelector("#new-staff-name"),
-  addStaffButton: document.querySelector("#add-staff-button"),
-  staffImportInput: document.querySelector("#staff-import-input"),
-  colorSwatch: document.querySelector("#color-swatch"),
-  staffHelp: document.querySelector("#staff-help"),
-  newColorButton: document.querySelector("#new-color-button"),
-  toggleStaffManagement: document.querySelector("#toggle-staff-management"),
-  staffManagementContent: document.querySelector("#staff-management-content"),
-  staffManagementList: document.querySelector("#staff-management-list"),
-  districtList: document.querySelector("#district-list"),
-  tambonSearch: document.querySelector("#tambon-search"),
-  tambonList: document.querySelector("#tambon-list"),
-  validationList: document.querySelector("#validation-list"),
-  validateButton: document.querySelector("#validate-button"),
-  summary: document.querySelector("#assignment-summary"),
-  mapsLayout: document.querySelector("#maps-layout"),
-  mainMapCard: document.querySelector("#main-map-card"),
-  legendRail: document.querySelector("#legend-rail"),
-  legend: document.querySelector("#legend"),
-  legendToggleButton: document.querySelector("#toggle-legend-button"),
-  labelsButton: document.querySelector("#labels-button"),
-  districtLabelsButton: document.querySelector("#district-labels-button"),
-  exportButton: document.querySelector("#export-button"),
-  printMapButton: document.querySelector("#print-map-button"),
-  printTambonLabels: document.querySelector("#print-tambon-labels"),
-  printDistrictLabels: document.querySelector("#print-district-labels"),
-  printLegend: document.querySelector("#print-legend"),
-  printAreaSummary: document.querySelector("#print-area-summary"),
-  backupButton: document.querySelector("#backup-button"),
-  restoreInput: document.querySelector("#restore-input"),
-  reportStaffSelect: document.querySelector("#report-staff-select"),
-  excelReportButton: document.querySelector("#excel-report-button"),
-  pdfReportButton: document.querySelector("#pdf-report-button"),
-  reportSummary: document.querySelector("#report-summary"),
-  saveSharedButton: document.querySelector("#save-shared-button"),
-  reloadSharedButton: document.querySelector("#reload-shared-button"),
-  checkTokenButton: document.querySelector("#check-token-button"),
-  githubToken: document.querySelector("#github-token"),
-  rememberToken: document.querySelector("#remember-github-token"),
-  rememberedTokenStatus: document.querySelector("#remembered-token-status"),
-  forgetTokenButton: document.querySelector("#forget-github-token-button"),
-  sharedStatus: document.querySelector("#shared-status"),
-  tokenStatus: document.querySelector("#token-status"),
-  updatedAt: document.querySelector("#updated-at"),
-  toast: document.querySelector("#toast"),
-  printable: document.querySelector("#printable"),
-};
+const dom = Object.fromEntries([
+  "loading", "staff-select", "new-staff-name", "add-staff-button", "staff-import-input", "color-swatch", "staff-help", "new-color-button",
+  "toggle-staff-management", "staff-management-content", "staff-management-list", "district-list", "tambon-search", "tambon-list",
+  "price-search", "price-list", "price-paste", "price-import-button", "price-csv-input", "price-import-status", "price-progress",
+  "price-labels-button", "publish-prices", "validation-list", "validate-button", "assignment-summary", "maps-layout", "legend-rail", "legend",
+  "toggle-legend-button", "labels-button", "district-labels-button", "export-button", "print-map-button", "print-tambon-labels",
+  "print-district-labels", "print-price-labels", "print-legend", "print-area-summary", "backup-button", "restore-input",
+  "report-staff-select", "excel-report-button", "pdf-report-button", "report-summary", "save-shared-button", "reload-shared-button",
+  "check-token-button", "github-token", "remember-github-token", "remembered-token-status", "forget-github-token-button", "shared-status",
+  "token-status", "updated-at", "toast", "printable"
+].map((id) => [id.replaceAll("-", "_"), document.getElementById(id)]));
 
 let features = [];
-let maps = { main: null };
-let labelMarkers = { tambon: [], district: [] };
-let toastTimer;
-let state = loadState();
-let shared = { available: false, loading: false, sha: null, error: null };
-let tokenCheck = { checking: false, status: "idle", message: "", expiresAt: null, login: null };
+let state = loadLocalState();
+let map = null;
+let labelMarkers = { tambon: [], district: [], price: [] };
+let shared = { available: false, loading: false, error: null };
+let tokenCheck = { checking: false, valid: false, login: null, expiresAt: null };
+let toastTimer = null;
 let staffManagementOpen = false;
+let bypassLeaveGuard = false;
 
-function initialState() {
-  return { version: 3, staff: [], assignments: {}, showLabels: true, showDistrictLabels: true, showLegend: true, updatedAt: null, pendingChanges: false };
+function showToast(message) {
+  if (!dom.toast) return;
+  dom.toast.textContent = message;
+  dom.toast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => dom.toast.classList.remove("show"), 3200);
 }
 
-function normalizeState(raw) {
-  if (!raw || !Array.isArray(raw.staff) || typeof raw.assignments !== "object") return initialState();
-  return {
-    version: 3,
-    staff: raw.staff
-      .filter((person) => person && person.id && person.name && person.color)
-      .map((person) => ({ id: String(person.id), name: String(person.name), color: String(person.color), active: person.active !== false })),
-    assignments: Object.fromEntries(Object.entries(raw.assignments).map(([area, person]) => [String(area), String(person)])),
-    showLabels: raw.showLabels !== false,
-    showDistrictLabels: raw.showDistrictLabels !== false,
-    showLegend: raw.showLegend !== false,
-    updatedAt: raw.updatedAt || null,
-    pendingChanges: Boolean(raw.pendingChanges),
-  };
-}
-
-function loadState() {
+function loadLocalState() {
   try {
-    return normalizeState(JSON.parse(localStorage.getItem(STORAGE_KEY)));
+    return Core.normalizeState(JSON.parse(localStorage.getItem(Core.STORAGE_KEY)));
   } catch {
-    return initialState();
+    return Core.initialState();
   }
 }
 
-function serializableState() {
-  return {
-    version: 3,
-    staff: state.staff,
-    assignments: state.assignments,
-    showLabels: state.showLabels,
-    showDistrictLabels: state.showDistrictLabels,
-    showLegend: state.showLegend,
-    updatedAt: state.updatedAt,
-  };
-}
-
-function hasAssignmentsOrStaff(candidate) {
-  return candidate.staff.length > 0 || Object.keys(candidate.assignments).length > 0;
-}
-
 function saveLocalState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  try {
+    localStorage.setItem(Core.STORAGE_KEY, JSON.stringify(state));
+    return true;
+  } catch (error) {
+    console.warn("Unable to save local state", error);
+    showToast("เบราว์เซอร์ไม่สามารถบันทึกข้อมูลในเครื่องได้");
+    return false;
+  }
 }
 
-function persist(message) {
+function persist(message, { fullRender = true } = {}) {
   state.updatedAt = new Date().toISOString();
   state.pendingChanges = true;
   saveLocalState();
-  renderAll();
+  if (fullRender) renderAll();
+  else renderLightweight();
   if (message) showToast(message);
 }
 
+function serializableState() {
+  return Core.serializableState(state);
+}
+
 function selectedStaffId() {
-  return dom.staffSelect.value || "";
+  return dom.staff_select?.value || "";
+}
+
+function getStaff(id) {
+  return state.staff.find((person) => person.id === id) || null;
 }
 
 function selectedStaff() {
-  return state.staff.find((person) => person.id === selectedStaffId() && person.active) || null;
-}
-
-function getStaff(staffId) {
-  return state.staff.find((person) => person.id === staffId) || null;
+  const person = getStaff(selectedStaffId());
+  return person?.active ? person : null;
 }
 
 function activeStaff() {
   return state.staff.filter((person) => person.active);
 }
 
-function areaId(feature) {
-  return String(feature.properties.ADMIN_ID3 || feature.properties.OBJECTID || feature.id);
-}
-
-function featureDistrict(feature) {
-  return feature.properties.NAME2;
-}
-
-function featureTambon(feature) {
-  return feature.properties.NAME3;
-}
-
-function isMainDistrict(feature) {
-  return MAIN_COURT_DISTRICTS.has(featureDistrict(feature));
-}
-
 function availableFeatures() {
-  return features.filter(isMainDistrict);
+  return features.filter(Core.isCourtFeature);
 }
 
-function removeAreasOutsideLopburiCourt() {
-  if (!features.length) return 0;
-  const allowedIds = new Set(availableFeatures().map(areaId));
-  const entries = Object.entries(state.assignments);
-  const keptEntries = entries.filter(([id]) => allowedIds.has(id));
-  state.assignments = Object.fromEntries(keptEntries);
-  return entries.length - keptEntries.length;
-}
-
-function currentAssignments() {
-  const validStaff = new Set(state.staff.map((person) => person.id));
-  return Object.fromEntries(Object.entries(state.assignments).filter(([, staffId]) => validStaff.has(staffId)));
+function featurePrice(feature) {
+  const value = state.prices[Core.areaId(feature)];
+  return Number.isFinite(value) ? value : null;
 }
 
 function assignedAreasFor(staffId) {
-  return availableFeatures().filter((feature) => state.assignments[areaId(feature)] === staffId);
+  return availableFeatures().filter((feature) => state.assignments[Core.areaId(feature)] === staffId);
+}
+
+function unassignedAreas() {
+  return availableFeatures().filter((feature) => !getStaff(state.assignments[Core.areaId(feature)]));
+}
+
+function assignmentCount() {
+  return availableFeatures().filter((feature) => getStaff(state.assignments[Core.areaId(feature)])).length;
+}
+
+function pricedCount() {
+  return availableFeatures().filter((feature) => featurePrice(feature) !== null).length;
 }
 
 function ensureSelectedStaff() {
@@ -192,25 +119,16 @@ function ensureSelectedStaff() {
   return false;
 }
 
-function showToast(message) {
-  dom.toast.textContent = message;
-  dom.toast.classList.add("show");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => dom.toast.classList.remove("show"), 3100);
-}
-
-function encodeBase64Utf8(value) {
-  const bytes = new TextEncoder().encode(value);
-  let binary = "";
-  for (let index = 0; index < bytes.length; index += 0x8000) {
-    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
-  }
-  return btoa(binary);
+function filterStateToCourt() {
+  const filtered = Core.filterStateToFeatures(state, availableFeatures());
+  const removed = Object.keys(state.assignments).length - Object.keys(filtered.assignments).length + Object.keys(state.prices).length - Object.keys(filtered.prices).length;
+  state = { ...filtered, pendingChanges: state.pendingChanges || removed > 0 };
+  return removed;
 }
 
 function sharedDataUrl() {
   const url = new URL(SHARED_DATA_URL, window.location.href);
-  url.searchParams.set("_", String(Date.now()));
+  url.searchParams.set("_", Date.now().toString());
   return url;
 }
 
@@ -220,355 +138,246 @@ function sharedRevisionUrl() {
   return url;
 }
 
-function githubApiHeaders(token) {
-  return {
-    Accept: "application/vnd.github+json",
-    Authorization: `Bearer ${token}`,
-    "X-GitHub-Api-Version": "2022-11-28",
-  };
+function githubHeaders(token) {
+  return { Accept: "application/vnd.github+json", Authorization: `Bearer ${token}`, "X-GitHub-Api-Version": "2022-11-28" };
 }
 
-function setTokenStatus(message, status = "") {
-  tokenCheck = { ...tokenCheck, status, message };
-  if (!dom.tokenStatus) return;
-  dom.tokenStatus.textContent = message;
-  dom.tokenStatus.className = `token-status ${status}`.trim();
-}
-
-function clearTokenCheck() {
-  tokenCheck = { checking: false, status: "idle", message: "", expiresAt: null, login: null };
-  setTokenStatus(dom.githubToken.value.trim() ? "ยังไม่ได้ตรวจสอบรหัส กด “ตรวจสอบรหัส” ก่อนบันทึก" : "วางรหัสแล้วกด “ตรวจสอบรหัส” ก่อนบันทึก");
-}
-
-function readRememberedTokenMetadata() {
-  try {
-    const raw = localStorage.getItem(REMEMBERED_TOKEN_METADATA_KEY);
-    if (!raw) return null;
-    const metadata = JSON.parse(raw);
-    return {
-      expiresAt: typeof metadata?.expiresAt === "string" ? metadata.expiresAt : null,
-      login: typeof metadata?.login === "string" ? metadata.login : null,
-      checkedAt: typeof metadata?.checkedAt === "string" ? metadata.checkedAt : null,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function rememberedTokenValue() {
-  try {
-    return localStorage.getItem(REMEMBERED_TOKEN_KEY) || "";
-  } catch {
-    return "";
-  }
-}
-
-function setRememberedTokenStatus(message, status = "") {
-  if (!dom.rememberedTokenStatus) return;
-  dom.rememberedTokenStatus.textContent = message;
-  dom.rememberedTokenStatus.className = "remembered-token-status" + (status ? " " + status : "");
-}
-
-function formatTokenDate(value) {
-  return new Intl.DateTimeFormat("th-TH", { dateStyle: "long", timeStyle: "short" }).format(value);
-}
-
-function renderRememberedTokenStatus(metadata = readRememberedTokenMetadata()) {
-  const token = rememberedTokenValue();
-  if (dom.forgetTokenButton) dom.forgetTokenButton.hidden = !token;
-  if (!token) {
-    setRememberedTokenStatus("ยังไม่ได้จำรหัสไว้ในเครื่องนี้");
-    return;
-  }
-  if (!metadata?.expiresAt) {
-    const checked = metadata?.checkedAt ? " ตรวจสอบล่าสุด " + formatTokenDate(new Date(metadata.checkedAt)) : "";
-    setRememberedTokenStatus("จำรหัสไว้ในเครื่องนี้แล้ว แต่ GitHub ยังไม่แจ้งวันหมดอายุ" + checked + " กด “ตรวจสอบรหัส” เพื่ออัปเดตสถานะ", "warning");
-    return;
-  }
-  const expiry = new Date(metadata.expiresAt);
-  if (Number.isNaN(expiry.getTime())) {
-    setRememberedTokenStatus("จำวันที่ต้องเปลี่ยนรหัสไม่ได้ กด “ตรวจสอบรหัส” เพื่ออัปเดตสถานะ", "warning");
-    return;
-  }
-  const days = Math.ceil((expiry.getTime() - Date.now()) / 86400000);
-  const account = metadata.login ? "ของ " + metadata.login + " " : "";
-  if (days < 0) {
-    setRememberedTokenStatus("รหัส" + account + "หมดอายุแล้วเมื่อ " + formatTokenDate(expiry) + " กรุณาวางรหัสใหม่", "error");
-    return;
-  }
-  setRememberedTokenStatus("รหัส" + account + "ต้องเปลี่ยนภายใน " + formatTokenDate(expiry) + " (เหลือประมาณ " + days + " วัน)", days <= 7 ? "warning" : "ok");
-}
-
-function forgetRememberedToken({ clearInput = false, message = "" } = {}) {
-  try {
-    localStorage.removeItem(REMEMBERED_TOKEN_KEY);
-    localStorage.removeItem(REMEMBERED_TOKEN_METADATA_KEY);
-  } catch {
-    // The browser may block local storage; the current field remains usable.
-  }
-  if (clearInput) dom.githubToken.value = "";
-  if (dom.rememberToken) dom.rememberToken.checked = false;
-  setRememberedTokenStatus(message || "ลบรหัสที่จำไว้จากเครื่องนี้แล้ว");
-  if (dom.forgetTokenButton) dom.forgetTokenButton.hidden = true;
-}
-
-function rememberGitHubToken(token, { expiresAt = null, login = null } = {}) {
-  if (!dom.rememberToken?.checked || !token) return;
-  try {
-    const checkedAt = new Date().toISOString();
-    const metadata = { expiresAt, login, checkedAt };
-    localStorage.setItem(REMEMBERED_TOKEN_KEY, token);
-    localStorage.setItem(REMEMBERED_TOKEN_METADATA_KEY, JSON.stringify(metadata));
-    renderRememberedTokenStatus(metadata);
-  } catch {
-    setRememberedTokenStatus("เบราว์เซอร์นี้ไม่อนุญาตให้จำรหัส กรุณาวางรหัสก่อนบันทึก", "warning");
-  }
-}
-
-function loadRememberedToken() {
-  const token = rememberedTokenValue();
-  const metadata = readRememberedTokenMetadata();
-  const expiry = metadata?.expiresAt ? new Date(metadata.expiresAt) : null;
-  if (token && expiry && !Number.isNaN(expiry.getTime()) && expiry.getTime() <= Date.now()) {
-    forgetRememberedToken({ clearInput: true, message: "รหัสที่จำไว้หมดอายุแล้วเมื่อ " + formatTokenDate(expiry) + " กรุณาวางรหัสใหม่" });
-    return;
-  }
-  if (!token) {
-    renderRememberedTokenStatus(metadata);
-    return;
-  }
-  dom.githubToken.value = token;
-  dom.rememberToken.checked = true;
-  renderRememberedTokenStatus(metadata);
-}
-
-function formatExpiration(expiresAt) {
-  if (!expiresAt) return "GitHub ไม่ได้ส่งวันหมดอายุให้หน้าเว็บนี้อ่านได้ ให้ตรวจที่หน้าจัดการรหัสของ GitHub";
-  const date = new Date(expiresAt);
-  if (Number.isNaN(date.getTime())) return `วันหมดอายุตาม GitHub: ${expiresAt}`;
-  const days = Math.ceil((date.getTime() - Date.now()) / 86400000);
-  const dateText = new Intl.DateTimeFormat("th-TH", { dateStyle: "long", timeStyle: "short" }).format(date);
-  if (days < 0) return `หมดอายุแล้วเมื่อ ${dateText}`;
-  if (days === 0) return `หมดอายุภายในวันนี้ (${dateText})`;
-  return `หมดอายุ ${dateText} (เหลือประมาณ ${days} วัน)`;
+function encodeBase64Utf8(value) {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += 0x8000) binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  return btoa(binary);
 }
 
 async function readGitHubError(response) {
-  let payload = null;
-  try {
-    payload = await response.json();
-  } catch {
-    // GitHub may return an empty response body for some security failures.
-  }
-  return {
-    status: response.status,
-    message: typeof payload?.message === "string" ? payload.message : "",
-    documentationUrl: typeof payload?.documentation_url === "string" ? payload.documentation_url : "",
-  };
+  const payload = await response.json().catch(() => ({}));
+  return { status: response.status, message: typeof payload.message === "string" ? payload.message : "" };
 }
 
 function explainGitHubError({ status, message }) {
-  const detail = message.toLowerCase();
-  if (status === 401) return "รหัสใช้ไม่ได้ ถูกยกเลิก หรือหมดอายุแล้ว ให้สร้างรหัสใหม่แล้ววางอีกครั้ง";
-  if (status === 403 && /rate limit|secondary rate limit/.test(detail)) return "GitHub จำกัดจำนวนการใช้งานชั่วคราว โปรดลองใหม่อีกสักครู่";
-  if (status === 403 && /saml|single sign-on|sso/.test(detail)) return "รหัสยังไม่ได้รับอนุญาตให้ใช้กับองค์กรนี้ ให้เปิดสิทธิ์ SSO ของ GitHub ก่อน";
-  if (status === 403 && /resource not accessible|personal access token|insufficient|not accessible/.test(detail)) {
-    return "รหัสใช้ได้ แต่ไม่มีสิทธิ์แก้ไข MapLibre: ตอนสร้างรหัสให้เลือก Only select repositories → MapLibre และตั้ง Repository permissions → Contents เป็น Read and write";
-  }
-  if (status === 403) return `GitHub ปฏิเสธสิทธิ์ (403)${message ? `: ${message}` : ""}`;
-  if (status === 404) return "ไม่พบไฟล์หรือที่เก็บข้อมูลกลาง กรุณาตรวจสอบชื่อโครงการ MapLibre";
+  const detail = String(message).toLowerCase();
+  if (status === 401) return "รหัสใช้ไม่ได้ ถูกยกเลิก หรือหมดอายุแล้ว";
+  if (status === 403 && /rate limit/.test(detail)) return "GitHub จำกัดจำนวนการใช้งานชั่วคราว กรุณาลองใหม่";
+  if (status === 403 && /resource not accessible|insufficient|personal access token/.test(detail)) return "รหัสไม่มีสิทธิ์แก้ไข MapLibre ให้ตั้ง Contents เป็น Read and write";
+  if (status === 403) return `GitHub ปฏิเสธสิทธิ์${message ? `: ${message}` : ""}`;
+  if (status === 404) return "ไม่พบ Repository หรือไฟล์ข้อมูลกลาง";
   return `GitHub ตอบกลับ ${status}${message ? `: ${message}` : ""}`;
 }
 
-async function verifyGitHubToken() {
-  const token = dom.githubToken.value.trim();
-  if (!token) {
-    setTokenStatus("ยังไม่มีรหัสสำหรับตรวจสอบ", "warning");
-    return { valid: false, reason: "กรุณาวางรหัส GitHub ก่อน" };
-  }
+function setTokenStatus(message, status = "") {
+  if (!dom.token_status) return;
+  dom.token_status.textContent = message;
+  dom.token_status.className = `token-status ${status}`.trim();
+}
 
-  tokenCheck = { ...tokenCheck, checking: true };
-  setTokenStatus("กำลังตรวจสอบรหัสกับ GitHub…");
-  renderSharedStatus();
+function tokenMetadata() {
+  try { return JSON.parse(localStorage.getItem(TOKEN_META_KEY)) || null; } catch { return null; }
+}
+
+function rememberedToken() {
+  try { return localStorage.getItem(TOKEN_KEY) || ""; } catch { return ""; }
+}
+
+function renderRememberedTokenStatus(meta = tokenMetadata()) {
+  if (!dom.remembered_token_status) return;
+  const token = rememberedToken();
+  dom.forget_github_token_button.hidden = !token;
+  if (!token) {
+    dom.remembered_token_status.textContent = "ยังไม่ได้จำรหัสไว้ในเครื่องนี้";
+    dom.remembered_token_status.className = "remembered-token-status";
+    return;
+  }
+  const expiry = meta?.expiresAt ? new Date(meta.expiresAt) : null;
+  if (!expiry || Number.isNaN(expiry.getTime())) {
+    dom.remembered_token_status.textContent = "จำรหัสไว้แล้ว แต่ GitHub ไม่ได้แจ้งวันหมดอายุ";
+    dom.remembered_token_status.className = "remembered-token-status warning";
+    return;
+  }
+  const days = Math.ceil((expiry.getTime() - Date.now()) / 86400000);
+  const dateText = new Intl.DateTimeFormat("th-TH", { dateStyle: "long", timeStyle: "short" }).format(expiry);
+  dom.remembered_token_status.textContent = days < 0 ? `รหัสหมดอายุแล้วเมื่อ ${dateText}` : `รหัส ${meta.login || ""} หมดอายุ ${dateText} (ประมาณ ${days} วัน)`;
+  dom.remembered_token_status.className = `remembered-token-status ${days < 0 ? "error" : days <= 7 ? "warning" : "ok"}`;
+}
+
+function rememberToken(token, metadata) {
+  if (!dom.remember_github_token?.checked || !token) return;
   try {
-    const response = await fetch("https://api.github.com/user", {
-      headers: githubApiHeaders(token),
-      cache: "no-store",
-    });
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(TOKEN_META_KEY, JSON.stringify({ ...metadata, checkedAt: new Date().toISOString() }));
+    renderRememberedTokenStatus({ ...metadata, checkedAt: new Date().toISOString() });
+  } catch {
+    dom.remembered_token_status.textContent = "เบราว์เซอร์นี้ไม่อนุญาตให้จำรหัส";
+    dom.remembered_token_status.className = "remembered-token-status warning";
+  }
+}
+
+function forgetToken({ clearInput = true } = {}) {
+  try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(TOKEN_META_KEY); } catch { /* no-op */ }
+  if (clearInput && dom.github_token) dom.github_token.value = "";
+  if (dom.remember_github_token) dom.remember_github_token.checked = false;
+  renderRememberedTokenStatus();
+}
+
+function loadRememberedToken() {
+  const token = rememberedToken();
+  const meta = tokenMetadata();
+  if (token && meta?.expiresAt && new Date(meta.expiresAt).getTime() <= Date.now()) {
+    forgetToken();
+    setTokenStatus("รหัสที่จำไว้หมดอายุแล้ว กรุณาวางรหัสใหม่", "warning");
+    return;
+  }
+  if (token) {
+    dom.github_token.value = token;
+    dom.remember_github_token.checked = true;
+  }
+  renderRememberedTokenStatus(meta);
+}
+
+async function verifyGitHubToken() {
+  const token = dom.github_token.value.trim();
+  if (!token) {
+    setTokenStatus("กรุณาวาง Fine-grained GitHub token ก่อน", "warning");
+    return { valid: false, reason: "ยังไม่มีรหัส GitHub" };
+  }
+  tokenCheck.checking = true;
+  renderSharedStatus();
+  setTokenStatus("กำลังตรวจสอบรหัสกับ GitHub…");
+  try {
+    const response = await fetch("https://api.github.com/user", { headers: githubHeaders(token), cache: "no-store" });
     const expiresAt = response.headers.get("github-authentication-token-expiration");
     if (!response.ok) {
-      const error = await readGitHubError(response);
-      const reason = explainGitHubError(error);
-      if (error.status === 401 && token === rememberedTokenValue()) {
-        forgetRememberedToken({
-          clearInput: true,
-          message: "รหัสที่จำไว้ใช้ไม่ได้หรือหมดอายุแล้ว จึงลบออกจากเครื่องนี้ กรุณาวางรหัสใหม่",
-        });
-      }
-      tokenCheck = { checking: false, status: "error", message: reason, expiresAt: null, login: null };
+      const reason = explainGitHubError(await readGitHubError(response));
+      if (response.status === 401 && token === rememberedToken()) forgetToken();
+      tokenCheck = { checking: false, valid: false, login: null, expiresAt: null };
       setTokenStatus(reason, "error");
       return { valid: false, reason };
     }
     const account = await response.json();
-    const expirationText = formatExpiration(expiresAt);
-    const message = `ตรวจสอบแล้ว: รหัสเป็นของบัญชี ${account.login} และยังใช้ได้ — ${expirationText} กด “บันทึกส่วนกลาง” เพื่อยืนยันสิทธิ์แก้ไข MapLibre`;
-    tokenCheck = { checking: false, status: "ok", message, expiresAt, login: account.login };
-    rememberGitHubToken(token, { expiresAt, login: account.login });
-    setTokenStatus(message, "ok");
-    return { valid: true, expiresAt, login: account.login };
+    tokenCheck = { checking: false, valid: true, login: account.login, expiresAt };
+    const expiryText = expiresAt ? new Intl.DateTimeFormat("th-TH", { dateStyle: "long" }).format(new Date(expiresAt)) : "ไม่ระบุวันหมดอายุ";
+    setTokenStatus(`ตรวจสอบแล้ว: ${account.login} · ${expiryText}`, "ok");
+    rememberToken(token, { login: account.login, expiresAt });
+    return { valid: true, login: account.login, expiresAt };
   } catch (error) {
     console.error(error);
-    const reason = "ตรวจสอบรหัสไม่ได้ เพราะเชื่อมต่อ GitHub ไม่สำเร็จ โปรดตรวจอินเทอร์เน็ตแล้วลองใหม่";
-    tokenCheck = { checking: false, status: "error", message: reason, expiresAt: null, login: null };
+    tokenCheck = { checking: false, valid: false, login: null, expiresAt: null };
+    const reason = "เชื่อมต่อ GitHub ไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ต";
     setTokenStatus(reason, "error");
     return { valid: false, reason };
   } finally {
-    tokenCheck = { ...tokenCheck, checking: false };
+    tokenCheck.checking = false;
     renderSharedStatus();
   }
 }
 
 function renderSharedStatus() {
-  if (!dom.sharedStatus) return;
-  let message = "กำลังเชื่อมต่อข้อมูลส่วนกลาง…";
-  let statusClass = "";
-  if (shared.loading) {
-    message = "กำลังโหลดข้อมูลส่วนกลาง…";
-  } else if (state.pendingChanges) {
-    message = "ข้อมูลบนหน้านี้ยังอยู่ในเครื่องเท่านั้น — หน้าจอแสดงผลและเครื่องอื่นจะเห็นข้อมูลหลังจากกด “บันทึกส่วนกลาง”";
-    statusClass = "pending";
-  } else if (shared.available) {
-    message = "เชื่อมต่อข้อมูลส่วนกลางแล้ว — ทุกเครื่องจะเห็นค่าชุดเดียวกัน";
-    statusClass = "synced";
-  } else {
-    message = "ยังเชื่อมต่อข้อมูลส่วนกลางไม่ได้ กำลังใช้สำเนาในเครื่อง";
-    statusClass = "offline";
-  }
-  dom.sharedStatus.textContent = message;
-  dom.sharedStatus.className = `shared-status ${statusClass}`.trim();
-  dom.saveSharedButton.disabled = shared.loading;
-  dom.reloadSharedButton.disabled = shared.loading;
-  dom.checkTokenButton.disabled = shared.loading || tokenCheck.checking;
-  dom.checkTokenButton.textContent = tokenCheck.checking ? "กำลังตรวจสอบรหัส…" : "ตรวจสอบรหัส";
+  if (!dom.shared_status) return;
+  let text = "กำลังเชื่อมต่อข้อมูลส่วนกลาง…";
+  let className = "";
+  if (shared.loading) text = "กำลังโหลดหรือบันทึกข้อมูลส่วนกลาง…";
+  else if (state.pendingChanges) { text = "มีข้อมูลแก้ไขในเครื่องที่ยังไม่ได้บันทึกส่วนกลาง"; className = "pending"; }
+  else if (shared.available) { text = "เชื่อมต่อข้อมูลส่วนกลางแล้ว ทุกเครื่องใช้ข้อมูลชุดเดียวกัน"; className = "synced"; }
+  else { text = "ยังเชื่อมต่อข้อมูลส่วนกลางไม่ได้ กำลังใช้สำเนาในเครื่อง"; className = "offline"; }
+  dom.shared_status.textContent = text;
+  dom.shared_status.className = `shared-status ${className}`.trim();
+  dom.save_shared_button.disabled = shared.loading;
+  dom.reload_shared_button.disabled = shared.loading;
+  dom.check_token_button.disabled = shared.loading || tokenCheck.checking;
 }
 
 async function loadSharedState({ forceRemote = false } = {}) {
   shared.loading = true;
-  shared.error = null;
   renderSharedStatus();
   try {
     const response = await fetch(sharedDataUrl(), { cache: "no-store" });
-    if (!response.ok) throw new Error(`ไม่สามารถโหลดไฟล์ข้อมูลกลาง (${response.status})`);
-    const remoteState = normalizeState(await response.json());
-    const shouldUseRemote = forceRemote || hasAssignmentsOrStaff(remoteState) || !hasAssignmentsOrStaff(state);
-    if (shouldUseRemote) {
-      state = { ...remoteState, pendingChanges: false };
-    } else {
-      state.pendingChanges = true;
-    }
-    if (removeAreasOutsideLopburiCourt() > 0) state.pendingChanges = true;
-    shared = { available: true, loading: false, sha: null, error: null };
+    if (!response.ok) throw new Error(`โหลดข้อมูลกลางไม่สำเร็จ (${response.status})`);
+    const remote = Core.normalizeState(await response.json());
+    const useRemote = forceRemote || (!state.pendingChanges && (Core.hasSharedData(remote) || !Core.hasSharedData(state)));
+    if (useRemote) state = { ...remote, pendingChanges: false };
+    else state.pendingChanges = true;
+    filterStateToCourt();
     saveLocalState();
+    shared = { available: true, loading: false, error: null };
     renderAll();
     return true;
   } catch (error) {
     console.error(error);
-    shared = { ...shared, available: false, loading: false, error: error.message };
+    shared = { available: false, loading: false, error: error.message };
     renderAll();
     return false;
   }
 }
 
 async function reloadSharedState() {
-  if (state.pendingChanges && !window.confirm("มีการแก้ไขในเครื่องที่ยังไม่ได้บันทึกส่วนกลาง ต้องการละทิ้งแล้วโหลดข้อมูลกลางใหม่หรือไม่?")) return;
-  const loaded = await loadSharedState({ forceRemote: true });
-  showToast(loaded ? "โหลดข้อมูลส่วนกลางล่าสุดแล้ว" : "ไม่สามารถโหลดข้อมูลส่วนกลางได้");
+  if (state.pendingChanges && !confirm("มีข้อมูลที่ยังไม่ได้บันทึก ต้องการละทิ้งแล้วโหลดข้อมูลกลางใหม่หรือไม่?")) return;
+  const ok = await loadSharedState({ forceRemote: true });
+  showToast(ok ? "โหลดข้อมูลส่วนกลางล่าสุดแล้ว" : "โหลดข้อมูลส่วนกลางไม่สำเร็จ");
 }
 
 async function loadSharedRevision(token) {
-  const response = await fetch(sharedRevisionUrl(), {
-    headers: githubApiHeaders(token),
-    cache: "no-store",
-  });
+  const response = await fetch(sharedRevisionUrl(), { headers: githubHeaders(token), cache: "no-store" });
   if (!response.ok) throw new Error(explainGitHubError(await readGitHubError(response)));
   const payload = await response.json();
-  if (!payload.sha) throw new Error("ไม่พบรหัสอ้างอิงของข้อมูลกลางสำหรับบันทึก");
+  if (!payload.sha) throw new Error("ไม่พบรหัสอ้างอิงของไฟล์ข้อมูลกลาง");
   return payload.sha;
 }
 
 async function saveSharedState() {
-  const token = dom.githubToken.value.trim();
-  if (!token) {
-    setTokenStatus("กรุณาวาง Fine-grained GitHub token ที่มีสิทธิ์ Contents: Read and write ก่อนบันทึก", "warning");
-    showToast("กรุณาวางรหัส GitHub ก่อนบันทึก");
-    return;
-  }
+  const token = dom.github_token.value.trim();
   const checked = await verifyGitHubToken();
-  if (!checked.valid) {
-    showToast(checked.reason);
-    return;
-  }
+  if (!checked.valid) { showToast(checked.reason); return false; }
   shared.loading = true;
   renderSharedStatus();
   try {
-    const writeSha = await loadSharedRevision(token);
+    const sha = await loadSharedRevision(token);
+    state.updatedAt = new Date().toISOString();
+    const payload = serializableState();
     const response = await fetch(SHARED_DATA_API, {
       method: "PUT",
-      headers: {
-        ...githubApiHeaders(token),
-        "Content-Type": "application/json",
-      },
+      headers: { ...githubHeaders(token), "Content-Type": "application/json" },
       body: JSON.stringify({
-        message: "Update Lopburi notice area assignments",
-        content: encodeBase64Utf8(JSON.stringify(serializableState(), null, 2)),
+        message: "Update Lopburi notice areas and prices",
+        content: encodeBase64Utf8(JSON.stringify(payload, null, 2)),
         branch: SHARED_BRANCH,
-        sha: writeSha,
+        sha,
       }),
     });
     if (!response.ok) {
-      const githubError = await readGitHubError(response);
-      if (response.status === 409 || response.status === 422) {
-        throw new Error("ข้อมูลส่วนกลางถูกแก้ไขจากเครื่องอื่นแล้ว กรุณาโหลดค่ากลางใหม่ก่อนบันทึกอีกครั้ง");
-      }
-      const reason = explainGitHubError(githubError);
-      setTokenStatus(`ตรวจสอบรหัสผ่าน แต่บันทึกไม่ได้: ${reason}`, "error");
-      throw new Error(reason);
+      if (response.status === 409 || response.status === 422) throw new Error("ข้อมูลกลางถูกแก้ไขจากเครื่องอื่น กรุณาโหลดค่ากลางใหม่ก่อนบันทึก");
+      throw new Error(explainGitHubError(await readGitHubError(response)));
     }
-    const result = await response.json();
-    shared = { available: true, loading: false, sha: result.content?.sha || writeSha, error: null };
     state.pendingChanges = false;
-    state.updatedAt = new Date().toISOString();
     saveLocalState();
+    shared = { available: true, loading: false, error: null };
     renderAll();
-    if (dom.rememberToken?.checked) {
-      rememberGitHubToken(token, checked);
-    } else {
-      dom.githubToken.value = "";
-      clearTokenCheck();
+    if (!dom.remember_github_token.checked) {
+      dom.github_token.value = "";
+      tokenCheck = { checking: false, valid: false, login: null, expiresAt: null };
+      setTokenStatus("บันทึกสำเร็จและล้างรหัสออกจากช่องแล้ว");
     }
-    showToast("บันทึกข้อมูลส่วนกลางแล้ว หน้าแสดงผลจะอัปเดตภายในประมาณ 1 นาที");
+    showToast("บันทึกข้อมูลส่วนกลางแล้ว");
+    return true;
   } catch (error) {
     console.error(error);
     shared = { ...shared, loading: false, error: error.message };
-    renderAll();
+    renderSharedStatus();
     showToast(error.message || "บันทึกข้อมูลส่วนกลางไม่สำเร็จ");
+    return false;
   }
 }
 
 function hexToRgb(hex) {
-  const normalized = hex.replace("#", "");
+  const normalized = String(hex).replace("#", "");
   return [0, 2, 4].map((index) => Number.parseInt(normalized.slice(index, index + 2), 16));
 }
 
 function colorDistance(first, second) {
-  const [r1, g1, b1] = hexToRgb(first);
-  const [r2, g2, b2] = hexToRgb(second);
+  const [r1, g1, b1] = hexToRgb(first); const [r2, g2, b2] = hexToRgb(second);
   return Math.hypot(r1 - r2, g1 - g2, b1 - b2);
 }
 
 function hslToHex(hue, saturation, lightness) {
-  saturation /= 100;
-  lightness /= 100;
+  saturation /= 100; lightness /= 100;
   const channel = (n) => {
     const k = (n + hue / 30) % 12;
     const color = lightness - saturation * Math.min(lightness, 1 - lightness) * Math.max(-1, Math.min(k - 3, 9 - k, 1));
@@ -578,9 +387,8 @@ function hslToHex(hue, saturation, lightness) {
 }
 
 function nextDistinctColor(excluded = []) {
-  const unused = PALETTE.filter((candidate) => !excluded.includes(candidate));
-  if (unused.length) return unused[0];
-
+  const unused = PALETTE.find((candidate) => !excluded.includes(candidate));
+  if (unused) return unused;
   for (let index = 0; index < 360; index += 17) {
     const candidate = hslToHex((state.staff.length * 137.508 + index) % 360, 62, 43);
     if (excluded.every((color) => colorDistance(candidate, color) > 95)) return candidate;
@@ -588,1207 +396,571 @@ function nextDistinctColor(excluded = []) {
   return hslToHex((state.staff.length * 71) % 360, 65, 45);
 }
 
-function addStaff(name) {
-  const cleanName = name.trim().replace(/\s+/g, " ");
-  if (!cleanName) return;
-  if (state.staff.some((person) => person.name.localeCompare(cleanName, "th") === 0)) {
-    showToast("มีชื่อนี้อยู่ในรายการแล้ว");
-    return;
-  }
-  const person = {
-    id: `staff-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    name: cleanName,
-    color: nextDistinctColor(state.staff.map((existing) => existing.color)),
-    active: true,
-  };
+function addStaff(rawName) {
+  const name = Core.sanitizeName(rawName);
+  if (!name) return showToast("กรุณากรอกชื่อผู้รับผิดชอบ");
+  if (state.staff.some((person) => person.name.localeCompare(name, "th", { sensitivity: "base" }) === 0)) return showToast("มีชื่อนี้อยู่แล้ว");
+  const person = { id: `staff-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, color: nextDistinctColor(state.staff.map((item) => item.color)), active: true };
   state.staff.push(person);
-  renderStaffSelect();
-  dom.staffSelect.value = person.id;
-  persist(`เพิ่ม ${cleanName} และกำหนดสีให้อัตโนมัติแล้ว`);
-}
-
-function reassignSelectedColor() {
-  const person = selectedStaff();
-  if (!person) return showToast("เลือกผู้รับผิดชอบที่ต้องการคละสีก่อน");
-  const otherColors = state.staff.filter((candidate) => candidate.id !== person.id).map((candidate) => candidate.color);
-  const next = nextDistinctColor(otherColors);
-  person.color = next;
-  persist(`เปลี่ยนสีของ ${person.name} แล้ว`);
-}
-
-function cleanStaffName(name) {
-  return name.trim().replace(/\s+/g, " ");
+  persist(`เพิ่ม ${name} แล้ว`);
+  dom.staff_select.value = person.id;
+  renderAll();
 }
 
 function renameStaff(person) {
-  const nextName = window.prompt("แก้ไขชื่อเจ้าหน้าที่", person.name);
-  if (nextName === null) return;
-  const cleanName = cleanStaffName(nextName);
-  if (!cleanName) return showToast("ชื่อเจ้าหน้าที่ต้องไม่ว่าง");
-  if (state.staff.some((candidate) => candidate.id !== person.id && candidate.name.localeCompare(cleanName, "th") === 0)) {
-    return showToast("มีชื่อนี้อยู่ในรายการแล้ว");
-  }
-  if (cleanName === person.name) return;
-  person.name = cleanName;
-  persist(`แก้ไขชื่อเจ้าหน้าที่เป็น ${cleanName} แล้ว`);
+  const raw = prompt("แก้ไขชื่อเจ้าหน้าที่", person.name);
+  if (raw === null) return;
+  const name = Core.sanitizeName(raw);
+  if (!name) return showToast("ชื่อเจ้าหน้าที่ต้องไม่ว่าง");
+  if (state.staff.some((item) => item.id !== person.id && item.name.localeCompare(name, "th", { sensitivity: "base" }) === 0)) return showToast("มีชื่อนี้อยู่แล้ว");
+  person.name = name;
+  persist(`แก้ไขชื่อเป็น ${name} แล้ว`);
 }
 
 function toggleStaffActive(person) {
-  const assignmentCount = assignedAreasFor(person.id).length;
-  if (person.active) {
-    const note = assignmentCount ? `\nพื้นที่ ${assignmentCount} ตำบลจะยังคงอยู่กับชื่อนี้จนกว่าจะโอนพื้นที่` : "";
-    if (!window.confirm(`ปิดใช้งาน ${person.name} หรือไม่? จะไม่สามารถรับมอบหมายพื้นที่ใหม่ได้${note}`)) return;
-    person.active = false;
-    if (dom.staffSelect.value === person.id) dom.staffSelect.value = "";
-    persist(`ปิดใช้งาน ${person.name} แล้ว`);
-    return;
-  }
-  person.active = true;
-  persist(`เปิดใช้งาน ${person.name} แล้ว`);
-}
-
-function transferStaffAreas(person, targetId) {
-  const areas = assignedAreasFor(person.id);
-  if (!areas.length) return showToast(`${person.name} ยังไม่มีพื้นที่ต้องโอน`);
-  if (!targetId) return showToast("เลือกผู้รับโอนพื้นที่ก่อน");
-
-  if (targetId === "__unassign__") {
-    if (!window.confirm(`ยกเลิกการมอบหมาย ${areas.length} ตำบลของ ${person.name} หรือไม่?`)) return;
-    for (const feature of areas) delete state.assignments[areaId(feature)];
-    persist(`ยกเลิกพื้นที่ ${areas.length} ตำบลของ ${person.name} แล้ว`);
-    return;
-  }
-
-  const target = getStaff(targetId);
-  if (!target || !target.active) return showToast("เลือกผู้รับโอนที่ยังปฏิบัติงานอยู่");
-  if (!window.confirm(`โอน ${areas.length} ตำบลจาก ${person.name} ไปให้ ${target.name} หรือไม่?`)) return;
-  for (const feature of areas) state.assignments[areaId(feature)] = target.id;
-  persist(`โอน ${areas.length} ตำบลไปให้ ${target.name} แล้ว`);
-}
-
-function transferSelectedStaffAreas(person, areas, targetId) {
-  if (!areas.length) return showToast("เลือกตำบลที่ต้องการโอนก่อน");
-  if (!targetId) return showToast("เลือกผู้รับโอนตำบลก่อน");
-  const target = getStaff(targetId);
-  if (!target || !target.active) return showToast("เลือกผู้รับโอนที่ยังปฏิบัติงานอยู่");
-  if (!window.confirm(`โอน ${areas.length} ตำบลจาก ${person.name} ไปให้ ${target.name} หรือไม่?`)) return;
-  for (const feature of areas) state.assignments[areaId(feature)] = target.id;
-  persist(`โอน ${areas.length} ตำบลไปให้ ${target.name} แล้ว`);
-}
-
-function unassignSelectedStaffAreas(person, areas) {
-  if (!areas.length) return showToast("เลือกตำบลที่ต้องการนำออกก่อน");
-  if (!window.confirm(`นำ ${areas.length} ตำบลออกจาก ${person.name} หรือไม่? ตำบลเหล่านี้จะกลับไปอยู่ในรายการยังไม่มอบหมาย`)) return;
-  for (const feature of areas) delete state.assignments[areaId(feature)];
-  persist(`นำ ${areas.length} ตำบลออกจาก ${person.name} แล้ว — อยู่ในรายการยังไม่มอบหมาย`);
+  if (person.active && !confirm(`ปิดใช้งาน ${person.name} หรือไม่? พื้นที่เดิมจะยังคงอยู่`)) return;
+  person.active = !person.active;
+  if (!person.active && selectedStaffId() === person.id) dom.staff_select.value = "";
+  persist(`${person.active ? "เปิด" : "ปิด"}ใช้งาน ${person.name} แล้ว`);
 }
 
 function deleteStaff(person) {
-  const areas = assignedAreasFor(person.id);
-  if (areas.length) {
-    showToast(`ลบ ${person.name} ไม่ได้ — กรุณาโอนหรือยกเลิก ${areas.length} ตำบลก่อน`);
+  const count = assignedAreasFor(person.id).length;
+  if (count) return showToast(`ลบไม่ได้ กรุณาโอนหรือยกเลิก ${count} ตำบลก่อน`);
+  if (!confirm(`ลบ ${person.name} หรือไม่?`)) return;
+  state.staff = state.staff.filter((item) => item.id !== person.id);
+  persist(`ลบ ${person.name} แล้ว`);
+}
+
+function transferAreas(person, areas, targetId) {
+  if (!areas.length) return showToast("ไม่มีพื้นที่ที่เลือก");
+  if (targetId === "__unassign__") {
+    if (!confirm(`ยกเลิกการมอบหมาย ${areas.length} ตำบลหรือไม่?`)) return;
+    for (const feature of areas) delete state.assignments[Core.areaId(feature)];
+    persist(`ยกเลิกการมอบหมาย ${areas.length} ตำบลแล้ว`);
     return;
   }
-  if (!window.confirm(`ลบ ${person.name} ออกจากรายชื่อหรือไม่?`)) return;
-  state.staff = state.staff.filter((candidate) => candidate.id !== person.id);
-  if (dom.staffSelect.value === person.id) dom.staffSelect.value = "";
-  persist(`ลบ ${person.name} ออกจากรายชื่อแล้ว`);
+  const target = getStaff(targetId);
+  if (!target?.active) return showToast("เลือกผู้รับโอนที่ยังปฏิบัติงานอยู่");
+  if (!confirm(`โอน ${areas.length} ตำบลจาก ${person.name} ไปให้ ${target.name} หรือไม่?`)) return;
+  for (const feature of areas) state.assignments[Core.areaId(feature)] = target.id;
+  persist(`โอน ${areas.length} ตำบลให้ ${target.name} แล้ว`);
 }
 
-function renderStaffManagementVisibility() {
-  if (!dom.staffManagementContent || !dom.toggleStaffManagement) return;
-  dom.staffManagementContent.hidden = !staffManagementOpen;
-  dom.toggleStaffManagement.setAttribute("aria-expanded", String(staffManagementOpen));
-  dom.toggleStaffManagement.textContent = staffManagementOpen ? "ซ่อนข้อมูล" : "แสดงข้อมูล";
-}
-
-function renderStaffManagement() {
-  if (!state.staff.length) {
-    dom.staffManagementList.innerHTML = '<p class="empty-result">ยังไม่มีรายชื่อเจ้าหน้าที่</p>';
-    return;
-  }
-  const fragment = document.createDocumentFragment();
-  for (const person of state.staff) {
-    const areas = assignedAreasFor(person.id);
-    const districts = new Set(areas.map(featureDistrict));
-    const card = document.createElement("article");
-    card.className = `staff-card${person.active ? "" : " inactive"}`;
-
-    const heading = document.createElement("div");
-    heading.className = "staff-card-heading";
-    const dot = document.createElement("span");
-    dot.className = "legend-dot";
-    dot.style.background = person.color;
-    const name = document.createElement("strong");
-    name.textContent = person.name;
-    const status = document.createElement("span");
-    status.className = `staff-status${person.active ? "" : " inactive"}`;
-    status.textContent = person.active ? "ปฏิบัติงาน" : "ปิดใช้งาน";
-    heading.append(dot, name, status);
-
-    const meta = document.createElement("p");
-    meta.className = "staff-card-meta";
-    meta.textContent = `${areas.length} ตำบล · ${districts.size} อำเภอ${person.active ? "" : " · รับพื้นที่ใหม่ไม่ได้"}`;
-
-    const actions = document.createElement("div");
-    actions.className = "staff-card-actions";
-    const rename = document.createElement("button");
-    rename.type = "button";
-    rename.className = "button button-muted";
-    rename.textContent = "แก้ชื่อ";
-    rename.addEventListener("click", () => renameStaff(person));
-    const activity = document.createElement("button");
-    activity.type = "button";
-    activity.className = "button button-muted";
-    activity.textContent = person.active ? "ปิดใช้งาน" : "เปิดใช้งาน";
-    activity.addEventListener("click", () => toggleStaffActive(person));
-    const remove = document.createElement("button");
-    remove.type = "button";
-    remove.className = "button button-danger";
-    remove.textContent = "ลบ";
-    remove.addEventListener("click", () => deleteStaff(person));
-    actions.append(rename, activity, remove);
-
-    const editor = document.createElement("details");
-    editor.className = "staff-area-editor";
-    const editorSummary = document.createElement("summary");
-    editorSummary.textContent = `แก้ไขตำบลรายรายการ (${areas.length} ตำบล)`;
-    editor.append(editorSummary);
-
-    if (!areas.length) {
-      const empty = document.createElement("p");
-      empty.className = "staff-area-empty";
-      empty.textContent = "ยังไม่มีตำบลที่รับผิดชอบ";
-      editor.append(empty);
-    } else {
-      const hint = document.createElement("p");
-      hint.className = "staff-area-hint";
-      hint.textContent = "เลือกตำบลเพื่อโอนไปให้เจ้าหน้าที่คนอื่น หรือนำออกเพื่อให้กลับไปอยู่ในรายการยังไม่มอบหมาย";
-
-      const selectAllRow = document.createElement("label");
-      selectAllRow.className = "staff-area-select-all";
-      const selectAll = document.createElement("input");
-      selectAll.type = "checkbox";
-      const selectAllText = document.createElement("span");
-      selectAllText.textContent = "เลือกทั้งหมด";
-      selectAllRow.append(selectAll, selectAllText);
-
-      const areaList = document.createElement("div");
-      areaList.className = "staff-area-list";
-      const checkboxes = new Map();
-      const sortedAreas = areas.slice().sort((left, right) => {
-        const district = featureDistrict(left).localeCompare(featureDistrict(right), "th");
-        return district || featureTambon(left).localeCompare(featureTambon(right), "th");
-      });
-
-      for (const feature of sortedAreas) {
-        const option = document.createElement("label");
-        option.className = "staff-area-option";
-        const checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.dataset.areaId = areaId(feature);
-        const text = document.createElement("span");
-        text.textContent = featureTambon(feature);
-        const district = document.createElement("small");
-        district.textContent = featureDistrict(feature);
-        option.append(checkbox, text, district);
-        areaList.append(option);
-        checkboxes.set(areaId(feature), checkbox);
-      }
-
-      const selectedFeatures = () => sortedAreas.filter((feature) => checkboxes.get(areaId(feature)).checked);
-      const selectionStatus = document.createElement("p");
-      selectionStatus.className = "staff-area-selection-status";
-
-      const bulkActions = document.createElement("div");
-      bulkActions.className = "staff-area-bulk-actions";
-      const partialSelect = document.createElement("select");
-      const partialPlaceholder = document.createElement("option");
-      partialPlaceholder.value = "";
-      partialPlaceholder.textContent = "— โอนตำบลที่เลือกไปให้ —";
-      partialSelect.append(partialPlaceholder);
-      for (const candidate of activeStaff().filter((candidate) => candidate.id !== person.id)) {
-        const option = document.createElement("option");
-        option.value = candidate.id;
-        option.textContent = candidate.name;
-        partialSelect.append(option);
-      }
-
-      const partialTransfer = document.createElement("button");
-      partialTransfer.type = "button";
-      partialTransfer.className = "button button-secondary";
-      partialTransfer.textContent = "โอนที่เลือก";
-      const partialUnassign = document.createElement("button");
-      partialUnassign.type = "button";
-      partialUnassign.className = "button button-danger";
-      partialUnassign.textContent = "นำที่เลือกออก";
-
-      const refreshSelection = () => {
-        const count = selectedFeatures().length;
-        selectAll.checked = count === sortedAreas.length;
-        selectAll.indeterminate = count > 0 && count < sortedAreas.length;
-        selectionStatus.textContent = `เลือกแล้ว ${count} ตำบล`;
-        partialTransfer.disabled = !count || !partialSelect.value;
-        partialUnassign.disabled = !count;
-      };
-      selectAll.addEventListener("change", () => {
-        for (const checkbox of checkboxes.values()) checkbox.checked = selectAll.checked;
-        refreshSelection();
-      });
-      for (const checkbox of checkboxes.values()) checkbox.addEventListener("change", refreshSelection);
-      partialSelect.addEventListener("change", refreshSelection);
-      partialTransfer.addEventListener("click", () => transferSelectedStaffAreas(person, selectedFeatures(), partialSelect.value));
-      partialUnassign.addEventListener("click", () => unassignSelectedStaffAreas(person, selectedFeatures()));
-      refreshSelection();
-
-      bulkActions.append(partialSelect, partialTransfer, partialUnassign);
-      editor.append(hint, selectAllRow, areaList, selectionStatus, bulkActions);
-    }
-
-    const transfer = document.createElement("div");
-    transfer.className = "transfer-row";
-    const select = document.createElement("select");
-    const placeholder = document.createElement("option");
-    placeholder.value = "";
-    placeholder.textContent = "— โอนทั้งหมดไปให้ —";
-    select.append(placeholder);
-    for (const candidate of activeStaff().filter((candidate) => candidate.id !== person.id)) {
-      const option = document.createElement("option");
-      option.value = candidate.id;
-      option.textContent = candidate.name;
-      select.append(option);
-    }
-    const unassign = document.createElement("option");
-    unassign.value = "__unassign__";
-    unassign.textContent = "ยกเลิกพื้นที่ทั้งหมด";
-    select.append(unassign);
-    const transferButton = document.createElement("button");
-    transferButton.type = "button";
-    transferButton.className = "button button-secondary";
-    transferButton.textContent = "โอนทั้งหมด";
-    transferButton.disabled = !areas.length;
-    transferButton.addEventListener("click", () => transferStaffAreas(person, select.value));
-    transfer.append(select, transferButton);
-
-    card.append(heading, meta, actions, editor, transfer);
-    fragment.append(card);
-  }
-  dom.staffManagementList.replaceChildren(fragment);
-}
-
-function assignmentCount() {
-  return Object.keys(currentAssignments()).filter((id) => availableFeatures().some((feature) => areaId(feature) === id)).length;
-}
-
-function districtEntries() {
-  return Array.from(new Set(availableFeatures().map(featureDistrict))).sort((a, b) => a.localeCompare(b, "th"));
-}
-
-function setFeatureAssignment(feature, staffId, { silent = false } = {}) {
-  const id = areaId(feature);
-  if (!staffId) {
-    delete state.assignments[id];
-  } else {
-    state.assignments[id] = staffId;
-  }
-  if (!silent) persist();
-}
-
-function assignFeatures(featuresToAssign, shouldAssign) {
-  if (!ensureSelectedStaff()) {
-    renderAll();
-    return;
-  }
+function assignFeatures(items, shouldAssign) {
+  if (!ensureSelectedStaff()) return renderAll();
   const staff = selectedStaff();
-  const foreign = featuresToAssign.filter((feature) => {
-    const owner = state.assignments[areaId(feature)];
-    return shouldAssign && owner && owner !== staff.id;
-  });
-  if (foreign.length && !window.confirm(`${foreign.length} ตำบลมีผู้รับผิดชอบอยู่แล้ว ต้องการย้ายมาให้ ${staff.name} หรือไม่?`)) {
-    renderAll();
-    return;
+  const foreign = items.filter((feature) => shouldAssign && state.assignments[Core.areaId(feature)] && state.assignments[Core.areaId(feature)] !== staff.id);
+  if (foreign.length && !confirm(`${foreign.length} ตำบลมีผู้รับผิดชอบอยู่แล้ว ต้องการย้ายมาให้ ${staff.name} หรือไม่?`)) return renderAll();
+  for (const feature of items) {
+    const id = Core.areaId(feature);
+    if (shouldAssign) state.assignments[id] = staff.id;
+    else if (state.assignments[id] === staff.id) delete state.assignments[id];
   }
-  for (const feature of featuresToAssign) {
-    if (shouldAssign) state.assignments[areaId(feature)] = staff.id;
-    else if (state.assignments[areaId(feature)] === staff.id) delete state.assignments[areaId(feature)];
-  }
-  persist(shouldAssign ? `กำหนด ${featuresToAssign.length} ตำบลให้ ${staff.name} แล้ว` : `ยกเลิกพื้นที่ของ ${staff.name} แล้ว`);
+  persist(shouldAssign ? `กำหนด ${items.length} ตำบลให้ ${staff.name} แล้ว` : `ยกเลิก ${items.length} ตำบลแล้ว`);
 }
 
 function toggleFeatureFromMap(feature) {
   if (!ensureSelectedStaff()) return;
   const staff = selectedStaff();
-  const owner = state.assignments[areaId(feature)];
-  if (owner === staff.id) {
-    setFeatureAssignment(feature, null);
-    showToast(`ยกเลิก ${featureTambon(feature)} แล้ว`);
+  const id = Core.areaId(feature);
+  const ownerId = state.assignments[id];
+  if (ownerId === staff.id) {
+    delete state.assignments[id];
+    persist(`ยกเลิก ${Core.tambonName(feature)} แล้ว`);
     return;
   }
-  if (owner && owner !== staff.id) {
-    const other = getStaff(owner);
-    if (!window.confirm(`${featureTambon(feature)} อยู่กับ ${other ? other.name : "ผู้รับผิดชอบเดิม"} ต้องการย้ายพื้นที่หรือไม่?`)) return;
+  if (ownerId && !confirm(`${Core.tambonName(feature)} อยู่กับ ${getStaff(ownerId)?.name || "ผู้รับผิดชอบเดิม"} ต้องการย้ายหรือไม่?`)) return;
+  state.assignments[id] = staff.id;
+  persist(`กำหนด ${Core.tambonName(feature)} ให้ ${staff.name} แล้ว`);
+}
+
+function setAreaPrice(feature, rawValue, { quiet = false } = {}) {
+  const id = Core.areaId(feature);
+  const text = String(rawValue ?? "").trim();
+  if (!text) delete state.prices[id];
+  else {
+    const amount = Core.parseAmount(text);
+    if (amount === null) return false;
+    state.prices[id] = amount;
   }
-  setFeatureAssignment(feature, staff.id);
-  showToast(`กำหนด ${featureTambon(feature)} ให้ ${staff.name} แล้ว`);
+  if (!quiet) persist(`ปรับยอดตำบล${Core.tambonName(feature)}แล้ว`, { fullRender: false });
+  return true;
+}
+
+function importPrices(text) {
+  const parsed = Core.parsePriceLines(text, availableFeatures());
+  for (const item of parsed.applied) state.prices[item.id] = item.amount;
+  const parts = [`นำเข้า ${parsed.applied.length} ตำบล`];
+  if (parsed.notFound.length) parts.push(`ไม่พบ ${parsed.notFound.length}`);
+  if (parsed.ambiguous.length) parts.push(`ชื่อซ้ำ/กำกวม ${parsed.ambiguous.length}`);
+  if (parsed.invalid.length) parts.push(`รูปแบบไม่ถูกต้อง ${parsed.invalid.length}`);
+  if (dom.price_import_status) {
+    const detail = [];
+    if (parsed.notFound.length) detail.push(`ไม่พบ: ${parsed.notFound.slice(0, 5).join(" · ")}`);
+    if (parsed.ambiguous.length) detail.push(`กำกวม: ${parsed.ambiguous.slice(0, 5).join(" · ")}`);
+    if (parsed.invalid.length) detail.push(`ตรวจรูปแบบ: ${parsed.invalid.slice(0, 5).join(" · ")}`);
+    dom.price_import_status.textContent = `${parts.join(" · ")}${detail.length ? ` — ${detail.join(" | ")}` : ""}`;
+    dom.price_import_status.className = `helper-text ${parsed.notFound.length || parsed.ambiguous.length || parsed.invalid.length ? "warning" : "ok"}`;
+  }
+  if (parsed.applied.length) persist(`นำเข้ายอด ${parsed.applied.length} ตำบลแล้ว`);
+  else renderAll();
+}
+
+async function importPriceFile(file) {
+  if (!file) return;
+  try { importPrices(await file.text()); }
+  catch (error) { console.error(error); showToast("อ่านไฟล์ยอดไม่สำเร็จ"); }
+  finally { dom.price_csv_input.value = ""; }
+}
+
+async function importStaffFile(file) {
+  if (!file) return;
+  try {
+    const names = (await file.text()).split(/\r?\n/).map((line) => Core.sanitizeName(line.split(/[,;\t]/)[0].replace(/^"|"$/g, ""))).filter((name) => name && !/^ชื่อ|^name$/i.test(name));
+    const existing = new Set(state.staff.map((person) => person.name.toLocaleLowerCase("th")));
+    let added = 0;
+    for (const name of names) {
+      const key = name.toLocaleLowerCase("th");
+      if (existing.has(key)) continue;
+      state.staff.push({ id: `staff-${Date.now()}-${added}-${Math.random().toString(36).slice(2, 6)}`, name, color: nextDistinctColor(state.staff.map((person) => person.color)), active: true });
+      existing.add(key); added += 1;
+    }
+    persist(added ? `นำเข้ารายชื่อ ${added} รายการแล้ว` : "ไม่พบรายชื่อใหม่");
+  } catch (error) { console.error(error); showToast("นำเข้ารายชื่อไม่สำเร็จ"); }
+  finally { dom.staff_import_input.value = ""; }
 }
 
 function renderStaffSelect() {
-  const selected = selectedStaffId();
-  dom.staffSelect.innerHTML = '<option value="">— เลือกผู้รับผิดชอบ —</option>';
-  for (const person of activeStaff()) {
-    const option = document.createElement("option");
-    option.value = person.id;
-    option.textContent = person.name;
-    dom.staffSelect.append(option);
-  }
-  dom.staffSelect.value = activeStaff().some((person) => person.id === selected) ? selected : "";
+  const current = selectedStaffId();
+  dom.staff_select.innerHTML = '<option value="">— เลือกผู้รับผิดชอบ —</option>';
+  for (const person of activeStaff()) dom.staff_select.add(new Option(person.name, person.id));
+  dom.staff_select.value = activeStaff().some((person) => person.id === current) ? current : "";
   const person = selectedStaff();
-  dom.colorSwatch.style.background = person ? person.color : "repeating-conic-gradient(#d3dde3 0 25%, #fff 0 50%) 50% / 10px 10px";
-  dom.staffHelp.textContent = person
-    ? `สีของ ${person.name} จะไม่ซ้ำกับผู้รับผิดชอบรายอื่น`
-    : activeStaff().length ? "เลือกผู้รับผิดชอบที่ปฏิบัติงานอยู่เพื่อกำหนดพื้นที่" : "เพิ่มรายชื่อก่อน แล้วระบบจะคละสีที่ต่างกันชัดเจนให้";
+  dom.color_swatch.style.background = person ? person.color : "repeating-conic-gradient(#d3dde3 0 25%, #fff 0 50%) 50% / 10px 10px";
+  dom.staff_help.textContent = person ? `กำลังกำหนดพื้นที่ให้ ${person.name}` : activeStaff().length ? "เลือกผู้รับผิดชอบเพื่อกำหนดพื้นที่" : "เพิ่มรายชื่อก่อน แล้วระบบจะคละสีให้อัตโนมัติ";
+}
+
+function renderStaffManagement() {
+  dom.staff_management_content.hidden = !staffManagementOpen;
+  dom.toggle_staff_management.textContent = staffManagementOpen ? "ซ่อนข้อมูล" : "แสดงข้อมูล";
+  dom.toggle_staff_management.setAttribute("aria-expanded", String(staffManagementOpen));
+  if (!state.staff.length) { dom.staff_management_list.innerHTML = '<p class="empty-result">ยังไม่มีรายชื่อเจ้าหน้าที่</p>'; return; }
+  const fragment = document.createDocumentFragment();
+  for (const person of state.staff) {
+    const areas = assignedAreasFor(person.id).sort((a, b) => `${Core.districtName(a)} ${Core.tambonName(a)}`.localeCompare(`${Core.districtName(b)} ${Core.tambonName(b)}`, "th"));
+    const card = document.createElement("article"); card.className = `staff-card${person.active ? "" : " inactive"}`;
+    const heading = document.createElement("div"); heading.className = "staff-card-heading";
+    const dot = document.createElement("span"); dot.className = "legend-dot"; dot.style.background = person.color;
+    const name = document.createElement("strong"); name.textContent = person.name;
+    const status = document.createElement("span"); status.className = `staff-status${person.active ? "" : " inactive"}`; status.textContent = person.active ? "ปฏิบัติงาน" : "ปิดใช้งาน";
+    heading.append(dot, name, status);
+    const meta = document.createElement("p"); meta.className = "staff-card-meta"; meta.textContent = `${areas.length} ตำบล · ${new Set(areas.map(Core.districtName)).size} อำเภอ · ${Core.formatAmount(Core.sumPrices(areas, state.prices))}`;
+    const actions = document.createElement("div"); actions.className = "staff-card-actions";
+    const rename = button("แก้ชื่อ", "button button-muted", () => renameStaff(person));
+    const activity = button(person.active ? "ปิดใช้งาน" : "เปิดใช้งาน", "button button-muted", () => toggleStaffActive(person));
+    const remove = button("ลบ", "button button-danger", () => deleteStaff(person));
+    actions.append(rename, activity, remove);
+
+    const editor = document.createElement("details"); editor.className = "staff-area-editor";
+    const summary = document.createElement("summary"); summary.textContent = `แก้ไขตำบลรายรายการ (${areas.length})`; editor.append(summary);
+    if (areas.length) {
+      const list = document.createElement("div"); list.className = "staff-area-list";
+      const checks = new Map();
+      for (const feature of areas) {
+        const row = document.createElement("label"); row.className = "staff-area-option";
+        const check = document.createElement("input"); check.type = "checkbox"; checks.set(Core.areaId(feature), check);
+        const text = document.createElement("span"); text.textContent = Core.tambonName(feature);
+        const small = document.createElement("small"); small.textContent = `${Core.districtName(feature)} · ${Core.formatAmount(featurePrice(feature))}`;
+        row.append(check, text, small); list.append(row);
+      }
+      const transfer = document.createElement("div"); transfer.className = "staff-area-bulk-actions";
+      const select = document.createElement("select"); select.add(new Option("— โอนที่เลือกไปให้ —", ""));
+      for (const candidate of activeStaff().filter((item) => item.id !== person.id)) select.add(new Option(candidate.name, candidate.id));
+      select.add(new Option("ยกเลิกการมอบหมาย", "__unassign__"));
+      const act = button("ดำเนินการ", "button button-secondary", () => {
+        const selected = areas.filter((feature) => checks.get(Core.areaId(feature)).checked);
+        transferAreas(person, selected, select.value);
+      });
+      transfer.append(select, act); editor.append(list, transfer);
+    } else {
+      const empty = document.createElement("p"); empty.className = "staff-area-empty"; empty.textContent = "ยังไม่มีตำบลที่รับผิดชอบ"; editor.append(empty);
+    }
+    const transferAll = document.createElement("div"); transferAll.className = "transfer-row";
+    const selectAll = document.createElement("select"); selectAll.add(new Option("— โอนทั้งหมดไปให้ —", ""));
+    for (const candidate of activeStaff().filter((item) => item.id !== person.id)) selectAll.add(new Option(candidate.name, candidate.id));
+    selectAll.add(new Option("ยกเลิกพื้นที่ทั้งหมด", "__unassign__"));
+    const transferButton = button("โอนทั้งหมด", "button button-secondary", () => transferAreas(person, areas, selectAll.value)); transferButton.disabled = !areas.length;
+    transferAll.append(selectAll, transferButton);
+    card.append(heading, meta, actions, editor, transferAll); fragment.append(card);
+  }
+  dom.staff_management_list.replaceChildren(fragment);
+}
+
+function button(text, className, onClick) {
+  const element = document.createElement("button"); element.type = "button"; element.className = className; element.textContent = text; element.addEventListener("click", onClick); return element;
+}
+
+function districtEntries() {
+  return [...new Set(availableFeatures().map(Core.districtName))].sort((a, b) => a.localeCompare(b, "th"));
 }
 
 function renderDistrictList() {
-  if (!dom.districtList) return;
   const staff = selectedStaff();
   const fragment = document.createDocumentFragment();
-  const indeterminateInputs = [];
+  const partials = [];
   for (const district of districtEntries()) {
-    const districtFeatures = availableFeatures().filter((feature) => featureDistrict(feature) === district);
-    const assigned = staff ? districtFeatures.filter((feature) => state.assignments[areaId(feature)] === staff.id).length : 0;
-    const label = document.createElement("label");
-    label.className = "district-option";
-    const input = document.createElement("input");
-    input.type = "checkbox";
-    input.checked = Boolean(staff && assigned === districtFeatures.length);
-    input.disabled = !staff;
-    input.dataset.district = district;
-    if (staff && assigned > 0 && assigned < districtFeatures.length) indeterminateInputs.push(input);
-    input.addEventListener("change", () => assignFeatures(districtFeatures, input.checked));
-    const text = document.createElement("span");
-    text.className = "district-label";
-    text.textContent = district;
-    const count = document.createElement("span");
-    count.className = "count-tag";
-    count.textContent = `${districtFeatures.length} ตำบล`;
-    label.append(input, text, count);
-    fragment.append(label);
+    const districtFeatures = availableFeatures().filter((feature) => Core.districtName(feature) === district);
+    const assigned = staff ? districtFeatures.filter((feature) => state.assignments[Core.areaId(feature)] === staff.id).length : 0;
+    const row = document.createElement("label"); row.className = "district-option";
+    const check = document.createElement("input"); check.type = "checkbox"; check.disabled = !staff; check.checked = Boolean(staff && assigned === districtFeatures.length); if (assigned > 0 && assigned < districtFeatures.length) partials.push(check);
+    check.addEventListener("change", () => assignFeatures(districtFeatures, check.checked));
+    const name = document.createElement("span"); name.className = "district-label"; name.textContent = district;
+    const count = document.createElement("span"); count.className = "count-tag"; count.textContent = `${districtFeatures.length} ตำบล`;
+    row.append(check, name, count); fragment.append(row);
   }
-  dom.districtList.replaceChildren(fragment);
-  for (const input of indeterminateInputs) input.indeterminate = true;
+  dom.district_list.replaceChildren(fragment); partials.forEach((input) => { input.indeterminate = true; });
 }
 
 function renderTambonList() {
-  const query = dom.tambonSearch.value.trim().toLocaleLowerCase("th");
-  if (!query) {
-    dom.tambonList.innerHTML = '<p class="empty-result">พิมพ์ชื่อตำบลเพื่อค้นหาและเลือกพื้นที่</p>';
-    return;
-  }
+  const query = Core.sanitizeName(dom.tambon_search.value).toLocaleLowerCase("th");
+  if (!query) { dom.tambon_list.innerHTML = '<p class="empty-result">พิมพ์ชื่อตำบลหรืออำเภอเพื่อค้นหา</p>'; return; }
   const staff = selectedStaff();
-  const matches = availableFeatures()
-    .filter((feature) => `${featureTambon(feature)} ${featureDistrict(feature)}`.toLocaleLowerCase("th").includes(query))
-    .sort((a, b) => `${featureDistrict(a)} ${featureTambon(a)}`.localeCompare(`${featureDistrict(b)} ${featureTambon(b)}`, "th"))
-    .slice(0, 80);
-  if (!matches.length) {
-    dom.tambonList.innerHTML = '<p class="empty-result">ไม่พบตำบลที่ค้นหา</p>';
-    return;
-  }
+  const matches = availableFeatures().filter((feature) => `${Core.tambonName(feature)} ${Core.districtName(feature)}`.toLocaleLowerCase("th").includes(query)).slice(0, 80);
+  if (!matches.length) { dom.tambon_list.innerHTML = '<p class="empty-result">ไม่พบตำบลที่ค้นหา</p>'; return; }
   const fragment = document.createDocumentFragment();
   for (const feature of matches) {
-    const label = document.createElement("label");
-    label.className = "tambon-option";
-    const input = document.createElement("input");
-    input.type = "checkbox";
-    input.checked = Boolean(staff && state.assignments[areaId(feature)] === staff.id);
-    input.disabled = !staff;
-    input.addEventListener("change", () => assignFeatures([feature], input.checked));
-    const text = document.createElement("span");
-    text.textContent = featureTambon(feature);
-    const district = document.createElement("small");
-    district.textContent = featureDistrict(feature);
-    label.append(input, text, district);
-    fragment.append(label);
+    const row = document.createElement("label"); row.className = "tambon-option";
+    const check = document.createElement("input"); check.type = "checkbox"; check.disabled = !staff; check.checked = Boolean(staff && state.assignments[Core.areaId(feature)] === staff.id); check.addEventListener("change", () => assignFeatures([feature], check.checked));
+    const name = document.createElement("span"); name.textContent = Core.tambonName(feature);
+    const small = document.createElement("small"); small.textContent = `${Core.districtName(feature)} · ${Core.formatAmount(featurePrice(feature))}`;
+    row.append(check, name, small); fragment.append(row);
   }
-  dom.tambonList.replaceChildren(fragment);
+  dom.tambon_list.replaceChildren(fragment);
+}
+
+function renderPriceList() {
+  const query = Core.sanitizeName(dom.price_search.value).toLocaleLowerCase("th");
+  const items = availableFeatures().filter((feature) => !query || `${Core.tambonName(feature)} ${Core.districtName(feature)}`.toLocaleLowerCase("th").includes(query)).sort((a, b) => `${Core.districtName(a)} ${Core.tambonName(a)}`.localeCompare(`${Core.districtName(b)} ${Core.tambonName(b)}`, "th"));
+  const fragment = document.createDocumentFragment(); let district = "";
+  for (const feature of items) {
+    if (Core.districtName(feature) !== district) {
+      district = Core.districtName(feature); const heading = document.createElement("p"); heading.className = "price-district-heading"; heading.textContent = `อำเภอ${district}`; fragment.append(heading);
+    }
+    const row = document.createElement("label"); row.className = "price-option";
+    const info = document.createElement("span"); info.className = "price-name";
+    const name = document.createElement("span"); name.className = "price-tambon"; name.textContent = Core.tambonName(feature);
+    const owner = getStaff(state.assignments[Core.areaId(feature)]); const small = document.createElement("small"); small.textContent = owner ? `ผู้รับผิดชอบ: ${owner.name}` : "ยังไม่มอบหมาย"; info.append(name, small);
+    const input = document.createElement("input"); input.type = "text"; input.inputMode = "decimal"; input.className = "price-input"; input.placeholder = "ยอดบาท"; input.value = featurePrice(feature) === null ? "" : Core.formatAmount(featurePrice(feature), { suffix: false });
+    input.addEventListener("change", () => {
+      if (!setAreaPrice(feature, input.value)) { showToast("กรอกยอดเป็นตัวเลข 0 ขึ้นไป และทศนิยมไม่เกิน 2 ตำแหน่ง"); input.value = featurePrice(feature) === null ? "" : Core.formatAmount(featurePrice(feature), { suffix: false }); }
+      else input.value = featurePrice(feature) === null ? "" : Core.formatAmount(featurePrice(feature), { suffix: false });
+    });
+    row.append(info, input); fragment.append(row);
+  }
+  dom.price_list.replaceChildren(fragment);
+  dom.price_progress.textContent = `${pricedCount()}/${availableFeatures().length} ตำบล`;
 }
 
 function renderLegend() {
-  if (!state.staff.length) {
-    dom.legend.innerHTML = '<p class="empty-result">ยังไม่มีผู้รับผิดชอบ</p>';
-    return;
-  }
+  if (!state.staff.length) { dom.legend.innerHTML = '<p class="empty-result">ยังไม่มีผู้รับผิดชอบ</p>'; return; }
   const fragment = document.createDocumentFragment();
   for (const person of state.staff) {
-    const count = assignedAreasFor(person.id).length;
-    const item = document.createElement("div");
-    item.className = "legend-item";
-    const dot = document.createElement("span");
-    dot.className = "legend-dot";
-    dot.style.background = person.color;
-    const name = document.createElement("strong");
-    name.textContent = `${person.name}${person.active ? "" : " (ปิดใช้งาน)"}`;
-    const countText = document.createElement("span");
-    countText.className = "legend-count";
-    countText.textContent = `${count} ตำบล`;
-    item.append(dot, name, countText);
-    fragment.append(item);
+    const areas = assignedAreasFor(person.id); const row = document.createElement("div"); row.className = "legend-item";
+    const dot = document.createElement("span"); dot.className = "legend-dot"; dot.style.background = person.color;
+    const name = document.createElement("strong"); name.textContent = `${person.name}${person.active ? "" : " (ปิดใช้งาน)"}`;
+    const count = document.createElement("span"); count.className = "legend-count"; count.textContent = `${areas.length} ตำบล · ${Core.formatAmount(Core.sumPrices(areas, state.prices))}`;
+    row.append(dot, name, count); fragment.append(row);
   }
   dom.legend.replaceChildren(fragment);
 }
 
 function renderSummary() {
   const total = availableFeatures().length;
-  const assigned = assignmentCount();
-  const pills = [
-    `${state.staff.length} ผู้รับผิดชอบ`,
-    `มอบหมายแล้ว ${assigned}/${total} ตำบล`,
-    `เขตศาลจังหวัดลพบุรี`,
-  ];
-  dom.summary.replaceChildren(...pills.map((text) => {
-    const pill = document.createElement("span");
-    pill.className = "summary-pill";
-    pill.textContent = text;
-    return pill;
-  }));
-  dom.updatedAt.textContent = state.updatedAt
-    ? `ปรับปรุง: ${new Intl.DateTimeFormat("th-TH", { dateStyle: "medium" }).format(new Date(state.updatedAt))}`
-    : "ยังไม่มีการบันทึก";
+  const totalAmount = Core.sumPrices(availableFeatures(), state.prices);
+  const values = [`${state.staff.length} ผู้รับผิดชอบ`, `มอบหมาย ${assignmentCount()}/${total} ตำบล`, `กำหนดยอด ${pricedCount()}/${total} ตำบล`, `รวม ${Core.formatAmount(totalAmount)}`];
+  dom.assignment_summary.replaceChildren(...values.map((text) => { const item = document.createElement("span"); item.className = "summary-pill"; item.textContent = text; return item; }));
+  dom.updated_at.textContent = state.updatedAt ? `ปรับปรุง: ${new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(state.updatedAt))}` : "ยังไม่มีการบันทึก";
 }
 
 function renderValidation() {
-  const validStaffIds = new Set(state.staff.map((person) => person.id));
-  const unknownAssignments = Object.entries(state.assignments).filter(([, staffId]) => !validStaffIds.has(staffId));
+  const validStaff = new Set(state.staff.map((person) => person.id));
+  const unknown = Object.values(state.assignments).filter((id) => !validStaff.has(id)).length;
   const colors = state.staff.map((person) => person.color.toLowerCase());
-  const duplicateColors = colors.length - new Set(colors).size;
   const closePairs = [];
-  for (let index = 0; index < state.staff.length; index += 1) {
-    for (let next = index + 1; next < state.staff.length; next += 1) {
-      if (colorDistance(state.staff[index].color, state.staff[next].color) < 66) {
-        closePairs.push(`${state.staff[index].name} / ${state.staff[next].name}`);
-      }
-    }
-  }
-  const missing = availableFeatures().length - assignmentCount();
+  for (let i = 0; i < state.staff.length; i += 1) for (let j = i + 1; j < state.staff.length; j += 1) if (colorDistance(state.staff[i].color, state.staff[j].color) < 66) closePairs.push(`${state.staff[i].name}/${state.staff[j].name}`);
+  const missingAssignments = availableFeatures().length - assignmentCount();
+  const missingPrices = availableFeatures().length - pricedCount();
   const items = [
-    { className: duplicateColors ? "error" : "ok", text: duplicateColors ? `พบสีซ้ำ ${duplicateColors} รายการ` : "สีไม่ซ้ำกัน" },
-    { className: closePairs.length ? "warn" : "ok", text: closePairs.length ? `สีใกล้กัน: ${closePairs.join(", ")}` : "สีต่างกันชัดเจน" },
-    { className: unknownAssignments.length ? "error" : "ok", text: unknownAssignments.length ? `พบการมอบหมายที่ไม่พบชื่อ ${unknownAssignments.length} รายการ` : "ไม่พบพื้นที่ซ้ำ — ตำบลหนึ่งมีผู้รับผิดชอบได้หนึ่งคน" },
-    { className: missing ? "warn" : "ok", text: missing ? `ยังไม่มอบหมาย ${missing} ตำบล` : "มอบหมายครบทุกตำบลในขอบเขต" },
+    [new Set(colors).size === colors.length ? "ok" : "error", new Set(colors).size === colors.length ? "สีไม่ซ้ำกัน" : "พบสีซ้ำ"],
+    [closePairs.length ? "warn" : "ok", closePairs.length ? `สีใกล้กัน: ${closePairs.join(", ")}` : "สีต่างกันชัดเจน"],
+    [unknown ? "error" : "ok", unknown ? `พบพื้นที่อ้างอิงเจ้าหน้าที่ที่ไม่มีชื่อ ${unknown} รายการ` : "การมอบหมายอ้างอิงรายชื่อถูกต้อง"],
+    [missingAssignments ? "warn" : "ok", missingAssignments ? `ยังไม่มอบหมาย ${missingAssignments} ตำบล` : "มอบหมายครบทุกตำบล"],
+    [missingPrices ? "warn" : "ok", missingPrices ? `ยังไม่กำหนดยอด ${missingPrices} ตำบล` : "กำหนดยอดครบทุกตำบล"],
+    [state.publishPrices ? "warn" : "ok", state.publishPrices ? "เปิดแสดงยอดในหน้าสาธารณะ (ข้อมูล JSON ยังคงสาธารณะเสมอ)" : "ปิดการแสดงยอดบนหน้าดูผล"],
   ];
-  dom.validationList.replaceChildren(...items.map((item) => {
-    const row = document.createElement("li");
-    row.className = item.className;
-    row.textContent = item.text;
-    return row;
-  }));
-}
-
-function mapData() {
-  const sourceFeatures = features
-    .filter(isMainDistrict)
-    .map((feature) => {
-      const id = areaId(feature);
-      const owner = getStaff(state.assignments[id]);
-      return {
-        ...feature,
-        id,
-        properties: {
-          ...feature.properties,
-          id,
-          color: owner ? owner.color : "#dce6ea",
-          height: owner ? 1250 : 340,
-          assigned: Boolean(owner),
-        },
-      };
-    });
-  return { type: "FeatureCollection", features: sourceFeatures };
-}
-
-function createMap(container) {
-  const config = { center: [100.68, 14.83], zoom: 8.9, pitch: 47, bearing: -13 };
-  const map = new maplibregl.Map({
-    container,
-    style: {
-      version: 8,
-      sources: {},
-      layers: [{ id: "background", type: "background", paint: { "background-color": "#edf4f5" } }],
-    },
-    ...config,
-    antialias: true,
-    preserveDrawingBuffer: true,
-  });
-  map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
-  map.addControl(createMapResetControl(() => {
-    fitMapsToData();
-    renderMaps();
-  }), "top-right");
-  configureMapInteraction(map);
-  map.on("load", () => {
-    map.addSource("tambons", { type: "geojson", data: mapData(), promoteId: "id" });
-    map.addLayer({
-      id: "tambon-ground",
-      type: "fill",
-      source: "tambons",
-      paint: { "fill-color": ["get", "color"], "fill-opacity": 0.74 },
-    });
-    map.addLayer({
-      id: "tambon-3d",
-      type: "fill-extrusion",
-      source: "tambons",
-      paint: {
-        "fill-extrusion-color": ["get", "color"],
-        "fill-extrusion-height": ["get", "height"],
-        "fill-extrusion-base": 0,
-        "fill-extrusion-opacity": 0.82,
-      },
-    });
-    map.addLayer({
-      id: "tambon-outline",
-      type: "line",
-      source: "tambons",
-      paint: { "line-color": "#ffffff", "line-width": 1.1, "line-opacity": 0.96 },
-    });
-    map.on("mouseenter", "tambon-3d", () => { map.getCanvas().style.cursor = "pointer"; });
-    map.on("mouseleave", "tambon-3d", () => { map.getCanvas().style.cursor = ""; });
-    map.on("click", "tambon-3d", (event) => {
-      const clicked = event.features && event.features[0];
-      if (!clicked) return;
-      const original = features.find((feature) => areaId(feature) === String(clicked.properties.id));
-      if (!original) return;
-      toggleFeatureFromMap(original);
-    });
-    map.on("moveend", () => renderMapLabels(map));
-  });
-  return map;
-}
-
-function createMapResetControl(onReset) {
-  return {
-    onAdd() {
-      const container = document.createElement("div");
-      container.className = "maplibregl-ctrl maplibregl-ctrl-group map-reset-control";
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "map-reset-button";
-      button.title = "กลับพิกัดเริ่มต้น";
-      button.setAttribute("aria-label", "กลับพิกัดเริ่มต้นของแผนที่");
-      button.textContent = "⌖";
-      button.addEventListener("click", onReset);
-      container.append(button);
-      return container;
-    },
-    onRemove() {},
-  };
-}
-
-function usesCompactTouchLandscape() {
-  const query = window.matchMedia?.("(pointer: coarse) and (orientation: landscape) and (max-height: 620px)");
-  return Boolean(query?.matches);
-}
-
-function configureMapInteraction(map) {
-  if (!map) return;
-  const compactTouch = usesCompactTouchLandscape();
-  if (compactTouch) {
-    map.dragPan.disable();
-    map.touchZoomRotate.disable();
-    map.getCanvas().style.touchAction = "pan-y";
-    return;
-  }
-  map.dragPan.enable();
-  map.touchZoomRotate.enable();
-  map.touchZoomRotate.disableRotation();
-  map.getCanvas().style.touchAction = "";
-}
-
-function updateMapSource(map) {
-  if (!map || !map.isStyleLoaded() || !map.getSource("tambons")) return;
-  map.getSource("tambons").setData(mapData());
-  renderMapLabels(map);
-}
-
-function labelPosition(feature) {
-  const bounds = new maplibregl.LngLatBounds();
-  extendBounds(bounds, feature.geometry.coordinates);
-  const center = bounds.getCenter();
-  return [center.lng, center.lat];
-}
-
-function clearMapLabels(labelType = "tambon") {
-  for (const marker of labelMarkers[labelType] || []) marker.remove();
-  labelMarkers[labelType] = [];
-}
-
-function labelsOverlap(first, second) {
-  return first.left < second.right && first.right > second.left && first.top < second.bottom && first.bottom > second.top;
-}
-
-function renderMapLabels(map) {
-  clearMapLabels("tambon");
-  clearMapLabels("district");
-  if (!map || !map.isStyleLoaded()) return;
-
-  const visibleFeatures = availableFeatures().filter((feature) => map.getBounds().contains(labelPosition(feature)));
-  if (state.showLabels && map.getZoom() >= 8.1) {
-    const occupied = [];
-    const visible = visibleFeatures
-      .map((feature) => ({ feature, coordinate: labelPosition(feature), point: map.project(labelPosition(feature)) }))
-      .sort((first, second) => {
-        const firstAssigned = Boolean(getStaff(state.assignments[areaId(first.feature)]));
-        const secondAssigned = Boolean(getStaff(state.assignments[areaId(second.feature)]));
-        return Number(secondAssigned) - Number(firstAssigned);
-      });
-
-    for (const { feature, coordinate, point } of visible) {
-      const name = featureTambon(feature);
-      const width = Math.max(34, name.length * 7.8);
-      const box = { left: point.x - width / 2, right: point.x + width / 2, top: point.y - 10, bottom: point.y + 10 };
-      if (occupied.some((other) => labelsOverlap(box, other))) continue;
-      occupied.push(box);
-      const element = document.createElement("span");
-      element.className = "map-tambon-label";
-      element.textContent = name;
-      const marker = new maplibregl.Marker({ element, anchor: "center" }).setLngLat(coordinate).addTo(map);
-      labelMarkers.tambon.push(marker);
-    }
-  }
-
-  if (state.showDistrictLabels) {
-    const groups = new Map();
-    for (const feature of availableFeatures()) {
-      const district = featureDistrict(feature);
-      if (!groups.has(district)) groups.set(district, []);
-      groups.get(district).push(feature);
-    }
-    for (const [district, districtFeatures] of groups) {
-      const districtBounds = new maplibregl.LngLatBounds();
-      for (const feature of districtFeatures) extendBounds(districtBounds, feature.geometry.coordinates);
-      const center = districtBounds.getCenter();
-      if (!map.getBounds().contains(center)) continue;
-      const element = document.createElement("span");
-      element.className = "map-district-label";
-      element.textContent = `อำเภอ${district}`;
-      labelMarkers.district.push(new maplibregl.Marker({ element, anchor: "center" }).setLngLat(center).addTo(map));
-    }
-  }
-}
-
-function scheduleMapLabels(map) {
-  if (!map) return;
-  const renderWhenReady = () => {
-    if (!map.isStyleLoaded()) return;
-    map.resize();
-    renderMapLabels(map);
-  };
-  map.once("idle", renderWhenReady);
-  window.setTimeout(renderWhenReady, 220);
-}
-
-function fitMapsToData() {
-  if (!maps.main || !availableFeatures().length) return;
-  const assigned = availableFeatures().filter((feature) => Boolean(getStaff(state.assignments[areaId(feature)])));
-  const featuresToFit = assigned.length ? assigned : availableFeatures();
-  const bounds = new maplibregl.LngLatBounds();
-  for (const feature of featuresToFit) extendBounds(bounds, feature.geometry.coordinates);
-  maps.main.fitBounds(bounds, { padding: 52, duration: 0, maxZoom: 10.5 });
-  scheduleMapLabels(maps.main);
-}
-
-function extendBounds(bounds, coordinates) {
-  if (typeof coordinates[0] === "number") {
-    bounds.extend(coordinates);
-    return;
-  }
-  for (const coordinate of coordinates) extendBounds(bounds, coordinate);
-}
-
-function renderMaps() {
-  updateMapSource(maps.main);
-  dom.labelsButton.setAttribute("aria-pressed", String(state.showLabels));
-  dom.labelsButton.textContent = state.showLabels ? "ซ่อนชื่อตำบล" : "แสดงชื่อตำบล";
-  dom.districtLabelsButton.setAttribute("aria-pressed", String(state.showDistrictLabels));
-  dom.districtLabelsButton.textContent = state.showDistrictLabels ? "ซ่อนชื่ออำเภอ" : "แสดงชื่ออำเภอ";
-  dom.legendRail.hidden = !state.showLegend;
-  dom.mapsLayout.classList.toggle("legend-hidden", !state.showLegend);
-  dom.legendToggleButton.setAttribute("aria-expanded", String(state.showLegend));
-  dom.legendToggleButton.textContent = state.showLegend ? "ซ่อนคำอธิบายสี" : "แสดงคำอธิบายสี";
-}
-
-function renderAll() {
-  renderSharedStatus();
-  if (!features.length) return;
-  renderStaffSelect();
-  renderStaffManagement();
-  renderStaffManagementVisibility();
-  renderReportStaffSelect();
-  renderReportSummary();
-  renderDistrictList();
-  renderTambonList();
-  renderLegend();
-  renderSummary();
-  renderValidation();
-  renderMaps();
-}
-
-async function loadBoundaries() {
-  const params = new URLSearchParams({
-    where: "ADMIN_ID1 = '16'",
-    outFields: "ADMIN_ID1,ADMIN_ID2,ADMIN_ID3,NAME1,NAME2,NAME3",
-    returnGeometry: "true",
-    outSR: "4326",
-    f: "geojson",
-  });
-  const response = await fetch(`${GIS_QUERY_URL}?${params.toString()}`);
-  if (!response.ok) throw new Error(`GIS service returned ${response.status}`);
-  const collection = await response.json();
-  if (!Array.isArray(collection.features) || !collection.features.length) throw new Error("ไม่พบขอบเขตตำบลของจังหวัดลพบุรี");
-  features = collection.features
-    .filter((feature) => feature.properties?.ADMIN_ID3 && feature.properties?.NAME2 && feature.properties?.NAME3)
-    .map((feature) => ({ ...feature, id: areaId(feature) }));
-  removeAreasOutsideLopburiCourt();
-}
-
-function downloadBlob(blob, filename) {
-  const anchor = document.createElement("a");
-  anchor.href = URL.createObjectURL(blob);
-  anchor.download = filename;
-  document.body.append(anchor);
-  anchor.click();
-  anchor.remove();
-  setTimeout(() => URL.revokeObjectURL(anchor.href), 1000);
-}
-
-function reportDateStamp() {
-  return new Date().toISOString().slice(0, 10);
+  dom.validation_list.replaceChildren(...items.map(([className, text]) => { const li = document.createElement("li"); li.className = className; li.textContent = text; return li; }));
 }
 
 function workloadFor(person) {
   const areas = assignedAreasFor(person.id);
-  return {
-    person,
-    areas,
-    districts: Array.from(new Set(areas.map(featureDistrict))).sort((first, second) => first.localeCompare(second, "th")),
-  };
-}
-
-function unassignedAreas() {
-  return availableFeatures().filter((feature) => !getStaff(state.assignments[areaId(feature)]));
-}
-
-function reportRowsFor(person) {
-  return assignedAreasFor(person.id)
-    .sort((first, second) => `${featureDistrict(first)} ${featureTambon(first)}`.localeCompare(`${featureDistrict(second)} ${featureTambon(second)}`, "th"))
-    .map((feature, index) => ({
-      "ลำดับ": index + 1,
-      "ผู้รับผิดชอบ": person.name,
-      "สถานะเจ้าหน้าที่": person.active ? "ปฏิบัติงาน" : "ปิดใช้งาน",
-      "อำเภอ": featureDistrict(feature),
-      "ตำบล": featureTambon(feature),
-    }));
-}
-
-function unassignedReportRows() {
-  return unassignedAreas()
-    .sort((first, second) => `${featureDistrict(first)} ${featureTambon(first)}`.localeCompare(`${featureDistrict(second)} ${featureTambon(second)}`, "th"))
-    .map((feature, index) => ({ "ลำดับ": index + 1, "อำเภอ": featureDistrict(feature), "ตำบล": featureTambon(feature), "สถานะ": "ยังไม่มอบหมาย" }));
-}
-
-function workbookSheet(workbook, name, rows, usedNames) {
-  let sheetName = name.replace(/[\\/?*\[\]:]/g, " ").trim().slice(0, 28) || "รายงาน";
-  let suffix = 2;
-  while (usedNames.has(sheetName)) {
-    sheetName = `${name.slice(0, 24)} ${suffix}`.slice(0, 31);
-    suffix += 1;
-  }
-  usedNames.add(sheetName);
-  const content = rows.length ? rows : [{ "หมายเหตุ": "ไม่มีข้อมูล" }];
-  const sheet = window.XLSX.utils.json_to_sheet(content);
-  sheet["!cols"] = Object.keys(content[0]).map((key) => ({ wch: Math.min(42, Math.max(12, key.length + 8)) }));
-  window.XLSX.utils.book_append_sheet(workbook, sheet, sheetName);
-}
-
-function exportExcelReport() {
-  if (!window.XLSX) {
-    showToast("ยังโหลดเครื่องมือ Excel ไม่สำเร็จ กรุณารีเฟรชแล้วลองใหม่");
-    return;
-  }
-  const selectedId = dom.reportStaffSelect.value;
-  const selected = selectedId ? getStaff(selectedId) : null;
-  if (selectedId && !selected) return showToast("ไม่พบเจ้าหน้าที่ที่เลือกรายงาน");
-
-  const workbook = window.XLSX.utils.book_new();
-  const usedNames = new Set();
-  const workloads = (selected ? [selected] : state.staff).map(workloadFor);
-  const summary = workloads.map((item, index) => ({
-    "ลำดับ": index + 1,
-    "ผู้รับผิดชอบ": item.person.name,
-    "สถานะ": item.person.active ? "ปฏิบัติงาน" : "ปิดใช้งาน",
-    "จำนวนตำบล": item.areas.length,
-    "จำนวนอำเภอ": item.districts.length,
-    "อำเภอที่รับผิดชอบ": item.districts.join(", "),
-  }));
-  workbookSheet(workbook, "สรุปภาระงาน", summary, usedNames);
-
-  if (selected) {
-    workbookSheet(workbook, `พื้นที่ ${selected.name}`, reportRowsFor(selected), usedNames);
-  } else {
-    const details = state.staff.flatMap((person) => reportRowsFor(person));
-    workbookSheet(workbook, "รายการพื้นที่ทั้งหมด", details, usedNames);
-    for (const person of state.staff) workbookSheet(workbook, person.name, reportRowsFor(person), usedNames);
-  }
-  workbookSheet(workbook, "ยังไม่มอบหมาย", unassignedReportRows(), usedNames);
-  const filename = selected
-    ? `รายงานเขต-${selected.name}-${reportDateStamp()}.xlsx`
-    : `รายงานเขตงานส่งหมาย-${reportDateStamp()}.xlsx`;
-  window.XLSX.writeFile(workbook, filename);
-  showToast("ดาวน์โหลดรายงาน Excel แล้ว");
-}
-
-function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]));
-}
-
-function printStaffPdf() {
-  const person = getStaff(dom.reportStaffSelect.value);
-  if (!person) {
-    showToast("เลือกเจ้าหน้าที่ก่อนพิมพ์หรือบันทึก PDF รายคน");
-    return;
-  }
-  const workload = workloadFor(person);
-  const byDistrict = new Map();
-  for (const feature of workload.areas) {
-    const district = featureDistrict(feature);
-    if (!byDistrict.has(district)) byDistrict.set(district, []);
-    byDistrict.get(district).push(featureTambon(feature));
-  }
-  const groups = [...byDistrict.entries()]
-    .sort(([first], [second]) => first.localeCompare(second, "th"))
-    .map(([district, tambons]) => `<section><h3>อำเภอ${escapeHtml(district)} (${tambons.length} ตำบล)</h3><p>${tambons.sort((first, second) => first.localeCompare(second, "th")).map(escapeHtml).join(" · ") || "—"}</p></section>`)
-    .join("") || "<p>ยังไม่มีพื้นที่รับผิดชอบ</p>";
-  const printedAt = new Intl.DateTimeFormat("th-TH", { dateStyle: "long", timeStyle: "short" }).format(new Date());
-  const reportWindow = window.open("", "_blank");
-  if (!reportWindow) {
-    showToast("เบราว์เซอร์ปิดหน้าต่างรายงานไว้ กรุณาอนุญาตป๊อปอัปแล้วลองใหม่");
-    return;
-  }
-  reportWindow.opener = null;
-  reportWindow.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานเขต ${escapeHtml(person.name)}</title><style>
-    @page { size: A4; margin: 16mm; } body { font-family: "Noto Sans Thai", "Leelawadee UI", Tahoma, sans-serif; color:#172b3a; line-height:1.55; } h1{font-size:22px;margin:0 0 4px} h2{font-size:16px;margin:0 0 14px;color:#315269} h3{font-size:14px;margin:15px 0 5px;padding-top:10px;border-top:1px solid #dbe5ea} p{margin:0} .meta{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.tag{padding:5px 9px;border-radius:999px;background:#edf4f7;color:#315269;font-size:12px}.foot{margin-top:22px;color:#647785;font-size:11px}
-  </style></head><body><h1>รายงานเขตรับผิดชอบงานส่งหมาย</h1><h2>ศาลจังหวัดลพบุรี</h2><p><strong>ผู้รับผิดชอบ:</strong> ${escapeHtml(person.name)} (${person.active ? "ปฏิบัติงาน" : "ปิดใช้งาน"})</p><div class="meta"><span class="tag">${workload.areas.length} ตำบล</span><span class="tag">${workload.districts.length} อำเภอ</span></div>${groups}<p class="foot">จัดทำเมื่อ ${escapeHtml(printedAt)}</p></body></html>`);
-  reportWindow.document.close();
-  reportWindow.onload = () => reportWindow.print();
+  return { person, areas, districts: [...new Set(areas.map(Core.districtName))].sort((a, b) => a.localeCompare(b, "th")), totalAmount: Core.sumPrices(areas, state.prices) };
 }
 
 function renderReportStaffSelect() {
-  const selected = dom.reportStaffSelect.value;
-  dom.reportStaffSelect.replaceChildren();
-  const all = document.createElement("option");
-  all.value = "";
-  all.textContent = "— รายงานทั้งหมด —";
-  dom.reportStaffSelect.append(all);
-  for (const person of state.staff) {
-    const option = document.createElement("option");
-    option.value = person.id;
-    option.textContent = `${person.name}${person.active ? "" : " (ปิดใช้งาน)"}`;
-    dom.reportStaffSelect.append(option);
-  }
-  dom.reportStaffSelect.value = state.staff.some((person) => person.id === selected) ? selected : "";
+  const current = dom.report_staff_select.value;
+  dom.report_staff_select.replaceChildren(new Option("— รายงานทั้งหมด —", ""));
+  for (const person of state.staff) dom.report_staff_select.add(new Option(`${person.name}${person.active ? "" : " (ปิดใช้งาน)"}`, person.id));
+  dom.report_staff_select.value = state.staff.some((person) => person.id === current) ? current : "";
 }
 
 function renderReportSummary() {
   const fragment = document.createDocumentFragment();
-  const unassigned = unassignedAreas().length;
-  const unassignedItem = document.createElement("div");
-  unassignedItem.className = "report-item report-unassigned";
-  const unassignedName = document.createElement("strong");
-  unassignedName.textContent = "พื้นที่ยังไม่มอบหมาย";
-  const unassignedCount = document.createElement("span");
-  unassignedCount.textContent = `${unassigned} ตำบล`;
-  unassignedItem.append(unassignedName, unassignedCount);
-  fragment.append(unassignedItem);
-
+  const unassigned = document.createElement("div"); unassigned.className = "report-item report-unassigned"; unassigned.innerHTML = `<strong>พื้นที่ยังไม่มอบหมาย</strong><span>${unassignedAreas().length} ตำบล</span>`; fragment.append(unassigned);
   for (const person of state.staff) {
-    const workload = workloadFor(person);
-    const item = document.createElement("div");
-    item.className = "report-item";
-    const dot = document.createElement("span");
-    dot.className = "legend-dot";
-    dot.style.background = person.color;
-    const name = document.createElement("strong");
-    name.textContent = `${person.name}${person.active ? "" : " (ปิดใช้งาน)"}`;
-    const count = document.createElement("span");
-    count.textContent = `${workload.areas.length} ตำบล · ${workload.districts.length} อำเภอ`;
-    item.append(dot, name, count);
-    fragment.append(item);
+    const workload = workloadFor(person); const row = document.createElement("div"); row.className = "report-item";
+    const dot = document.createElement("span"); dot.className = "legend-dot"; dot.style.background = person.color;
+    const name = document.createElement("strong"); name.textContent = person.name;
+    const count = document.createElement("span"); count.textContent = `${workload.areas.length} ตำบล · ${Core.formatAmount(workload.totalAmount)}`;
+    row.append(dot, name, count); fragment.append(row);
   }
-  dom.reportSummary.replaceChildren(fragment);
+  dom.report_summary.replaceChildren(fragment);
 }
+
+function mapData() {
+  return { type: "FeatureCollection", features: availableFeatures().map((feature) => {
+    const id = Core.areaId(feature); const owner = getStaff(state.assignments[id]); const price = featurePrice(feature);
+    return { ...feature, id, properties: { ...feature.properties, id, color: owner ? owner.color : "#dce6ea", height: owner ? 1250 : 340, price: price ?? null } };
+  }) };
+}
+
+function supportsWebGL() {
+  if (!window.WebGLRenderingContext) return false;
+  try { const canvas = document.createElement("canvas"); return Boolean(canvas.getContext("webgl2") || canvas.getContext("webgl")); } catch { return false; }
+}
+
+function createMap() {
+  if (!window.maplibregl) throw new Error("ไม่พบ MapLibre GL");
+  if (!supportsWebGL() && !window.__MAPLIBRE_TEST__) throw new Error("อุปกรณ์นี้ไม่รองรับ WebGL กรุณาอัปเดต Chrome หรือ Android System WebView");
+  map = new maplibregl.Map({
+    container: "main-map",
+    style: { version: 8, sources: {}, layers: [{ id: "background", type: "background", paint: { "background-color": "#edf4f5" } }] },
+    center: [100.68, 14.83], zoom: 8.9, pitch: 47, bearing: -13, antialias: true, preserveDrawingBuffer: true,
+  });
+  map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+  map.addControl(createResetControl(() => fitMapToData()), "top-right");
+  configureMapInteraction();
+  map.on("load", () => {
+    map.addSource("tambons", { type: "geojson", data: mapData(), promoteId: "id" });
+    map.addLayer({ id: "tambon-ground", type: "fill", source: "tambons", paint: { "fill-color": ["get", "color"], "fill-opacity": 0.74 } });
+    map.addLayer({ id: "tambon-3d", type: "fill-extrusion", source: "tambons", paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-height": ["get", "height"], "fill-extrusion-base": 0, "fill-extrusion-opacity": 0.82 } });
+    map.addLayer({ id: "tambon-outline", type: "line", source: "tambons", paint: { "line-color": "#fff", "line-width": 1.1, "line-opacity": 0.96 } });
+    map.on("click", "tambon-3d", (event) => { const id = String(event.features?.[0]?.properties?.id || ""); const feature = features.find((item) => Core.areaId(item) === id); if (feature) toggleFeatureFromMap(feature); });
+    map.on("mouseenter", "tambon-3d", () => { map.getCanvas().style.cursor = "pointer"; });
+    map.on("mouseleave", "tambon-3d", () => { map.getCanvas().style.cursor = ""; });
+    map.on("moveend", renderMapLabels);
+    fitMapToData();
+  });
+}
+
+function createResetControl(onReset) {
+  return { onAdd() { const group = document.createElement("div"); group.className = "maplibregl-ctrl maplibregl-ctrl-group"; group.append(button("⌖", "map-reset-button", onReset)); return group; }, onRemove() {} };
+}
+
+function configureMapInteraction() {
+  if (!map) return;
+  const compact = window.matchMedia?.("(pointer: coarse) and (orientation: landscape) and (max-height: 620px)")?.matches;
+  if (compact) { map.dragPan.disable(); map.touchZoomRotate.disable(); map.getCanvas().style.touchAction = "pan-y"; }
+  else { map.dragPan.enable(); map.touchZoomRotate.enable(); map.touchZoomRotate.disableRotation(); map.getCanvas().style.touchAction = ""; }
+}
+
+function extendBounds(bounds, coordinates) {
+  if (typeof coordinates?.[0] === "number") bounds.extend(coordinates);
+  else for (const coordinate of coordinates || []) extendBounds(bounds, coordinate);
+}
+
+function featureCenter(feature) {
+  const bounds = new maplibregl.LngLatBounds(); extendBounds(bounds, feature.geometry.coordinates); const center = bounds.getCenter(); return [center.lng, center.lat];
+}
+
+function fitMapToData() {
+  if (!map || !availableFeatures().length) return;
+  const assigned = availableFeatures().filter((feature) => getStaff(state.assignments[Core.areaId(feature)]));
+  const bounds = new maplibregl.LngLatBounds(); for (const feature of (assigned.length ? assigned : availableFeatures())) extendBounds(bounds, feature.geometry.coordinates);
+  map.fitBounds(bounds, { padding: 52, duration: 0, maxZoom: 10.5 }); scheduleMapLabels();
+}
+
+function clearMarkers(type) { for (const marker of labelMarkers[type]) marker.remove(); labelMarkers[type] = []; }
+function overlap(a, b) { return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top; }
+
+function renderMapLabels() {
+  clearMarkers("tambon"); clearMarkers("district"); clearMarkers("price");
+  if (!map?.isStyleLoaded()) return;
+  const bounds = map.getBounds(); const visible = availableFeatures().filter((feature) => bounds.contains(featureCenter(feature)));
+  const occupied = [];
+  if (state.showLabels && map.getZoom() >= 8.1) {
+    for (const feature of visible) {
+      const center = featureCenter(feature); const point = map.project(center); const text = Core.tambonName(feature); const width = Math.max(34, text.length * 7.8); const box = { left: point.x - width / 2, right: point.x + width / 2, top: point.y - 11, bottom: point.y + 11 };
+      if (occupied.some((item) => overlap(box, item))) continue; occupied.push(box);
+      const el = document.createElement("span"); el.className = "map-tambon-label"; el.textContent = text; labelMarkers.tambon.push(new maplibregl.Marker({ element: el }).setLngLat(center).addTo(map));
+    }
+  }
+  if (state.showPriceLabels) {
+    for (const feature of visible) {
+      const price = featurePrice(feature); if (price === null) continue;
+      const center = featureCenter(feature); const el = document.createElement("span"); el.className = "map-price-label"; el.textContent = Core.formatAmount(price); labelMarkers.price.push(new maplibregl.Marker({ element: el, anchor: "top", offset: [0, 10] }).setLngLat(center).addTo(map));
+    }
+  }
+  if (state.showDistrictLabels) {
+    const groups = new Map(); for (const feature of availableFeatures()) { const district = Core.districtName(feature); if (!groups.has(district)) groups.set(district, []); groups.get(district).push(feature); }
+    for (const [district, items] of groups) {
+      const districtBounds = new maplibregl.LngLatBounds(); for (const feature of items) extendBounds(districtBounds, feature.geometry.coordinates); const center = districtBounds.getCenter(); if (!bounds.contains(center)) continue;
+      const el = document.createElement("span"); el.className = "map-district-label"; el.textContent = `อำเภอ${district}`; labelMarkers.district.push(new maplibregl.Marker({ element: el, anchor: "bottom", offset: [0, -8] }).setLngLat(center).addTo(map));
+    }
+  }
+}
+
+function scheduleMapLabels() { if (!map) return; const run = () => { if (!map.isStyleLoaded()) return; map.resize(); renderMapLabels(); }; map.once("idle", run); setTimeout(run, 220); }
+
+function updateMap() { if (map?.isStyleLoaded() && map.getSource("tambons")) map.getSource("tambons").setData(mapData()); renderMapLabels(); }
+
+function renderMapControls() {
+  dom.labels_button.setAttribute("aria-pressed", String(state.showLabels)); dom.labels_button.textContent = state.showLabels ? "ซ่อนชื่อตำบล" : "แสดงชื่อตำบล";
+  dom.district_labels_button.setAttribute("aria-pressed", String(state.showDistrictLabels)); dom.district_labels_button.textContent = state.showDistrictLabels ? "ซ่อนชื่ออำเภอ" : "แสดงชื่ออำเภอ";
+  dom.price_labels_button.setAttribute("aria-pressed", String(state.showPriceLabels)); dom.price_labels_button.textContent = state.showPriceLabels ? "ซ่อนยอด" : "แสดงยอด";
+  dom.legend_rail.hidden = !state.showLegend; dom.maps_layout.classList.toggle("legend-hidden", !state.showLegend); dom.toggle_legend_button.textContent = state.showLegend ? "ซ่อนคำอธิบายสี" : "แสดงคำอธิบายสี";
+  dom.publish_prices.checked = state.publishPrices;
+}
+
+function renderLightweight() { renderSharedStatus(); renderPriceList(); renderSummary(); renderValidation(); renderReportSummary(); renderLegend(); updateMap(); }
+
+function renderAll() {
+  renderSharedStatus();
+  if (!features.length) return;
+  renderStaffSelect(); renderStaffManagement(); renderDistrictList(); renderTambonList(); renderPriceList(); renderLegend(); renderSummary(); renderValidation(); renderReportStaffSelect(); renderReportSummary(); renderMapControls(); updateMap();
+}
+
+function reportRows(person) {
+  return assignedAreasFor(person.id).sort((a, b) => `${Core.districtName(a)} ${Core.tambonName(a)}`.localeCompare(`${Core.districtName(b)} ${Core.tambonName(b)}`, "th")).map((feature, index) => ({
+    "ลำดับ": index + 1, "ผู้รับผิดชอบ": person.name, "สถานะ": person.active ? "ปฏิบัติงาน" : "ปิดใช้งาน", "อำเภอ": Core.districtName(feature), "ตำบล": Core.tambonName(feature), "ยอด (บาท)": featurePrice(feature) ?? "",
+  }));
+}
+
+function workbookSheet(workbook, name, rows, usedNames) {
+  let sheetName = name.replace(/[\\/?*\[\]:]/g, " ").trim().slice(0, 28) || "รายงาน"; let suffix = 2;
+  while (usedNames.has(sheetName)) { sheetName = `${name.slice(0, 24)} ${suffix}`.slice(0, 31); suffix += 1; }
+  usedNames.add(sheetName); const content = rows.length ? rows : [{ "หมายเหตุ": "ไม่มีข้อมูล" }]; const sheet = XLSX.utils.json_to_sheet(content); sheet["!cols"] = Object.keys(content[0]).map((key) => ({ wch: Math.min(45, Math.max(12, key.length + 8)) })); XLSX.utils.book_append_sheet(workbook, sheet, sheetName);
+}
+
+function exportExcel() {
+  if (!window.XLSX) return showToast("โหลดเครื่องมือ Excel ไม่สำเร็จ");
+  const selected = getStaff(dom.report_staff_select.value); const people = selected ? [selected] : state.staff; const workbook = XLSX.utils.book_new(); const used = new Set();
+  workbookSheet(workbook, "สรุปภาระงาน", people.map((person, index) => { const item = workloadFor(person); return { "ลำดับ": index + 1, "ผู้รับผิดชอบ": person.name, "สถานะ": person.active ? "ปฏิบัติงาน" : "ปิดใช้งาน", "จำนวนตำบล": item.areas.length, "จำนวนอำเภอ": item.districts.length, "ยอดรวม (บาท)": item.totalAmount, "อำเภอ": item.districts.join(", ") }; }), used);
+  if (selected) workbookSheet(workbook, `พื้นที่ ${selected.name}`, reportRows(selected), used);
+  else { workbookSheet(workbook, "รายการพื้นที่ทั้งหมด", state.staff.flatMap(reportRows), used); for (const person of state.staff) workbookSheet(workbook, person.name, reportRows(person), used); }
+  workbookSheet(workbook, "ยังไม่มอบหมาย", unassignedAreas().map((feature, index) => ({ "ลำดับ": index + 1, "อำเภอ": Core.districtName(feature), "ตำบล": Core.tambonName(feature), "ยอด (บาท)": featurePrice(feature) ?? "", "สถานะ": "ยังไม่มอบหมาย" })), used);
+  XLSX.writeFile(workbook, `${selected ? `รายงานเขต-${selected.name}` : "รายงานเขตงานส่งหมาย"}-${new Date().toISOString().slice(0, 10)}.xlsx`); showToast("ดาวน์โหลดรายงาน Excel แล้ว");
+}
+
+function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character])); }
+
+function printPersonReport() {
+  const person = getStaff(dom.report_staff_select.value); if (!person) return showToast("เลือกเจ้าหน้าที่ก่อนพิมพ์ PDF รายคน");
+  const workload = workloadFor(person); const byDistrict = new Map(); for (const feature of workload.areas) { const district = Core.districtName(feature); if (!byDistrict.has(district)) byDistrict.set(district, []); byDistrict.get(district).push(feature); }
+  const groups = [...byDistrict.entries()].map(([district, items]) => `<section><h3>อำเภอ${escapeHtml(district)} (${items.length} ตำบล)</h3><table><thead><tr><th>ตำบล</th><th>ยอด</th></tr></thead><tbody>${items.sort((a,b)=>Core.tambonName(a).localeCompare(Core.tambonName(b),"th")).map((feature)=>`<tr><td>${escapeHtml(Core.tambonName(feature))}</td><td>${escapeHtml(Core.formatAmount(featurePrice(feature)))}</td></tr>`).join("")}</tbody></table></section>`).join("") || "<p>ยังไม่มีพื้นที่รับผิดชอบ</p>";
+  const reportWindow = open("", "_blank"); if (!reportWindow) return showToast("กรุณาอนุญาตป๊อปอัป"); reportWindow.opener = null;
+  reportWindow.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงาน ${escapeHtml(person.name)}</title><style>@page{size:A4;margin:16mm}body{font-family:"Noto Sans Thai",Tahoma,sans-serif;color:#172b3a}h1{font-size:22px;margin:0}h2{font-size:16px;color:#315269}h3{font-size:14px;margin-top:18px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #dbe5ea;padding:6px;text-align:left}th:last-child,td:last-child{text-align:right}.summary{display:flex;gap:8px;margin:12px 0}.tag{background:#edf4f7;padding:5px 9px;border-radius:999px}</style></head><body><h1>รายงานเขตรับผิดชอบงานส่งหมาย</h1><h2>ศาลจังหวัดลพบุรี</h2><p><strong>ผู้รับผิดชอบ:</strong> ${escapeHtml(person.name)}</p><div class="summary"><span class="tag">${workload.areas.length} ตำบล</span><span class="tag">${workload.districts.length} อำเภอ</span><span class="tag">${escapeHtml(Core.formatAmount(workload.totalAmount))}</span></div>${groups}</body></html>`); reportWindow.document.close(); reportWindow.onload = () => reportWindow.print();
+}
+
+function downloadBlob(blob, filename) { const anchor = document.createElement("a"); anchor.href = URL.createObjectURL(blob); anchor.download = filename; document.body.append(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(anchor.href), 1000); }
 
 async function exportPng() {
-  if (!window.html2canvas) {
-    showToast("ไม่พบเครื่องมือส่งออก PNG กรุณารีเฟรชหน้าเว็บ");
-    return;
-  }
-  const original = dom.exportButton.textContent;
-  dom.exportButton.disabled = true;
-  dom.exportButton.textContent = "กำลังสร้าง PNG…";
-  try {
-    maps.main.resize();
-    await new Promise((resolve) => setTimeout(resolve, 250));
-    const canvas = await window.html2canvas(dom.printable, {
-      backgroundColor: "#ffffff",
-      scale: 2.25,
-      useCORS: true,
-      logging: false,
-      windowWidth: dom.printable.scrollWidth,
-      windowHeight: dom.printable.scrollHeight,
-    });
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
-    if (!blob) throw new Error("สร้างไฟล์ PNG ไม่สำเร็จ");
-    const date = new Date().toISOString().slice(0, 10);
-    downloadBlob(blob, `lopburi-notice-areas-${date}.png`);
-    showToast("ดาวน์โหลด PNG แล้ว");
-  } catch (error) {
-    console.error(error);
-    showToast("ส่งออก PNG ไม่สำเร็จ โปรดลองใหม่อีกครั้ง");
-  } finally {
-    dom.exportButton.disabled = false;
-    dom.exportButton.textContent = original;
-  }
+  if (!window.html2canvas) return showToast("โหลดเครื่องมือ PNG ไม่สำเร็จ");
+  const original = dom.export_button.textContent; dom.export_button.disabled = true; dom.export_button.textContent = "กำลังสร้าง PNG…";
+  try { map.resize(); await new Promise((resolve) => setTimeout(resolve, 250)); const canvas = await html2canvas(dom.printable, { backgroundColor: "#fff", scale: 2, useCORS: true, logging: false }); const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png")); if (!blob) throw new Error(); downloadBlob(blob, `lopburi-notice-areas-${new Date().toISOString().slice(0, 10)}.png`); showToast("ดาวน์โหลด PNG แล้ว"); }
+  catch (error) { console.error(error); showToast("ส่งออก PNG ไม่สำเร็จ"); }
+  finally { dom.export_button.disabled = false; dom.export_button.textContent = original; }
 }
 
-function printLegendMarkup() {
-  return state.staff.map((person) => {
-    const count = assignedAreasFor(person.id).length;
-    return `<span class="legend-entry"><i style="background:${escapeHtml(person.color)}"></i>${escapeHtml(person.name)} (${count} ตำบล)</span>`;
-  }).join("");
-}
-
-function printAreaSummaryMarkup() {
-  return state.staff.map((person) => {
-    const workload = workloadFor(person);
-    const districts = workload.districts.map((district) => `อ.${escapeHtml(district)}`).join(", ") || "ยังไม่มีพื้นที่";
-    return `<article class="staff-summary"><div><i style="background:${escapeHtml(person.color)}"></i><strong>${escapeHtml(person.name)}</strong><span>${workload.areas.length} ตำบล · ${workload.districts.length} อำเภอ</span></div><p>${districts}</p></article>`;
-  }).join("");
-}
+function printLegendMarkup() { return state.staff.map((person) => { const areas = assignedAreasFor(person.id); return `<span class="legend-entry"><i style="background:${escapeHtml(person.color)}"></i>${escapeHtml(person.name)} (${areas.length} ตำบล · ${escapeHtml(Core.formatAmount(Core.sumPrices(areas, state.prices)))})</span>`; }).join(""); }
 
 async function printMapA4() {
-  if (!window.html2canvas || !maps.main) {
-    showToast("ไม่พบเครื่องมือสร้างแผนพิมพ์ กรุณารีเฟรชแล้วลองใหม่");
-    return;
-  }
-  const printWindow = window.open("", "_blank");
-  if (!printWindow) {
-    showToast("เบราว์เซอร์ปิดหน้าต่างพิมพ์ไว้ กรุณาอนุญาตป๊อปอัปแล้วลองใหม่");
-    return;
-  }
-  printWindow.opener = null;
-  printWindow.document.write('<!doctype html><title>กำลังสร้างแผนพิมพ์…</title><p>กำลังสร้างแผนที่สำหรับพิมพ์…</p>');
-  const originalLabels = { showLabels: state.showLabels, showDistrictLabels: state.showDistrictLabels };
-  const showLegend = Boolean(dom.printLegend.checked);
-  const showAreaSummary = Boolean(dom.printAreaSummary.checked);
+  if (!window.html2canvas || !map) return showToast("โหลดเครื่องมือพิมพ์ไม่สำเร็จ");
+  const printWindow = open("", "_blank"); if (!printWindow) return showToast("กรุณาอนุญาตป๊อปอัป");
+  const original = { showLabels: state.showLabels, showDistrictLabels: state.showDistrictLabels, showPriceLabels: state.showPriceLabels };
   try {
-    state.showLabels = Boolean(dom.printTambonLabels.checked);
-    state.showDistrictLabels = Boolean(dom.printDistrictLabels.checked);
-    renderMaps();
-    maps.main.resize();
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    scheduleMapLabels(maps.main);
-    await new Promise((resolve) => setTimeout(resolve, 260));
-    const mapCanvas = await window.html2canvas(document.querySelector("#main-map"), {
-      backgroundColor: "#edf4f5",
-      scale: 2,
-      useCORS: true,
-      logging: false,
-    });
-    const mapImage = mapCanvas.toDataURL("image/png");
-    const printedAt = new Intl.DateTimeFormat("th-TH", { dateStyle: "medium" }).format(new Date());
-    const legend = showLegend ? `<div class="legend-print">${printLegendMarkup()}</div>` : "";
-    const summary = showAreaSummary ? `<section class="summary-grid">${printAreaSummaryMarkup()}</section>` : "";
-    printWindow.document.open();
-    printWindow.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>แผนที่เขตพื้นที่ส่งหมาย</title><style>
-      @page { size: A4 landscape; margin: 9mm; }
-      * { box-sizing: border-box; }
-      body { margin: 0; color: #172b3a; font-family: "Noto Sans Thai", "Leelawadee UI", Tahoma, sans-serif; }
-      h1 { margin: 0; font-size: 18px; } .meta { margin: 2px 0 6px; color: #5e7180; font-size: 9px; }
-      .map { display:block; width:100%; height: 98mm; object-fit:contain; border:1px solid #d8e3e9; border-radius:5px; background:#edf4f5; }
-      .legend-print { display:flex; flex-wrap:wrap; gap:3px 9px; margin:5px 0; font-size:8px; color:#345468; }
-      .legend-entry { white-space:nowrap; } i { display:inline-block; width:8px; height:8px; margin-right:4px; border-radius:50%; vertical-align:middle; box-shadow:0 0 0 1px rgb(0 0 0 / 12%); }
-      .summary-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:3px 8px; margin-top:5px; }
-      .staff-summary { min-width:0; padding:4px 5px; border:1px solid #dce6eb; border-radius:4px; background:#fbfdfe; break-inside:avoid; }
-      .staff-summary div { display:flex; align-items:center; gap:3px; font-size:8.2px; } .staff-summary strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .staff-summary span { margin-left:auto; color:#5e7180; white-space:nowrap; font-size:7.6px; }
-      .staff-summary p { margin:2px 0 0 12px; color:#486171; font-size:7.5px; line-height:1.3; }
-      .foot { margin-top:4px; color:#6a7a86; font-size:7px; text-align:right; }
-    </style></head><body><h1>แผนที่เขตพื้นที่ส่งหมาย — ศาลจังหวัดลพบุรี</h1><p class="meta">สรุปการมอบหมาย ณ วันที่ ${escapeHtml(printedAt)} · A4 แนวนอน</p><img class="map" src="${mapImage}" alt="แผนที่เขตพื้นที่ส่งหมาย" />${legend}${summary}<p class="foot">ข้อมูลขอบเขตตำบล: Thailand Subdistrict Boundaries 2025 (NOSTRA / MERKATOR)</p></body></html>`);
-    printWindow.document.close();
-    printWindow.onload = () => printWindow.print();
-  } catch (error) {
-    console.error(error);
-    printWindow.close();
-    showToast("สร้างแผนพิมพ์ไม่สำเร็จ โปรดลองใหม่อีกครั้ง");
-  } finally {
-    state.showLabels = originalLabels.showLabels;
-    state.showDistrictLabels = originalLabels.showDistrictLabels;
-    renderMaps();
-  }
+    state.showLabels = dom.print_tambon_labels.checked; state.showDistrictLabels = dom.print_district_labels.checked; state.showPriceLabels = dom.print_price_labels.checked; renderMapControls(); renderMapLabels(); map.resize(); await new Promise((resolve) => setTimeout(resolve, 450));
+    const canvas = await html2canvas(document.getElementById("main-map"), { backgroundColor: "#edf4f5", scale: 2, useCORS: true, logging: false }); const image = canvas.toDataURL("image/png");
+    const legend = dom.print_legend.checked ? `<div class="legend">${printLegendMarkup()}</div>` : "";
+    const summary = dom.print_area_summary.checked ? `<div class="summary">${state.staff.map((person) => { const item = workloadFor(person); return `<div><strong>${escapeHtml(person.name)}</strong><span>${item.areas.length} ตำบล · ${escapeHtml(Core.formatAmount(item.totalAmount))}</span></div>`; }).join("")}</div>` : "";
+    printWindow.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>แผนที่เขตพื้นที่ส่งหมาย</title><style>@page{size:A4 landscape;margin:9mm}body{font-family:"Noto Sans Thai",Tahoma,sans-serif;color:#172b3a}h1{font-size:18px;margin:0}.map{width:100%;height:98mm;object-fit:contain;border:1px solid #d8e3e9}.legend{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:8px;margin-top:5px}.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px}.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:4px 8px;margin-top:6px;font-size:8px}.summary div{display:flex;justify-content:space-between;border:1px solid #dce6eb;padding:4px}</style></head><body><h1>แผนที่เขตพื้นที่ส่งหมาย — ศาลจังหวัดลพบุรี</h1><img class="map" src="${image}">${legend}${summary}</body></html>`); printWindow.document.close(); printWindow.onload = () => printWindow.print();
+  } catch (error) { console.error(error); printWindow.close(); showToast("สร้างแผนพิมพ์ไม่สำเร็จ"); }
+  finally { Object.assign(state, original); renderMapControls(); renderMapLabels(); }
 }
 
-function backupState() {
-  const backup = { ...serializableState(), exportedAt: new Date().toISOString(), note: "Lopburi Notice Area Manager backup" };
-  downloadBlob(new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" }), `lopburi-notice-areas-backup-${new Date().toISOString().slice(0, 10)}.json`);
-  showToast("ดาวน์โหลดไฟล์สำรองแล้ว");
-}
+function backupState() { downloadBlob(new Blob([JSON.stringify({ ...serializableState(), exportedAt: new Date().toISOString(), note: "Lopburi Notice Area Manager v4 backup" }, null, 2)], { type: "application/json" }), `lopburi-notice-v4-${new Date().toISOString().slice(0, 10)}.json`); showToast("ดาวน์โหลดไฟล์สำรองแล้ว"); }
 
 async function restoreState(file) {
   if (!file) return;
-  try {
-    const restored = JSON.parse(await file.text());
-    if (!Array.isArray(restored.staff) || typeof restored.assignments !== "object") throw new Error("รูปแบบไฟล์ไม่ถูกต้อง");
-    if (!window.confirm("ต้องการแทนที่ข้อมูลการมอบหมายปัจจุบันด้วยไฟล์สำรองหรือไม่?")) return;
-    state = normalizeState(restored);
-    state.updatedAt = new Date().toISOString();
-    state.pendingChanges = true;
-    saveLocalState();
-    renderAll();
-    showToast("กู้คืนข้อมูลสำเร็จ กรุณาบันทึกส่วนกลางเพื่อใช้ทุกเครื่อง");
-  } catch (error) {
-    console.error(error);
-    showToast("ไม่สามารถอ่านไฟล์สำรองนี้ได้");
-  } finally {
-    dom.restoreInput.value = "";
-  }
+  try { const restored = Core.normalizeState(JSON.parse(await file.text())); if (!confirm("แทนที่ข้อมูลปัจจุบันด้วยไฟล์สำรองหรือไม่?")) return; state = { ...restored, updatedAt: new Date().toISOString(), pendingChanges: true }; filterStateToCourt(); saveLocalState(); renderAll(); showToast("กู้คืนข้อมูลสำเร็จ กรุณาบันทึกส่วนกลาง"); }
+  catch (error) { console.error(error); showToast("ไฟล์สำรองไม่ถูกต้อง"); }
+  finally { dom.restore_input.value = ""; }
 }
 
-async function importStaff(file) {
-  if (!file) return;
-  try {
-    const text = await file.text();
-    const names = text
-      .split(/\r?\n/)
-      .map((line) => line.split(/[,\t;]/)[0].trim().replace(/^"|"$/g, ""))
-      .filter((name) => name && !/^ชื่อ|^name$/i.test(name));
-    const existing = new Set(state.staff.map((person) => person.name));
-    let added = 0;
-    for (const name of names) {
-      if (existing.has(name)) continue;
-      state.staff.push({
-        id: `staff-${Date.now()}-${added}-${Math.random().toString(36).slice(2, 6)}`,
-        name,
-        color: nextDistinctColor(state.staff.map((person) => person.color)),
-        active: true,
-      });
-      existing.add(name);
-      added += 1;
-    }
-    persist(added ? `นำเข้ารายชื่อ ${added} รายการแล้ว` : "ไม่พบรายชื่อใหม่ที่ต้องนำเข้า");
-  } catch (error) {
-    console.error(error);
-    showToast("นำเข้ารายชื่อไม่สำเร็จ");
-  } finally {
-    dom.staffImportInput.value = "";
-  }
+async function loadBoundaries() {
+  const params = new URLSearchParams({ where: "ADMIN_ID1 = '16'", outFields: "ADMIN_ID1,ADMIN_ID2,ADMIN_ID3,NAME1,NAME2,NAME3", returnGeometry: "true", outSR: "4326", f: "geojson" });
+  const response = await fetch(`${GIS_QUERY_URL}?${params}`); if (!response.ok) throw new Error(`GIS ${response.status}`); const collection = await response.json();
+  if (!Array.isArray(collection.features)) throw new Error("ไม่พบข้อมูลขอบเขต");
+  features = collection.features.filter((feature) => Core.areaId(feature) && Core.districtName(feature) && Core.tambonName(feature) && Core.isCourtFeature(feature)).map((feature) => ({ ...feature, id: Core.areaId(feature) }));
+  if (!features.length) throw new Error("ไม่พบตำบลในเขตศาลจังหวัดลพบุรี");
+  filterStateToCourt();
+}
+
+function confirmSaveBeforeLeave(proceed) {
+  if (!state.pendingChanges) return proceed();
+  const overlay = document.createElement("div"); overlay.className = "leave-modal-overlay";
+  const card = document.createElement("div"); card.className = "leave-modal"; card.innerHTML = '<h2 class="leave-modal-title">ยังไม่ได้บันทึกส่วนกลาง</h2><p class="leave-modal-body">การแก้ไขล่าสุดยังอยู่ในเครื่องนี้เท่านั้น</p>';
+  const actions = document.createElement("div"); actions.className = "leave-modal-actions";
+  const saveGo = button("บันทึกแล้วไปต่อ", "button button-primary", async () => { saveGo.disabled = true; if (await saveSharedState()) { overlay.remove(); proceed(); } else saveGo.disabled = false; });
+  const go = button("ไปต่อโดยไม่บันทึก", "button button-danger", () => { bypassLeaveGuard = true; overlay.remove(); proceed(); });
+  const cancel = button("ยกเลิก", "button button-muted", () => overlay.remove()); actions.append(saveGo, go, cancel); card.append(actions); overlay.append(card); document.body.append(overlay);
 }
 
 function bindEvents() {
-  dom.addStaffButton.addEventListener("click", () => {
-    addStaff(dom.newStaffName.value);
-    dom.newStaffName.value = "";
-  });
-  dom.newStaffName.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      dom.addStaffButton.click();
-    }
-  });
-  dom.staffSelect.addEventListener("change", renderAll);
-  dom.toggleStaffManagement.addEventListener("click", () => {
-    staffManagementOpen = !staffManagementOpen;
-    renderStaffManagementVisibility();
-  });
-  dom.newColorButton.addEventListener("click", reassignSelectedColor);
-  dom.tambonSearch.addEventListener("input", renderTambonList);
-  dom.validateButton.addEventListener("click", () => {
-    renderValidation();
-    showToast("ตรวจสอบข้อมูลล่าสุดแล้ว");
-  });
-  dom.labelsButton.addEventListener("click", () => {
-    state.showLabels = !state.showLabels;
-    persist();
-    if (state.showLabels && maps.main?.getZoom() < 8.1) showToast("ซูมแผนที่เข้าเล็กน้อยเพื่อดูชื่อตำบลเป็นคำชัดเจน");
-  });
-  dom.districtLabelsButton.addEventListener("click", () => {
-    state.showDistrictLabels = !state.showDistrictLabels;
-    persist();
-  });
-  dom.legendToggleButton.addEventListener("click", () => {
-    state.showLegend = !state.showLegend;
-    persist();
-  });
-  dom.exportButton.addEventListener("click", exportPng);
-  dom.printMapButton.addEventListener("click", printMapA4);
-  dom.backupButton.addEventListener("click", backupState);
-  dom.excelReportButton.addEventListener("click", exportExcelReport);
-  dom.pdfReportButton.addEventListener("click", printStaffPdf);
-  dom.reportStaffSelect.addEventListener("change", renderReportSummary);
-  dom.checkTokenButton.addEventListener("click", async () => {
-    const checked = await verifyGitHubToken();
-    showToast(checked.valid ? "ตรวจสอบรหัสแล้ว" : checked.reason);
-  });
-  dom.saveSharedButton.addEventListener("click", saveSharedState);
-  dom.reloadSharedButton.addEventListener("click", reloadSharedState);
-  dom.githubToken.addEventListener("input", clearTokenCheck);
-  dom.rememberToken.addEventListener("change", () => {
-    if (!dom.rememberToken.checked) {
-      forgetRememberedToken({
-        clearInput: false,
-        message: "ระบบจะไม่จำรหัสนี้หลังปิดหรือรีเฟรชหน้าเว็บ",
-      });
-      return;
-    }
-    if (dom.githubToken.value.trim()) {
-      setRememberedTokenStatus("รหัสนี้จะถูกจำหลังจากกด “ตรวจสอบรหัส” สำเร็จ", "warning");
-    } else {
-      setRememberedTokenStatus("วางรหัสแล้วกด “ตรวจสอบรหัส” เพื่อจำรหัสไว้ในเครื่องนี้", "warning");
-    }
-  });
-  dom.forgetTokenButton.addEventListener("click", () => {
-    forgetRememberedToken({ clearInput: true });
-    clearTokenCheck();
-    showToast("ลบรหัสที่จำไว้จากเครื่องนี้แล้ว");
-  });
-  dom.restoreInput.addEventListener("change", (event) => restoreState(event.target.files[0]));
-  dom.staffImportInput.addEventListener("change", (event) => importStaff(event.target.files[0]));
+  dom.add_staff_button.addEventListener("click", () => { addStaff(dom.new_staff_name.value); dom.new_staff_name.value = ""; });
+  dom.new_staff_name.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); dom.add_staff_button.click(); } });
+  dom.staff_select.addEventListener("change", renderAll);
+  dom.toggle_staff_management.addEventListener("click", () => { staffManagementOpen = !staffManagementOpen; renderStaffManagement(); });
+  dom.new_color_button.addEventListener("click", () => { const person = selectedStaff(); if (!person) return showToast("เลือกผู้รับผิดชอบก่อน"); person.color = nextDistinctColor(state.staff.filter((item) => item.id !== person.id).map((item) => item.color)); persist(`คละสีใหม่ให้ ${person.name} แล้ว`); });
+  dom.staff_import_input.addEventListener("change", (event) => importStaffFile(event.target.files[0]));
+  dom.tambon_search.addEventListener("input", renderTambonList);
+  dom.price_search.addEventListener("input", renderPriceList);
+  dom.price_import_button.addEventListener("click", () => importPrices(dom.price_paste.value));
+  dom.price_csv_input.addEventListener("change", (event) => importPriceFile(event.target.files[0]));
+  dom.publish_prices.addEventListener("change", () => { state.publishPrices = dom.publish_prices.checked; persist(state.publishPrices ? "เปิดแสดงยอดในหน้าดูผลแล้ว" : "ปิดแสดงยอดในหน้าดูผลแล้ว"); });
+  dom.validate_button.addEventListener("click", () => { renderValidation(); showToast("ตรวจสอบข้อมูลล่าสุดแล้ว"); });
+  dom.labels_button.addEventListener("click", () => { state.showLabels = !state.showLabels; persist(); });
+  dom.district_labels_button.addEventListener("click", () => { state.showDistrictLabels = !state.showDistrictLabels; persist(); });
+  dom.price_labels_button.addEventListener("click", () => { state.showPriceLabels = !state.showPriceLabels; persist(); });
+  dom.toggle_legend_button.addEventListener("click", () => { state.showLegend = !state.showLegend; persist(); });
+  dom.export_button.addEventListener("click", exportPng); dom.print_map_button.addEventListener("click", printMapA4);
+  dom.backup_button.addEventListener("click", backupState); dom.restore_input.addEventListener("change", (event) => restoreState(event.target.files[0]));
+  dom.excel_report_button.addEventListener("click", exportExcel); dom.pdf_report_button.addEventListener("click", printPersonReport); dom.report_staff_select.addEventListener("change", renderReportSummary);
+  dom.check_token_button.addEventListener("click", async () => { const result = await verifyGitHubToken(); showToast(result.valid ? "ตรวจสอบรหัสแล้ว" : result.reason); });
+  dom.save_shared_button.addEventListener("click", saveSharedState); dom.reload_shared_button.addEventListener("click", reloadSharedState);
+  dom.github_token.addEventListener("input", () => { tokenCheck.valid = false; setTokenStatus("วางรหัสแล้วกดตรวจสอบก่อนบันทึก"); });
+  dom.remember_github_token.addEventListener("change", () => { if (!dom.remember_github_token.checked) forgetToken({ clearInput: false }); else renderRememberedTokenStatus(); });
+  dom.forget_github_token_button.addEventListener("click", () => { forgetToken(); setTokenStatus("ลบรหัสที่จำไว้แล้ว"); });
+  const viewLink = document.querySelector('a[href="view.html"]'); if (viewLink) viewLink.addEventListener("click", (event) => { if (!state.pendingChanges) return; event.preventDefault(); confirmSaveBeforeLeave(() => { bypassLeaveGuard = true; location.href = viewLink.href; }); });
+  addEventListener("beforeunload", (event) => { if (state.pendingChanges && !bypassLeaveGuard) { event.preventDefault(); event.returnValue = ""; } });
+  addEventListener("resize", () => { configureMapInteraction(); scheduleMapLabels(); }); addEventListener("orientationchange", () => { configureMapInteraction(); scheduleMapLabels(); });
 }
 
 async function init() {
-  bindEvents();
-  loadRememberedToken();
-  try {
-    await loadBoundaries();
-    await loadSharedState();
-    maps.main = createMap("main-map");
-    maps.main.once("load", () => {
-      fitMapsToData();
-      renderMaps();
-    });
-    window.addEventListener("resize", () => {
-      configureMapInteraction(maps.main);
-      scheduleMapLabels(maps.main);
-    });
-    window.addEventListener("orientationchange", () => {
-      configureMapInteraction(maps.main);
-      scheduleMapLabels(maps.main);
-    });
-    renderAll();
-  } catch (error) {
-    console.error(error);
-    dom.districtList.innerHTML = '<p class="empty-result">ไม่สามารถโหลดขอบเขตแผนที่ได้</p>';
-    dom.tambonList.innerHTML = '<p class="empty-result">ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วรีเฟรชหน้าเว็บ</p>';
-    showToast("โหลดขอบเขตตำบลไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต");
-  } finally {
-    dom.loading.hidden = true;
-  }
+  bindEvents(); loadRememberedToken();
+  try { await loadBoundaries(); await loadSharedState(); createMap(); renderAll(); }
+  catch (error) { console.error(error); dom.tambon_list.innerHTML = `<p class="empty-result">${escapeHtml(error.message || "โหลดระบบไม่สำเร็จ")}</p>`; showToast(error.message || "โหลดระบบไม่สำเร็จ"); }
+  finally { dom.loading.hidden = true; }
 }
 
 init();

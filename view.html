@@ -1,84 +1,48 @@
 <!doctype html>
 <html lang="th">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="description" content="ภาพรวมการมอบหมายเขตศาลจังหวัดลพบุรี" />
-    <meta name="theme-color" content="#104a6f" />
-    <title>ภาพรวมการมอบหมาย | ศาลจังหวัดลพบุรี</title>
-    <link rel="preconnect" href="https://unpkg.com" />
-    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.20.0/dist/maplibre-gl.css" />
-    <link rel="stylesheet" href="view.css" />
-  </head>
-  <body>
-    <header class="display-header">
-      <div>
-        <p class="eyebrow">ศาลจังหวัดลพบุรี</p>
-        <h1 id="display-title" data-text="เขตพื้นที่ส่งหมาย">เขตพื้นที่ส่งหมาย</h1>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+  <meta name="description" content="ภาพรวมเขตพื้นที่ ผู้รับผิดชอบ และยอดรายตำบล ศาลจังหวัดลพบุรี">
+  <meta name="theme-color" content="#104a6f">
+  <title>เขตพื้นที่ส่งหมาย | ศาลจังหวัดลพบุรี</title>
+  <link rel="preconnect" href="https://unpkg.com">
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.20.0/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="view.css">
+</head>
+<body>
+  <header class="display-header">
+    <div><p class="eyebrow">ศาลจังหวัดลพบุรี</p><h1 id="display-title" data-text="เขตพื้นที่ส่งหมาย">เขตพื้นที่ส่งหมาย</h1></div>
+    <div class="latest-summary"><span id="data-status" class="read-only-badge">● กำลังตรวจสอบ…</span><p class="coverage-summary"><span id="coverage-main">กำลังโหลดขอบเขต…</span><span id="coverage-exclusion" class="coverage-exclusion"></span></p></div>
+  </header>
+
+  <main class="display-shell">
+    <section class="overview-card">
+      <div class="overview-copy"><p class="eyebrow">เขตศาลจังหวัดลพบุรี</p><h2>ค้นหาพื้นที่ ผู้รับผิดชอบ และยอด</h2><p id="central-notice" class="central-notice" hidden></p><p id="price-privacy-note" class="price-privacy-note" hidden>ผู้ดูแลปิดการแสดงยอดในหน้าสาธารณะ</p></div>
+      <div class="search-box"><label for="search-input">ค้นหา</label><input id="search-input" type="search" autocomplete="off" placeholder="เช่น ทะเลชุบศร ชื่อเจ้าหน้าที่ หรือยอด"><div id="search-results" class="search-results"></div></div>
+      <div id="overview-stats" class="overview-stats"></div>
+    </section>
+
+    <section class="map-frame">
+      <div class="map-frame-header"><div><p class="eyebrow">ภาพรวมการมอบหมาย</p><h2>แผนที่เขตศาลจังหวัดลพบุรี</h2></div><span id="updated-at" class="updated-at">กำลังโหลดข้อมูล…</span></div>
+      <div id="display-content" class="display-content">
+        <div class="map-column"><div id="display-map" class="display-map"></div></div>
+        <aside id="legend-panel" class="legend-panel"><h3>คำอธิบายสี</h3><p>หนึ่งสีแทนผู้รับผิดชอบหนึ่งคน</p><div id="legend" class="legend"></div></aside>
       </div>
-      <div class="latest-summary">
-        <span id="data-status" class="read-only-badge" role="status">● กำลังตรวจสอบการเชื่อมต่อ…</span>
-        <p class="coverage-summary"><span id="coverage-main">กำลังโหลดขอบเขตพื้นที่…</span><span id="coverage-exclusion" class="coverage-exclusion"></span></p>
-      </div>
-    </header>
+    </section>
 
-    <main class="display-shell">
-      <section class="overview-card" aria-labelledby="overview-title">
-        <div class="overview-copy">
-          <p class="eyebrow">เขตศาลจังหวัดลพบุรี</p>
-          <h2 id="overview-title">ค้นหาพื้นที่และผู้รับผิดชอบ</h2>
-          <p id="central-notice" class="central-notice" hidden></p>
-        </div>
-        <div class="search-box">
-          <label for="search-input">ค้นหา</label>
-          <input id="search-input" type="search" autocomplete="off" placeholder="เช่น ทะเลชุบศร หรือ ชื่อผู้รับผิดชอบ" />
-          <div id="search-results" class="search-results" aria-live="polite"></div>
-        </div>
-        <div id="overview-stats" class="overview-stats" aria-live="polite"></div>
-      </section>
+    <section class="display-controls">
+      <div class="control-group"><span class="control-label">ข้อมูลบนแผนที่</span><div class="toggle-group"><button id="toggle-tambon-labels" class="map-toggle" type="button">ชื่อตำบล</button><button id="toggle-district-labels" class="map-toggle" type="button">ชื่ออำเภอ</button><button id="toggle-price-labels" class="map-toggle" type="button">ยอด</button><button id="toggle-legend-button" class="map-toggle" type="button">คำอธิบายสี</button></div><small class="control-hint">เปิดหรือปิดข้อมูลบนแผนที่ได้ตามต้องการ</small></div>
+      <label class="person-filter" for="staff-filter"><span>แสดงเฉพาะบุคคล</span><select id="staff-filter"><option value="">ทุกคน</option></select></label>
+      <button id="clear-staff-filter" class="clear-filter" type="button" hidden>แสดงทั้งหมด</button>
+    </section>
 
-      <section class="map-frame" aria-label="แผนที่ภาพรวมการมอบหมาย">
-        <div class="map-frame-header">
-          <div>
-            <p class="eyebrow">ภาพรวมการมอบหมาย</p>
-            <h2>แผนที่เขตศาลจังหวัดลพบุรี</h2>
-          </div>
-          <span id="updated-at" class="updated-at">กำลังโหลดข้อมูล…</span>
-        </div>
-        <div id="display-content" class="display-content">
-          <div class="map-column">
-            <div id="display-map" class="display-map" aria-label="แผนที่เขตศาลจังหวัดลพบุรี"></div>
-          </div>
-          <aside id="legend-panel" class="legend-panel" aria-label="คำอธิบายสี">
-            <h3>คำอธิบายสี</h3>
-            <p>หนึ่งสีแทนผู้รับผิดชอบหนึ่งคน</p>
-            <div id="legend" class="legend" aria-live="polite"></div>
-          </aside>
-        </div>
-      </section>
+    <section id="person-detail" class="person-detail" hidden></section>
+  </main>
 
-      <section class="display-controls" aria-label="ควบคุมการแสดงผลแผนที่">
-        <div class="control-group">
-          <span class="control-label">ชื่อบนแผนที่</span>
-          <div class="toggle-group">
-            <button id="toggle-tambon-labels" class="map-toggle" type="button" aria-pressed="false">ชื่อตำบล</button>
-            <button id="toggle-district-labels" class="map-toggle" type="button" aria-pressed="false">ชื่ออำเภอ</button>
-            <button id="toggle-legend-button" class="map-toggle" type="button" aria-pressed="true">ซ่อนคำอธิบายสี</button>
-          </div>
-          <small class="control-hint">กดเปิดหรือปิดชื่อตำบลและชื่ออำเภอตามต้องการ</small>
-        </div>
-        <label class="person-filter" for="staff-filter">
-          <span>แสดงเฉพาะบุคคล</span>
-          <select id="staff-filter"><option value="">ทุกคน</option></select>
-        </label>
-        <button id="clear-staff-filter" class="clear-filter" type="button" hidden>แสดงทั้งหมด</button>
-      </section>
-
-      <section id="person-detail" class="person-detail" aria-live="polite" hidden></section>
-    </main>
-
-    <div id="loading" class="loading-overlay" role="status"><div><span class="spinner"></span><p>กำลังโหลดภาพรวมการมอบหมาย…</p></div></div>
-    <script src="https://unpkg.com/maplibre-gl@5.20.0/dist/maplibre-gl.js"></script>
-    <script src="view.js"></script>
-  </body>
+  <div id="loading" class="loading-overlay"><div><span class="spinner"></span><p>กำลังโหลดภาพรวมการมอบหมาย…</p></div></div>
+  <script src="https://unpkg.com/maplibre-gl@5.20.0/dist/maplibre-gl.js"></script>
+  <script src="core.js"></script>
+  <script src="view.js"></script>
+</body>
 </html>

@@ -8,7 +8,7 @@
   <title>เขตพื้นที่ส่งหมาย | ศาลจังหวัดลพบุรี</title>
   <link rel="preconnect" href="https://unpkg.com">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.20.0/dist/maplibre-gl.css">
-  <link rel="stylesheet" href="view.css?v=4.0.3">
+  <link rel="stylesheet" href="view.css?v=4.1.0">
 </head>
 <body>
   <header class="display-header">
@@ -32,6 +32,7 @@
         <div class="switch-grid">
           <button id="toggle-tambon-labels" class="map-switch" type="button" role="switch" aria-checked="true"><span>ชื่อตำบล</span><i></i></button>
           <button id="toggle-district-labels" class="map-switch" type="button" role="switch" aria-checked="true"><span>ชื่ออำเภอ</span><i></i></button>
+          <button id="toggle-landmarks" class="map-switch" type="button" role="switch" aria-checked="true"><span>สถานที่สำคัญ 3D</span><i></i></button>
           <button id="toggle-legend-button" class="map-switch" type="button" role="switch" aria-checked="true"><span>คำอธิบายสี</span><i></i></button>
         </div>
         <label class="person-filter" for="staff-filter"><span>แสดงเฉพาะบุคคล</span><select id="staff-filter"><option value="">ทุกคน</option></select></label>
@@ -46,6 +47,7 @@
   <div id="loading" class="loading-overlay"><div><span class="spinner"></span><p>กำลังโหลดภาพรวมการมอบหมาย…</p></div></div>
   <script src="https://unpkg.com/maplibre-gl@5.20.0/dist/maplibre-gl.js"></script>
   <script src="core.js"></script>
-  <script src="view.js?v=4.0.5"></script>
+  <script src="landmarks.js?v=1"></script>
+  <script src="view.js?v=4.1.0"></script>
 </body>
 </html>

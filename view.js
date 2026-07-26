@@ -1,6 +1,8 @@
 "use strict";
 
 const Core = window.MapLibreCore;
+const Landmarks = window.LopburiLandmarks;
+const LANDMARKS = Object.freeze(Landmarks?.all?.() || []);
 // Keep this endpoint identical to the management page.  The former
 // display-only endpoint returned HTTP 400, so MapLibre was never created.
 const GIS_QUERY_URL = "https://services1.arcgis.com/jSaRWj2TDlcN1zOC/arcgis/rest/services/Thailand_Subdistrict_Boundaries_%28%E0%B8%82%E0%B9%89%E0%B8%AD%E0%B8%A1%E0%B8%B9%E0%B8%A5%E0%B8%82%E0%B8%AD%E0%B8%9A%E0%B9%80%E0%B8%82%E0%B8%95%E0%B8%95%E0%B8%B3%E0%B8%9A%E0%B8%A5%E0%B8%9B%E0%B8%A3%E0%B8%B0%E0%B9%80%E0%B8%97%E0%B8%A8%E0%B9%84%E0%B8%97%E0%B8%A2%29/FeatureServer/1/query";
@@ -11,15 +13,15 @@ const DISPLAY_UPDATED_LABEL = "ปรับปรุงล่าสุด: 24 �
 const dom = Object.fromEntries([
   "loading", "display-title", "search-input", "overview-stats", "updated-at", "data-status", "coverage-main", "coverage-exclusion",
   "display-content", "search-menu", "legend-panel", "legend", "search-results", "central-notice", "toggle-tambon-labels", "toggle-district-labels",
-  "toggle-legend-button", "staff-filter", "clear-staff-filter", "person-detail", "price-privacy-note"
+  "toggle-landmarks", "toggle-legend-button", "staff-filter", "clear-staff-filter", "person-detail", "price-privacy-note"
 ].map((id) => [id.replaceAll("-", "_"), document.getElementById(id)]));
 
 let features = [];
 let state = Core.initialState();
 let map = null;
 let revision = null;
-let markers = { tambon: [], district: [] };
-let ui = { selectedStaffId: "", showTambonLabels: true, showDistrictLabels: true, showLegend: true };
+let markers = { tambon: [], district: [], landmark: [] };
+let ui = { selectedStaffId: "", showTambonLabels: true, showDistrictLabels: true, showLandmarks: true, showLegend: true };
 let resizeTimer = null;
 
 function sharedDataUrl() {
@@ -195,6 +197,7 @@ function renderPersonDetail() {
 function renderControls() {
   dom.toggle_tambon_labels.setAttribute("aria-checked", String(ui.showTambonLabels));
   dom.toggle_district_labels.setAttribute("aria-checked", String(ui.showDistrictLabels));
+  dom.toggle_landmarks.setAttribute("aria-checked", String(ui.showLandmarks));
   dom.legend_panel.hidden = !ui.showLegend; dom.search_menu.classList.toggle("legend-hidden", !ui.showLegend); dom.toggle_legend_button.setAttribute("aria-checked", String(ui.showLegend));
 }
 
@@ -259,9 +262,10 @@ function supportsWebGL() {
 function createMap() {
   if (!window.maplibregl) throw new Error("ไม่พบ MapLibre GL");
   if (!supportsWebGL() && !window.__MAPLIBRE_TEST__) throw new Error("อุปกรณ์นี้ไม่รองรับ WebGL");
-  map = new maplibregl.Map({ container: "display-map", style: { version: 8, sources: {}, layers: [{ id: "background", type: "background", paint: { "background-color": "#edf4f5" } }] }, center: [100.68, 14.83], zoom: 8.9, pitch: 30, bearing: -5, antialias: true });
+  map = new maplibregl.Map({ container: "display-map", style: { version: 8, sources: {}, layers: [{ id: "background", type: "background", paint: { "background-color": "#edf4f5" } }] }, center: [100.68, 14.83], zoom: 8.9, pitch: 30, bearing: 0, antialias: true });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
   map.addControl({ onAdd() { const group = document.createElement("div"); group.className = "maplibregl-ctrl maplibregl-ctrl-group"; const btn = document.createElement("button"); btn.type = "button"; btn.className = "map-reset-button"; btn.textContent = "⌖"; btn.addEventListener("click", resetMapToOverview); group.append(btn); return group; }, onRemove() {} }, "top-right");
+  map.addControl(createTrueNorthControl(), "top-left");
   decorateMapControls();
   configureInteraction();
   map.on("load", () => {
@@ -273,6 +277,27 @@ function createMap() {
     map.on("click", "tambon-3d", (event) => { const id = String(event.features?.[0]?.properties?.id || ""); const feature = features.find((item) => Core.areaId(item) === id); if (feature) new maplibregl.Popup({ offset: 12 }).setLngLat(event.lngLat).setDOMContent(popupForFeature(feature)).addTo(map); });
     map.on("moveend", renderLabels); fitMap(); scheduleLabels();
   });
+}
+
+function createTrueNorthControl() {
+  let mapInstance = null; let needle = null; let updateNeedle = null;
+  return {
+    onAdd(instance) {
+      mapInstance = instance;
+      const control = document.createElement("div"); control.className = "maplibregl-ctrl true-north-control";
+      const controlButton = document.createElement("button"); controlButton.type = "button"; controlButton.className = "true-north-button";
+      controlButton.title = "หันแผนที่สู่ทิศเหนือจริง"; controlButton.setAttribute("aria-label", "หันแผนที่สู่ทิศเหนือจริง");
+      const rose = document.createElement("span"); rose.className = "true-north-rose";
+      needle = document.createElement("span"); needle.className = "true-north-needle";
+      const letter = document.createElement("span"); letter.className = "true-north-letter"; letter.textContent = "N";
+      rose.append(needle, letter); controlButton.append(rose); control.append(controlButton);
+      updateNeedle = () => { if (needle && mapInstance) needle.style.transform = `rotate(${-mapInstance.getBearing()}deg)`; };
+      controlButton.addEventListener("click", () => mapInstance?.easeTo({ bearing: 0, duration: 350 }));
+      mapInstance.on("rotate", updateNeedle); updateNeedle();
+      return control;
+    },
+    onRemove() { if (mapInstance && updateNeedle) mapInstance.off("rotate", updateNeedle); mapInstance = null; needle = null; updateNeedle = null; },
+  };
 }
 
 function decorateMapControls() {
@@ -302,11 +327,47 @@ function configureInteraction() {
 function clearMarkers(type) { for (const marker of markers[type]) marker.remove(); markers[type] = []; }
 function boxesOverlap(a, b) { return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top; }
 
+function landmarkPopup(landmark) {
+  const card = document.createElement("div"); card.className = "landmark-popup";
+  const title = document.createElement("div"); title.className = "landmark-popup-title"; title.textContent = landmark.name;
+  const sub = document.createElement("div"); sub.className = "landmark-popup-sub"; sub.textContent = `${landmark.category} · ตำบล${landmark.tambon} อำเภอ${landmark.district}`;
+  const description = document.createElement("p"); description.className = "landmark-popup-description"; description.textContent = landmark.description;
+  card.append(title, sub, description); return card;
+}
+
+function landmarkElement(landmark) {
+  const element = document.createElement("button"); element.type = "button"; element.className = `landmark-marker landmark-${landmark.type}`;
+  element.title = landmark.name; element.setAttribute("aria-label", `สถานที่สำคัญ ${landmark.name}`);
+  const model = document.createElement("span"); model.className = "landmark-model";
+  const symbol = document.createElement("span"); symbol.className = "landmark-symbol"; symbol.textContent = landmark.icon;
+  const base = document.createElement("span"); base.className = "landmark-base";
+  model.append(symbol); element.append(model, base);
+  element.addEventListener("click", (event) => {
+    event.preventDefault(); event.stopPropagation();
+    new maplibregl.Popup({ offset: 26, closeButton: true }).setLngLat(landmark.coordinates).setDOMContent(landmarkPopup(landmark)).addTo(map);
+  });
+  return element;
+}
+
+function renderLandmarks(occupied) {
+  clearMarkers("landmark");
+  if (!ui.showLandmarks || !map?.isStyleLoaded()) return;
+  const bounds = map.getBounds();
+  for (const landmark of LANDMARKS) {
+    if (!bounds.contains(landmark.coordinates)) continue;
+    const point = map.project(landmark.coordinates); const box = { left: point.x - 20, right: point.x + 20, top: point.y - 52, bottom: point.y - 2 };
+    if (occupied.some((item) => boxesOverlap(box, item))) continue;
+    occupied.push(box);
+    markers.landmark.push(new maplibregl.Marker({ element: landmarkElement(landmark), anchor: "bottom", offset: [0, -2] }).setLngLat(landmark.coordinates).addTo(map));
+  }
+}
+
 function renderLabels() {
-  clearMarkers("tambon"); clearMarkers("district");
+  clearMarkers("tambon"); clearMarkers("district"); clearMarkers("landmark");
   if (!map?.isStyleLoaded()) return;
   const bounds = map.getBounds(); const filtered = currentFeatures(); const visible = filtered.filter((feature) => bounds.contains(centerForFeature(feature)));
   const occupied = [];
+  renderLandmarks(occupied);
   if (ui.showTambonLabels && map.getZoom() >= 8.1) {
     for (const feature of visible) {
       const center = centerForFeature(feature); const point = map.project(center); const text = Core.tambonName(feature); const width = Math.max(34, text.length * 7.8); const box = { left: point.x - width / 2, right: point.x + width / 2, top: point.y - 10, bottom: point.y + 10 };
@@ -316,7 +377,7 @@ function renderLabels() {
   }
   if (ui.showDistrictLabels) {
     const groups = new Map(); for (const feature of filtered) { const district = Core.districtName(feature); if (!groups.has(district)) groups.set(district, []); groups.get(district).push(feature); }
-    for (const [district, items] of groups) { const districtBounds = new maplibregl.LngLatBounds(); for (const feature of items) districtBounds.extend(boundsForFeature(feature)); const center = districtBounds.getCenter(); if (!bounds.contains(center)) continue; const el = document.createElement("span"); el.className = "display-district-label"; el.textContent = `อำเภอ${district}`; markers.district.push(new maplibregl.Marker({ element: el, anchor: "bottom", offset: [0, -8] }).setLngLat(center).addTo(map)); }
+    for (const [district, items] of groups) { const districtBounds = new maplibregl.LngLatBounds(); for (const feature of items) districtBounds.extend(boundsForFeature(feature)); const center = districtBounds.getCenter(); if (!bounds.contains(center)) continue; const point = map.project(center); const width = Math.max(76, (`อำเภอ${district}`).length * 8); const box = { left: point.x - width / 2, right: point.x + width / 2, top: point.y - 28, bottom: point.y - 2 }; if (occupied.some((item) => boxesOverlap(box, item))) continue; occupied.push(box); const el = document.createElement("span"); el.className = "display-district-label"; el.textContent = `อำเภอ${district}`; markers.district.push(new maplibregl.Marker({ element: el, anchor: "bottom", offset: [0, -8] }).setLngLat(center).addTo(map)); }
   }
 }
 
@@ -334,7 +395,7 @@ async function loadData() {
   const [collection, rawState] = await Promise.all([boundariesResponse.json(), dataResponse.json()]);
   features = collection.features.filter((feature) => Core.areaId(feature) && Core.isCourtFeature(feature)).map((feature) => ({ ...feature, id: Core.areaId(feature) }));
   if (!features.length) throw new Error("ไม่พบตำบลในเขตศาลจังหวัดลพบุรี");
-  state = Core.filterStateToFeatures(Core.normalizeState(rawState), features); revision = rawState.updatedAt || JSON.stringify(rawState);
+  state = Core.filterStateToFeatures(Core.normalizeState(rawState), features); ui.showLandmarks = state.showLandmarks !== false; revision = rawState.updatedAt || JSON.stringify(rawState);
 }
 
 async function refreshData() {
@@ -354,6 +415,7 @@ function bindEvents() {
   dom.clear_staff_filter.addEventListener("click", () => selectStaff("", true));
   dom.toggle_tambon_labels.addEventListener("click", () => { ui.showTambonLabels = !ui.showTambonLabels; renderControls(); renderLabels(); });
   dom.toggle_district_labels.addEventListener("click", () => { ui.showDistrictLabels = !ui.showDistrictLabels; renderControls(); renderLabels(); });
+  dom.toggle_landmarks.addEventListener("click", () => { ui.showLandmarks = !ui.showLandmarks; renderControls(); renderLabels(); });
   dom.toggle_legend_button.addEventListener("click", () => { ui.showLegend = !ui.showLegend; renderControls(); refitViewport(); });
   addEventListener("resize", refitViewport); addEventListener("orientationchange", refitViewport);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshData(); });

@@ -61,6 +61,12 @@
   text-size-adjust: none;
 }
 
+.map-area-name,
+.map-tambon-label,
+.display-tambon-label {
+  font-weight: 400;
+}
+
 @media (max-width: 680px) {
   .map-frame-header .map-view-shortcuts {
     width: 100%;

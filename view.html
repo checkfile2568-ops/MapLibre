@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://unpkg.com">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.20.0/dist/maplibre-gl.css">
   <link rel="stylesheet" href="view.css?v=4.1.1">
+  <link rel="stylesheet" href="overview.css?v=4.3.0">
 </head>
 <body>
   <header class="display-header">
@@ -18,7 +19,7 @@
 
   <main class="display-shell">
     <section class="map-frame">
-      <div class="map-frame-header"><div><p class="eyebrow">ภาพรวมการมอบหมาย</p><h2>แผนที่เขตศาลจังหวัดลพบุรี</h2></div></div>
+      <div class="map-frame-header"><div><p class="eyebrow">ภาพรวมการมอบหมาย</p><h2>แผนที่เขตศาลจังหวัดลพบุรี</h2></div><div class="map-view-shortcuts" role="group" aria-label="มุมมองแผนที่"><button id="province-overview-button" class="map-view-button" type="button">⌖ ภาพรวมลพบุรี</button><button id="tambon-view-button" class="map-view-button" type="button">⌕ ดูตำบล</button><button id="three-d-button" class="map-view-button" type="button" aria-pressed="false">◧ มุมมอง 3D</button></div></div>
       <div id="display-content" class="display-content">
         <div class="map-column"><div id="display-map" class="display-map"></div></div>
       </div>
@@ -45,7 +46,8 @@
 
   <div id="loading" class="loading-overlay"><div><span class="spinner"></span><p>กำลังโหลดภาพรวมการมอบหมาย…</p></div></div>
   <script src="https://unpkg.com/maplibre-gl@5.20.0/dist/maplibre-gl.js"></script>
-  <script src="core.js"></script>
-  <script src="view.js?v=4.1.1"></script>
+  <script src="core.js?v=4.2.0"></script>
+  <script src="overview.js?v=4.3.0"></script>
+  <script src="view.js?v=4.3.0"></script>
 </body>
 </html>

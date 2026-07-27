@@ -1,6 +1,7 @@
 "use strict";
 
 const Core = window.MapLibreCore;
+const Overview = window.MapLibreOverview;
 // Keep this endpoint identical to the management page.  The former
 // display-only endpoint returned HTTP 400, so MapLibre was never created.
 const GIS_QUERY_URL = "https://services1.arcgis.com/jSaRWj2TDlcN1zOC/arcgis/rest/services/Thailand_Subdistrict_Boundaries_%28%E0%B8%82%E0%B9%89%E0%B8%AD%E0%B8%A1%E0%B8%B9%E0%B8%A5%E0%B8%82%E0%B8%AD%E0%B8%9A%E0%B9%80%E0%B8%82%E0%B8%95%E0%B8%95%E0%B8%B3%E0%B8%9A%E0%B8%A5%E0%B8%9B%E0%B8%A3%E0%B8%B0%E0%B9%80%E0%B8%97%E0%B8%A8%E0%B9%84%E0%B8%97%E0%B8%A2%29/FeatureServer/1/query";
@@ -11,21 +12,35 @@ const DISPLAY_UPDATED_LABEL = "ปรับปรุงล่าสุด: 24 �
 const dom = Object.fromEntries([
   "loading", "display-title", "search-input", "overview-stats", "updated-at", "data-status", "coverage-main", "coverage-exclusion",
   "display-content", "search-menu", "legend-panel", "legend", "search-results", "central-notice", "toggle-tambon-labels", "toggle-district-labels",
-  "toggle-legend-button", "staff-filter", "clear-staff-filter", "person-detail", "price-privacy-note"
+  "toggle-legend-button", "staff-filter", "clear-staff-filter", "person-detail", "price-privacy-note",
+  "province-overview-button", "tambon-view-button", "three-d-button"
 ].map((id) => [id.replaceAll("-", "_"), document.getElementById(id)]));
 
 let features = [];
 let state = Core.initialState();
 let map = null;
 let revision = null;
-let markers = { tambon: [], district: [] };
+let markers = { tambon: [], district: [], context: [] };
 let ui = { selectedStaffId: "", showTambonLabels: true, showDistrictLabels: true, showLegend: true };
 let resizeTimer = null;
+let overview = null;
+let mapViewport = "province";
+let mapIs3d = false;
 
 function sharedDataUrl() {
   const url = new URL(SHARED_DATA_URL, location.href);
   url.searchParams.set("_", Date.now().toString());
   return url;
+}
+
+async function loadOverviewMapData() {
+  if (!Overview?.load) return;
+  try {
+    overview = await Overview.load();
+  } catch (error) {
+    console.warn("Unable to load overview map data", error);
+    overview = null;
+  }
 }
 
 function typeTitle() {
@@ -193,6 +208,8 @@ function renderPersonDetail() {
 }
 
 function renderControls() {
+  dom.three_d_button.setAttribute("aria-pressed", String(mapIs3d));
+  dom.three_d_button.textContent = mapIs3d ? "▱ มุมมอง 2D" : "◧ มุมมอง 3D";
   dom.toggle_tambon_labels.setAttribute("aria-checked", String(ui.showTambonLabels));
   dom.toggle_district_labels.setAttribute("aria-checked", String(ui.showDistrictLabels));
   dom.legend_panel.hidden = !ui.showLegend; dom.search_menu.classList.toggle("legend-hidden", !ui.showLegend); dom.toggle_legend_button.setAttribute("aria-checked", String(ui.showLegend));
@@ -205,14 +222,14 @@ function selectStaff(id, focus = false) {
   renderStats(); renderLegend(); renderPersonDetail(); updateMap();
   if (focus) {
     if (id) focusFeatures(features.filter((feature) => owner(feature)?.id === id));
-    else fitMap({ duration: 500 });
+    else fitProvinceOverview({ duration: 500 });
   }
 }
 
 function resetMapToOverview() {
   dom.search_input.value = "";
   selectStaff("", false);
-  fitMap({ duration: 350 });
+  fitProvinceOverview({ duration: 350 });
 }
 
 function boundsForFeature(feature) {
@@ -225,14 +242,83 @@ function centerForFeature(feature) {
   const center = boundsForFeature(feature).getCenter(); return [center.lng, center.lat];
 }
 
+function boundsForCollection(collection) {
+  const bounds = new maplibregl.LngLatBounds();
+  for (const feature of collection?.features || []) bounds.extend(boundsForFeature(feature));
+  return bounds;
+}
+
+function mapPadding(view = "province") {
+  const landscape = matchMedia?.("(orientation: landscape)")?.matches;
+  if (view === "province") return landscape
+    ? { top: 66, right: 58, bottom: 46, left: 58 }
+    : { top: 118, right: 28, bottom: 58, left: 28 };
+  return landscape
+    ? { top: 54, right: 48, bottom: 42, left: 48 }
+    : { top: 104, right: 36, bottom: 52, left: 36 };
+}
+
+function addOverviewMapLayers() {
+  if (!overview) return;
+  map.addSource("country-provinces", { type: "geojson", data: overview.country });
+  map.addSource("province-outline", { type: "geojson", data: overview.province });
+  map.addSource("outside-amphoes", { type: "geojson", data: overview.outsideAmphoes });
+  map.addSource("overview-tambons", { type: "geojson", data: overview.tambons });
+  map.addLayer({ id: "country-fill", type: "fill", source: "country-provinces", paint: { "fill-color": "#e7ecef", "fill-opacity": 1 } });
+  map.addLayer({ id: "country-outline", type: "line", source: "country-provinces", paint: { "line-color": "#ffffff", "line-width": 0.75, "line-opacity": 0.95 } });
+  map.addLayer({ id: "outside-amphoe-fill", type: "fill", source: "outside-amphoes", paint: { "fill-color": "#d7dfe4", "fill-opacity": 0.9 } });
+  map.addLayer({ id: "outside-amphoe-3d", type: "fill-extrusion", source: "outside-amphoes", layout: { visibility: "none" }, paint: { "fill-extrusion-color": "#c6d1d7", "fill-extrusion-height": 720, "fill-extrusion-base": 0, "fill-extrusion-opacity": 0.86 } });
+  map.addLayer({ id: "overview-tambon-outline", type: "line", source: "overview-tambons", minzoom: 6.4, paint: { "line-color": "#f6f9fa", "line-width": 0.6, "line-opacity": 0.86 } });
+  map.addLayer({ id: "province-outline-line", type: "line", source: "province-outline", paint: { "line-color": "#174b68", "line-width": 2.1, "line-opacity": 0.95 } });
+}
+
+function fitProvinceOverview({ duration = 0 } = {}) {
+  if (!map) return;
+  if (!overview?.province?.features?.[0]) return fitMap({ duration });
+  mapViewport = "province";
+  map.fitBounds(boundsForFeature(overview.province.features[0]), { padding: mapPadding("province"), maxZoom: 9.6, duration });
+  scheduleLabels();
+}
+
+function showTambonView() {
+  if (ui.selectedStaffId) {
+    focusFeatures(features.filter((feature) => owner(feature)?.id === ui.selectedStaffId));
+    return;
+  }
+  if (!map) return;
+  mapViewport = "detail";
+  map.easeTo({ center: map.getCenter(), zoom: Math.max(map.getZoom(), 10.2), duration: 450 });
+  scheduleLabels();
+}
+
+function setMap3d(enabled, { duration = 450 } = {}) {
+  mapIs3d = Boolean(enabled);
+  if (map?.isStyleLoaded()) {
+    for (const layer of ["tambon-3d", "outside-amphoe-3d"]) {
+      if (map.getLayer(layer)) map.setLayoutProperty(layer, "visibility", mapIs3d ? "visible" : "none");
+    }
+    map.easeTo({ pitch: mapIs3d ? 50 : 0, bearing: mapIs3d ? -15 : 0, duration });
+  }
+  renderControls();
+}
+
+function playIntroFlight() {
+  if (!map || !overview) return fitMap();
+  setMap3d(false, { duration: 0 });
+  map.fitBounds(boundsForCollection(overview.country), { padding: mapPadding("province"), duration: 0, maxZoom: 6.2 });
+  setTimeout(() => fitProvinceOverview({ duration: 1900 }), 280);
+}
+
 function focusFeature(feature) {
+  mapViewport = "detail";
   const bounds = boundsForFeature(feature); map.fitBounds(bounds, { padding: 70, maxZoom: 12.2, duration: 500 });
   setTimeout(() => new maplibregl.Popup({ offset: 12 }).setLngLat(bounds.getCenter()).setDOMContent(popupForFeature(feature)).addTo(map), 520);
 }
 
 function focusFeatures(items) {
   if (!items.length) return;
-  const bounds = new maplibregl.LngLatBounds(); for (const feature of items) bounds.extend(boundsForFeature(feature)); map.fitBounds(bounds, { padding: 70, maxZoom: 11.5, duration: 500 });
+  mapViewport = "staff";
+  const bounds = new maplibregl.LngLatBounds(); for (const feature of items) bounds.extend(boundsForFeature(feature)); map.fitBounds(bounds, { padding: mapPadding("detail"), maxZoom: 11.5, duration: 500 });
 }
 
 function fitMap({ duration = 0 } = {}) {
@@ -259,7 +345,7 @@ function supportsWebGL() {
 function createMap() {
   if (!window.maplibregl) throw new Error("ไม่พบ MapLibre GL");
   if (!supportsWebGL() && !window.__MAPLIBRE_TEST__) throw new Error("อุปกรณ์นี้ไม่รองรับ WebGL");
-  map = new maplibregl.Map({ container: "display-map", style: { version: 8, sources: {}, layers: [{ id: "background", type: "background", paint: { "background-color": "#edf4f5" } }] }, center: [100.68, 14.83], zoom: 8.9, pitch: 30, bearing: 0, antialias: true });
+  map = new maplibregl.Map({ container: "display-map", style: { version: 8, sources: {}, layers: [{ id: "background", type: "background", paint: { "background-color": "#edf4f5" } }] }, center: [101.0, 13.7], zoom: 5.1, minZoom: 5, maxZoom: 12.5, pitch: 0, bearing: 0, antialias: true });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
   map.addControl({ onAdd() { const group = document.createElement("div"); group.className = "maplibregl-ctrl maplibregl-ctrl-group"; const btn = document.createElement("button"); btn.type = "button"; btn.className = "map-reset-button"; btn.textContent = "⌖"; btn.addEventListener("click", resetMapToOverview); group.append(btn); return group; }, onRemove() {} }, "top-right");
   map.addControl(createTrueNorthControl(), "top-left");
@@ -267,12 +353,15 @@ function createMap() {
   configureInteraction();
   map.on("load", () => {
     decorateMapControls();
+    addOverviewMapLayers();
     map.addSource("tambons", { type: "geojson", data: mapData(), promoteId: "id" });
-    map.addLayer({ id: "tambon-ground", type: "fill", source: "tambons", paint: { "fill-color": ["get", "color"], "fill-opacity": .74 } });
-    map.addLayer({ id: "tambon-3d", type: "fill-extrusion", source: "tambons", paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-height": ["get", "height"], "fill-extrusion-base": 0, "fill-extrusion-opacity": .84 } });
+    map.addLayer({ id: "tambon-ground", type: "fill", source: "tambons", paint: { "fill-color": ["get", "color"], "fill-opacity": .78 } });
+    map.addLayer({ id: "tambon-3d", type: "fill-extrusion", source: "tambons", layout: { visibility: "none" }, paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-height": ["get", "height"], "fill-extrusion-base": 0, "fill-extrusion-opacity": .84 } });
     map.addLayer({ id: "tambon-outline", type: "line", source: "tambons", paint: { "line-color": "#fff", "line-width": 1.1, "line-opacity": .96 } });
-    map.on("click", "tambon-3d", (event) => { const id = String(event.features?.[0]?.properties?.id || ""); const feature = features.find((item) => Core.areaId(item) === id); if (feature) new maplibregl.Popup({ offset: 12 }).setLngLat(event.lngLat).setDOMContent(popupForFeature(feature)).addTo(map); });
-    map.on("moveend", renderLabels); fitMap(); scheduleLabels();
+    const onTambonClick = (event) => { const id = String(event.features?.[0]?.properties?.id || ""); const feature = features.find((item) => Core.areaId(item) === id); if (feature) new maplibregl.Popup({ offset: 12 }).setLngLat(event.lngLat).setDOMContent(popupForFeature(feature)).addTo(map); };
+    for (const layer of ["tambon-ground", "tambon-3d"]) map.on("click", layer, onTambonClick);
+    map.on("moveend", renderLabels);
+    playIntroFlight();
   });
 }
 
@@ -324,12 +413,25 @@ function configureInteraction() {
 function clearMarkers(type) { for (const marker of markers[type]) marker.remove(); markers[type] = []; }
 function boxesOverlap(a, b) { return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top; }
 
+function renderOutsideDistrictLabels(bounds) {
+  if (!overview?.outsideAmphoes || !map) return;
+  for (const feature of overview.outsideAmphoes.features) {
+    const center = centerForFeature(feature);
+    if (!bounds.contains(center)) continue;
+    const element = document.createElement("span"); element.className = "display-district-label outside";
+    const title = document.createElement("span"); title.textContent = `อำเภอ${feature.properties.amphoe_th}`;
+    const note = document.createElement("small"); note.className = "district-outside-note"; note.textContent = "นอกเขตการส่งหมาย";
+    element.append(title, note);
+    markers.context.push(new maplibregl.Marker({ element, anchor: "bottom", offset: [0, -8] }).setLngLat(center).addTo(map));
+  }
+}
+
 function renderLabels() {
-  clearMarkers("tambon"); clearMarkers("district");
+  clearMarkers("tambon"); clearMarkers("district"); clearMarkers("context");
   if (!map?.isStyleLoaded()) return;
   const bounds = map.getBounds(); const filtered = currentFeatures(); const visible = filtered.filter((feature) => bounds.contains(centerForFeature(feature)));
   const occupied = [];
-  if (ui.showTambonLabels && map.getZoom() >= 8.1) {
+  if (ui.showTambonLabels && map.getZoom() >= 10.2) {
     for (const feature of visible) {
       const center = centerForFeature(feature); const point = map.project(center); const text = Core.tambonName(feature); const width = Math.max(34, text.length * 7.8); const box = { left: point.x - width / 2, right: point.x + width / 2, top: point.y - 10, bottom: point.y + 10 };
       if (occupied.some((item) => boxesOverlap(box, item))) continue; occupied.push(box);
@@ -339,6 +441,7 @@ function renderLabels() {
   if (ui.showDistrictLabels) {
     const groups = new Map(); for (const feature of filtered) { const district = Core.districtName(feature); if (!groups.has(district)) groups.set(district, []); groups.get(district).push(feature); }
     for (const [district, items] of groups) { const districtBounds = new maplibregl.LngLatBounds(); for (const feature of items) districtBounds.extend(boundsForFeature(feature)); const center = districtBounds.getCenter(); if (!bounds.contains(center)) continue; const el = document.createElement("span"); el.className = "display-district-label"; el.textContent = `อำเภอ${district}`; markers.district.push(new maplibregl.Marker({ element: el, anchor: "bottom", offset: [0, -8] }).setLngLat(center).addTo(map)); }
+    renderOutsideDistrictLabels(bounds);
   }
 }
 
@@ -374,6 +477,9 @@ function bindEvents() {
   dom.search_input.addEventListener("input", updateMap);
   dom.staff_filter.addEventListener("change", () => selectStaff(dom.staff_filter.value, true));
   dom.clear_staff_filter.addEventListener("click", () => selectStaff("", true));
+  dom.province_overview_button.addEventListener("click", () => resetMapToOverview());
+  dom.tambon_view_button.addEventListener("click", showTambonView);
+  dom.three_d_button.addEventListener("click", () => setMap3d(!mapIs3d));
   dom.toggle_tambon_labels.addEventListener("click", () => { ui.showTambonLabels = !ui.showTambonLabels; renderControls(); renderLabels(); });
   dom.toggle_district_labels.addEventListener("click", () => { ui.showDistrictLabels = !ui.showDistrictLabels; renderControls(); renderLabels(); });
   dom.toggle_legend_button.addEventListener("click", () => { ui.showLegend = !ui.showLegend; renderControls(); refitViewport(); });
@@ -383,13 +489,13 @@ function bindEvents() {
 
 function refitViewport() {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => { if (!map) return; map.resize(); configureInteraction(); if (!ui.selectedStaffId && !searchText()) fitMap(); scheduleLabels(); }, 160);
+  resizeTimer = setTimeout(() => { if (!map) return; map.resize(); configureInteraction(); if (!ui.selectedStaffId && !searchText() && mapViewport === "province") fitProvinceOverview(); scheduleLabels(); }, 160);
 }
 
 async function init() {
   typeTitle();
   try {
-    await loadData();
+    await Promise.all([loadData(), loadOverviewMapData()]);
     renderStaffFilter(); renderStats(); renderLegend(); renderPersonDetail(); renderControls(); createMap(); bindEvents();
     setInterval(refreshData, 30000);
   } catch (error) {

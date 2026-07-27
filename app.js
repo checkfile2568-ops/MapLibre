@@ -908,8 +908,8 @@ function boundsForCollection(collection) {
 function mapPadding(view = "province") {
   const landscape = matchMedia?.("(orientation: landscape)")?.matches;
   if (view === "province") return landscape
-    ? { top: 66, right: 58, bottom: 46, left: 58 }
-    : { top: 118, right: 28, bottom: 58, left: 28 };
+    ? { top: 44, right: 30, bottom: 30, left: 30 }
+    : { top: 82, right: 18, bottom: 40, left: 18 };
   return landscape
     ? { top: 54, right: 48, bottom: 42, left: 48 }
     : { top: 104, right: 36, bottom: 52, left: 36 };
@@ -918,7 +918,6 @@ function mapPadding(view = "province") {
 function addOverviewMapLayers() {
   if (!overview) return;
   map.addSource("country-provinces", { type: "geojson", data: overview.country });
-  map.addSource("province-outline", { type: "geojson", data: overview.province });
   map.addSource("outside-amphoes", { type: "geojson", data: overview.outsideAmphoes });
   map.addSource("overview-tambons", { type: "geojson", data: overview.tambons });
   map.addLayer({ id: "country-fill", type: "fill", source: "country-provinces", paint: { "fill-color": "#e7ecef", "fill-opacity": 1 } });
@@ -926,14 +925,13 @@ function addOverviewMapLayers() {
   map.addLayer({ id: "outside-amphoe-fill", type: "fill", source: "outside-amphoes", paint: { "fill-color": "#d7dfe4", "fill-opacity": 0.9 } });
   map.addLayer({ id: "outside-amphoe-3d", type: "fill-extrusion", source: "outside-amphoes", layout: { visibility: "none" }, paint: { "fill-extrusion-color": "#c6d1d7", "fill-extrusion-height": 720, "fill-extrusion-base": 0, "fill-extrusion-opacity": 0.86 } });
   map.addLayer({ id: "overview-tambon-outline", type: "line", source: "overview-tambons", minzoom: 6.4, paint: { "line-color": "#f6f9fa", "line-width": 0.6, "line-opacity": 0.86 } });
-  map.addLayer({ id: "province-outline-line", type: "line", source: "province-outline", paint: { "line-color": "#174b68", "line-width": 2.1, "line-opacity": 0.95 } });
 }
 
 function fitProvinceOverview({ duration = 0 } = {}) {
   if (!map) return;
   if (!overview?.province?.features?.[0]) return fitMapToData();
   mapViewport = "province";
-  map.fitBounds(boundsForGeometry(overview.province.features[0].geometry), { padding: mapPadding("province"), maxZoom: 9.6, duration });
+  map.fitBounds(boundsForGeometry(overview.province.features[0].geometry), { padding: mapPadding("province"), maxZoom: 10, duration });
   scheduleMapLabels();
 }
 

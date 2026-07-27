@@ -932,12 +932,11 @@ function fitProvinceOverview({ duration = 0 } = {}) {
   if (!map) return;
   if (!overview?.province?.features?.[0]) return fitMapToData();
   mapViewport = "province";
-  setMap3d(false, { duration: 0 });
   const bounds = boundsForGeometry(overview.province.features[0].geometry);
   const camera = map.cameraForBounds?.(bounds, { padding: mapPadding("province"), maxZoom: 10 });
   if (camera) {
     provinceOverviewZoom = Math.min(camera.zoom + 1, 11);
-    map.easeTo({ ...camera, zoom: provinceOverviewZoom, pitch: 0, bearing: 0, duration });
+    map.easeTo({ ...camera, zoom: provinceOverviewZoom, pitch: mapIs3d ? 50 : 0, bearing: mapIs3d ? -15 : 0, duration });
   } else {
     provinceOverviewZoom = 11;
     map.fitBounds(bounds, { padding: mapPadding("province"), maxZoom: 11, duration });
@@ -978,7 +977,7 @@ function setMap3d(enabled, { duration = 450 } = {}) {
 
 function playIntroFlight() {
   if (!map || !overview) return fitMapToData();
-  setMap3d(false, { duration: 0 });
+  setMap3d(true, { duration: 0 });
   map.fitBounds(boundsForCollection(overview.country), { padding: mapPadding("province"), duration: 0, maxZoom: 6.2 });
   setTimeout(() => fitProvinceOverview({ duration: 1900 }), 280);
 }
@@ -1101,46 +1100,14 @@ function fitMapToData() {
 function clearMarkers(type) { for (const marker of labelMarkers[type]) marker.remove(); labelMarkers[type] = []; }
 function overlap(a, b) { return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top; }
 
-function districtLabelOffsets(overviewMode) {
-  return overviewMode
-    ? [[0, -80], [82, -64], [-82, -64], [106, -18], [-106, -18], [98, 38], [-98, 38], [58, 78], [-58, 78], [0, 88], [0, 0]]
-    : [[0, -10], [20, -8], [-20, -8], [22, 12], [-22, 12], [0, 18]];
-}
-
 function renderDistrictLabels(entries) {
   if (!map) return;
-  const overviewMode = mapViewport === "province" && map.getZoom() < (provinceOverviewZoom ?? 10) + 0.5;
-  const offsets = districtLabelOffsets(overviewMode);
-  const canvas = map.getCanvas();
-  const canvasWidth = canvas.clientWidth || canvas.width;
-  const canvasHeight = canvas.clientHeight || canvas.height;
-  const occupied = [];
-
-  entries.forEach((entry, index) => {
-    const point = map.project(entry.center);
-    const width = Math.max(34, entry.name.length * 6.4);
-    const height = 15;
-    const candidates = offsets.map((_, offsetIndex) => offsets[(index * 3 + offsetIndex) % offsets.length]);
-    let offset = candidates[candidates.length - 1];
-    for (const candidate of candidates) {
-      const box = {
-        left: point.x + candidate[0] - width / 2,
-        right: point.x + candidate[0] + width / 2,
-        top: point.y + candidate[1] - height / 2,
-        bottom: point.y + candidate[1] + height / 2,
-      };
-      const insideMap = box.left >= 4 && box.right <= canvasWidth - 4 && box.top >= 4 && box.bottom <= canvasHeight - 4;
-      if (insideMap && !occupied.some((item) => overlap(box, item))) {
-        offset = candidate;
-        occupied.push(box);
-        break;
-      }
-    }
+  entries.forEach((entry) => {
     const element = document.createElement("span");
     element.className = `map-district-label${entry.outside ? " outside" : ""}`;
     element.textContent = entry.name;
     const target = entry.outside ? labelMarkers.context : labelMarkers.district;
-    target.push(new maplibregl.Marker({ element, anchor: "center", offset }).setLngLat(entry.center).addTo(map));
+    target.push(new maplibregl.Marker({ element, anchor: "center" }).setLngLat(entry.center).addTo(map));
   });
 }
 
@@ -1221,7 +1188,7 @@ function updateMap() { if (map?.isStyleLoaded() && map.getSource("tambons")) map
 function renderMapControls() {
   if (dom.three_d_button) {
     dom.three_d_button.setAttribute("aria-pressed", String(mapIs3d));
-    dom.three_d_button.textContent = mapIs3d ? "▱ มุมมอง 2D" : "◧ มุมมอง 3D";
+    dom.three_d_button.textContent = mapIs3d ? "◧ มุมมอง 3D" : "▱ มุมมองปกติ";
   }
   dom.labels_button.setAttribute("aria-pressed", String(state.showLabels)); dom.labels_button.textContent = state.showLabels ? "ซ่อนชื่อตำบล" : "แสดงชื่อตำบล";
   dom.district_labels_button.setAttribute("aria-pressed", String(state.showDistrictLabels)); dom.district_labels_button.textContent = state.showDistrictLabels ? "ซ่อนชื่ออำเภอ" : "แสดงชื่ออำเภอ";

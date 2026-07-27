@@ -1066,9 +1066,10 @@ function decorateMapControls() {
 
 function configureMapInteraction() {
   if (!map) return;
-  const compact = window.matchMedia?.("(pointer: coarse) and (orientation: landscape) and (max-height: 620px)")?.matches;
-  if (compact) { map.dragPan.disable(); map.touchZoomRotate.disable(); map.getCanvas().style.touchAction = "pan-y"; }
-  else { map.dragPan.enable(); map.touchZoomRotate.enable(); map.touchZoomRotate.disableRotation(); map.getCanvas().style.touchAction = ""; }
+  map.dragPan.enable();
+  map.touchZoomRotate.enable();
+  map.touchZoomRotate.disableRotation();
+  map.getCanvas().style.touchAction = "none";
 }
 
 function extendBounds(bounds, coordinates) {

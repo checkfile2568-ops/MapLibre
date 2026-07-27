@@ -30,6 +30,7 @@ let labelMarkers = { area: [], district: [], context: [] };
 let overview = null;
 let mapViewport = "province";
 let mapIs3d = false;
+let provinceOverviewZoom = null;
 let shared = { available: false, loading: false, error: null };
 let tokenCheck = { checking: false, valid: false, login: null, expiresAt: null };
 let toastTimer = null;
@@ -931,7 +932,16 @@ function fitProvinceOverview({ duration = 0 } = {}) {
   if (!map) return;
   if (!overview?.province?.features?.[0]) return fitMapToData();
   mapViewport = "province";
-  map.fitBounds(boundsForGeometry(overview.province.features[0].geometry), { padding: mapPadding("province"), maxZoom: 10, duration });
+  setMap3d(false, { duration: 0 });
+  const bounds = boundsForGeometry(overview.province.features[0].geometry);
+  const camera = map.cameraForBounds?.(bounds, { padding: mapPadding("province"), maxZoom: 10 });
+  if (camera) {
+    provinceOverviewZoom = Math.min(camera.zoom + 1, 11);
+    map.easeTo({ ...camera, zoom: provinceOverviewZoom, pitch: 0, bearing: 0, duration });
+  } else {
+    provinceOverviewZoom = 11;
+    map.fitBounds(bounds, { padding: mapPadding("province"), maxZoom: 11, duration });
+  }
   scheduleMapLabels();
 }
 
@@ -1091,21 +1101,47 @@ function fitMapToData() {
 function clearMarkers(type) { for (const marker of labelMarkers[type]) marker.remove(); labelMarkers[type] = []; }
 function overlap(a, b) { return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top; }
 
-function renderOutsideDistrictLabels(bounds) {
-  if (!overview?.outsideAmphoes || !map) return;
-  for (const feature of overview.outsideAmphoes.features) {
-    const center = featureCenter(feature);
-    if (!bounds.contains(center)) continue;
+function districtLabelOffsets(overviewMode) {
+  return overviewMode
+    ? [[0, -80], [82, -64], [-82, -64], [106, -18], [-106, -18], [98, 38], [-98, 38], [58, 78], [-58, 78], [0, 88], [0, 0]]
+    : [[0, -10], [20, -8], [-20, -8], [22, 12], [-22, 12], [0, 18]];
+}
+
+function renderDistrictLabels(entries) {
+  if (!map) return;
+  const overviewMode = mapViewport === "province" && map.getZoom() < (provinceOverviewZoom ?? 10) + 0.5;
+  const offsets = districtLabelOffsets(overviewMode);
+  const canvas = map.getCanvas();
+  const canvasWidth = canvas.clientWidth || canvas.width;
+  const canvasHeight = canvas.clientHeight || canvas.height;
+  const occupied = [];
+
+  entries.forEach((entry, index) => {
+    const point = map.project(entry.center);
+    const width = Math.max(34, entry.name.length * 6.4);
+    const height = 15;
+    const candidates = offsets.map((_, offsetIndex) => offsets[(index * 3 + offsetIndex) % offsets.length]);
+    let offset = candidates[candidates.length - 1];
+    for (const candidate of candidates) {
+      const box = {
+        left: point.x + candidate[0] - width / 2,
+        right: point.x + candidate[0] + width / 2,
+        top: point.y + candidate[1] - height / 2,
+        bottom: point.y + candidate[1] + height / 2,
+      };
+      const insideMap = box.left >= 4 && box.right <= canvasWidth - 4 && box.top >= 4 && box.bottom <= canvasHeight - 4;
+      if (insideMap && !occupied.some((item) => overlap(box, item))) {
+        offset = candidate;
+        occupied.push(box);
+        break;
+      }
+    }
     const element = document.createElement("span");
-    element.className = "map-district-label outside";
-    const title = document.createElement("span");
-    title.textContent = `อำเภอ${feature.properties.amphoe_th}`;
-    const note = document.createElement("small");
-    note.className = "district-outside-note";
-    note.textContent = "นอกเขตการส่งหมาย";
-    element.append(title, note);
-    labelMarkers.context.push(new maplibregl.Marker({ element, anchor: "bottom", offset: [0, -8] }).setLngLat(center).addTo(map));
-  }
+    element.className = `map-district-label${entry.outside ? " outside" : ""}`;
+    element.textContent = entry.name;
+    const target = entry.outside ? labelMarkers.context : labelMarkers.district;
+    target.push(new maplibregl.Marker({ element, anchor: "center", offset }).setLngLat(entry.center).addTo(map));
+  });
 }
 
 function renderMapLabels() {
@@ -1116,7 +1152,7 @@ function renderMapLabels() {
   const bounds = map.getBounds();
   const visible = availableFeatures().filter((feature) => bounds.contains(featureCenter(feature)));
   const occupied = [];
-  const showNames = state.showLabels && map.getZoom() >= 10.2;
+  const showNames = state.showLabels && map.getZoom() >= (provinceOverviewZoom ?? 10) + 0.75;
   const showPrices = state.showPriceLabels && map.getZoom() >= 10.2;
 
   if (showNames || showPrices) {
@@ -1163,17 +1199,18 @@ function renderMapLabels() {
       if (!groups.has(district)) groups.set(district, []);
       groups.get(district).push(feature);
     }
+    const entries = [];
     for (const [district, items] of groups) {
       const districtBounds = new maplibregl.LngLatBounds();
       for (const feature of items) extendBounds(districtBounds, feature.geometry.coordinates);
       const center = districtBounds.getCenter();
-      if (!bounds.contains(center)) continue;
-      const element = document.createElement("span");
-      element.className = "map-district-label";
-      element.textContent = `อำเภอ${district}`;
-      labelMarkers.district.push(new maplibregl.Marker({ element, anchor: "bottom", offset: [0, -20] }).setLngLat(center).addTo(map));
+      if (bounds.contains(center)) entries.push({ name: district, center, outside: false });
     }
-    renderOutsideDistrictLabels(bounds);
+    for (const feature of overview?.outsideAmphoes?.features || []) {
+      const center = featureCenter(feature);
+      if (bounds.contains(center)) entries.push({ name: feature.properties.amphoe_th, center, outside: true });
+    }
+    renderDistrictLabels(entries);
   }
 }
 

@@ -42,12 +42,23 @@
 }
 
 .district-outside-note {
-  display: block;
-  margin-top: 1px;
-  color: #6d7c85;
-  font-size: 9px;
-  font-weight: 700;
-  line-height: 1.25;
+  display: none;
+}
+
+.map-district-label,
+.display-district-label,
+.map-district-label.outside,
+.display-district-label.outside {
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  color: #1c506d;
+  font: 800 10px/1.15 "Noto Sans Thai", "Leelawadee UI", Tahoma, sans-serif;
+  text-shadow: 0 1px 2px #fff, 1px 0 1px #fff, -1px 0 1px #fff, 0 -1px 1px #fff;
+  box-shadow: none;
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
 }
 
 @media (max-width: 680px) {

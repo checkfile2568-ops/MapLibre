@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://unpkg.com">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.20.0/dist/maplibre-gl.css">
   <link rel="stylesheet" href="styles.css?v=4.2.0">
+  <link rel="stylesheet" href="overview.css?v=4.3.0">
 </head>
 <body>
   <header class="app-header">
@@ -97,6 +98,7 @@
       <div id="maps-layout" class="maps-layout maps-layout-single">
         <article class="map-card main-map-card">
           <div class="map-card-heading"><div><h3>แผนที่เขตหลัก</h3><p>สีแทนผู้รับผิดชอบ และป้ายยอดแยกรายตำบล</p></div><div class="map-card-options"><button id="labels-button" class="map-option" type="button">ซ่อนชื่อตำบล</button><button id="district-labels-button" class="map-option" type="button">ซ่อนชื่ออำเภอ</button><button id="price-labels-button" class="map-option" type="button">ซ่อนยอด</button><button id="toggle-legend-button" class="map-option" type="button">ซ่อนคำอธิบายสี</button></div></div>
+          <div class="map-view-shortcuts map-view-shortcuts-admin" role="group" aria-label="มุมมองแผนที่"><button id="province-overview-button" class="map-view-button" type="button">⌖ ภาพรวมลพบุรี</button><button id="tambon-view-button" class="map-view-button" type="button">⌕ ดูตำบล</button><button id="three-d-button" class="map-view-button" type="button" aria-pressed="false">◧ มุมมอง 3D</button></div>
           <div id="main-map" class="map-canvas"></div>
         </article>
         <aside id="legend-rail" class="right-rail legend-rail"><article class="legend-card"><div class="map-card-heading"><div><h3>คำอธิบายสี</h3><p>สีและจำนวนพื้นที่ของผู้รับผิดชอบ</p></div></div><div id="legend" class="legend"></div></article></aside>
@@ -112,6 +114,7 @@
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="core.js?v=4.2.0"></script>
-  <script src="app.js?v=4.2.0"></script>
+  <script src="overview.js?v=4.3.0"></script>
+  <script src="app.js?v=4.3.0"></script>
 </body>
 </html>

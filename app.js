@@ -931,7 +931,14 @@ function fitProvinceOverview({ duration = 0 } = {}) {
   if (!map) return;
   if (!overview?.province?.features?.[0]) return fitMapToData();
   mapViewport = "province";
-  map.fitBounds(boundsForGeometry(overview.province.features[0].geometry), { padding: mapPadding("province"), maxZoom: 10, duration });
+  setMap3d(false, { duration: 0 });
+  const bounds = boundsForGeometry(overview.province.features[0].geometry);
+  const camera = map.cameraForBounds?.(bounds, { padding: mapPadding("province"), maxZoom: 10 });
+  if (camera) {
+    map.easeTo({ ...camera, zoom: Math.min(camera.zoom + 1, 11), pitch: 0, bearing: 0, duration });
+  } else {
+    map.fitBounds(bounds, { padding: mapPadding("province"), maxZoom: 11, duration });
+  }
   scheduleMapLabels();
 }
 

@@ -11,7 +11,7 @@ const PALETTE = ["#1377b5", "#ca5d35", "#2c9a6d", "#7757b5", "#c04662", "#27858f
 
 const dom = Object.fromEntries([
   "loading", "staff-select", "new-staff-name", "add-staff-button", "staff-import-input", "color-swatch", "staff-help", "new-color-button",
-  "toggle-staff-management", "staff-management-content", "staff-management-list", "district-list", "tambon-search", "tambon-list",
+  "toggle-staff-management", "staff-management-content", "staff-management-list", "district-list", "tambon-search", "tambon-list", "area-selection-count", "unassigned-summary",
   "price-search", "price-list", "price-paste", "price-import-button", "price-csv-input", "price-import-status", "price-progress",
   "price-labels-button", "publish-prices", "validation-list", "validate-button", "assignment-summary", "maps-layout", "legend-rail", "legend",
   "toggle-legend-button", "labels-button", "district-labels-button", "export-button", "print-map-button", "print-tambon-labels",
@@ -24,12 +24,13 @@ const dom = Object.fromEntries([
 let features = [];
 let state = loadLocalState();
 let map = null;
-let labelMarkers = { tambon: [], district: [], price: [] };
+let labelMarkers = { area: [], district: [] };
 let shared = { available: false, loading: false, error: null };
 let tokenCheck = { checking: false, valid: false, login: null, expiresAt: null };
 let toastTimer = null;
 let staffManagementOpen = false;
 let bypassLeaveGuard = false;
+const EXPECTED_COURT_TAMBONS = 85;
 
 function showToast(message) {
   if (!dom.toast) return;
@@ -64,6 +65,19 @@ function persist(message, { fullRender = true } = {}) {
   saveLocalState();
   if (fullRender) renderAll();
   else renderLightweight();
+  if (message) showToast(message);
+}
+
+
+function persistPriceChange(message = "") {
+  state.updatedAt = new Date().toISOString();
+  state.pendingChanges = true;
+  saveLocalState();
+  renderSharedStatus();
+  renderPriceProgress();
+  renderSummary();
+  renderValidation();
+  updateMap();
   if (message) showToast(message);
 }
 
@@ -477,6 +491,7 @@ function toggleFeatureFromMap(feature) {
 
 function setAreaPrice(feature, rawValue, { quiet = false } = {}) {
   const id = Core.areaId(feature);
+  if (!id) return false;
   const text = String(rawValue ?? "").trim();
   if (!text) delete state.prices[id];
   else {
@@ -484,7 +499,7 @@ function setAreaPrice(feature, rawValue, { quiet = false } = {}) {
     if (amount === null) return false;
     state.prices[id] = amount;
   }
-  if (!quiet) persist(`ปรับยอดตำบล${Core.tambonName(feature)}แล้ว`, { fullRender: false });
+  if (!quiet) persistPriceChange(`ปรับยอดตำบล${Core.tambonName(feature)}แล้ว`);
   return true;
 }
 
@@ -545,54 +560,48 @@ function renderStaffManagement() {
   dom.staff_management_content.hidden = !staffManagementOpen;
   dom.toggle_staff_management.textContent = staffManagementOpen ? "ซ่อนข้อมูล" : "แสดงข้อมูล";
   dom.toggle_staff_management.setAttribute("aria-expanded", String(staffManagementOpen));
-  if (!state.staff.length) { dom.staff_management_list.innerHTML = '<p class="empty-result">ยังไม่มีรายชื่อเจ้าหน้าที่</p>'; return; }
+  if (!state.staff.length) {
+    dom.staff_management_list.innerHTML = '<p class="empty-result">ยังไม่มีรายชื่อเจ้าหน้าที่</p>';
+    return;
+  }
   const fragment = document.createDocumentFragment();
   for (const person of state.staff) {
     const areas = assignedAreasFor(person.id).sort((a, b) => `${Core.districtName(a)} ${Core.tambonName(a)}`.localeCompare(`${Core.districtName(b)} ${Core.tambonName(b)}`, "th"));
-    const card = document.createElement("article"); card.className = `staff-card${person.active ? "" : " inactive"}`;
-    const heading = document.createElement("div"); heading.className = "staff-card-heading";
-    const dot = document.createElement("span"); dot.className = "legend-dot"; dot.style.background = person.color;
-    const name = document.createElement("strong"); name.textContent = person.name;
-    const status = document.createElement("span"); status.className = `staff-status${person.active ? "" : " inactive"}`; status.textContent = person.active ? "ปฏิบัติงาน" : "ปิดใช้งาน";
-    heading.append(dot, name, status);
-    const meta = document.createElement("p"); meta.className = "staff-card-meta"; meta.textContent = `${areas.length} ตำบล · ${new Set(areas.map(Core.districtName)).size} อำเภอ · ${Core.formatAmount(Core.sumPrices(areas, state.prices))}`;
-    const actions = document.createElement("div"); actions.className = "staff-card-actions";
-    const rename = button("แก้ชื่อ", "button button-muted", () => renameStaff(person));
-    const activity = button(person.active ? "ปิดใช้งาน" : "เปิดใช้งาน", "button button-muted", () => toggleStaffActive(person));
-    const remove = button("ลบ", "button button-danger", () => deleteStaff(person));
-    actions.append(rename, activity, remove);
+    const card = document.createElement("article");
+    card.className = `staff-card${person.active ? "" : " inactive"}`;
 
-    const editor = document.createElement("details"); editor.className = "staff-area-editor";
-    const summary = document.createElement("summary"); summary.textContent = `แก้ไขตำบลรายรายการ (${areas.length})`; editor.append(summary);
-    if (areas.length) {
-      const list = document.createElement("div"); list.className = "staff-area-list";
-      const checks = new Map();
-      for (const feature of areas) {
-        const row = document.createElement("label"); row.className = "staff-area-option";
-        const check = document.createElement("input"); check.type = "checkbox"; checks.set(Core.areaId(feature), check);
-        const text = document.createElement("span"); text.textContent = Core.tambonName(feature);
-        const small = document.createElement("small"); small.textContent = `${Core.districtName(feature)} · ${Core.formatAmount(featurePrice(feature))}`;
-        row.append(check, text, small); list.append(row);
-      }
-      const transfer = document.createElement("div"); transfer.className = "staff-area-bulk-actions";
-      const select = document.createElement("select"); select.add(new Option("— โอนที่เลือกไปให้ —", ""));
-      for (const candidate of activeStaff().filter((item) => item.id !== person.id)) select.add(new Option(candidate.name, candidate.id));
-      select.add(new Option("ยกเลิกการมอบหมาย", "__unassign__"));
-      const act = button("ดำเนินการ", "button button-secondary", () => {
-        const selected = areas.filter((feature) => checks.get(Core.areaId(feature)).checked);
-        transferAreas(person, selected, select.value);
-      });
-      transfer.append(select, act); editor.append(list, transfer);
-    } else {
-      const empty = document.createElement("p"); empty.className = "staff-area-empty"; empty.textContent = "ยังไม่มีตำบลที่รับผิดชอบ"; editor.append(empty);
-    }
-    const transferAll = document.createElement("div"); transferAll.className = "transfer-row";
-    const selectAll = document.createElement("select"); selectAll.add(new Option("— โอนทั้งหมดไปให้ —", ""));
-    for (const candidate of activeStaff().filter((item) => item.id !== person.id)) selectAll.add(new Option(candidate.name, candidate.id));
-    selectAll.add(new Option("ยกเลิกพื้นที่ทั้งหมด", "__unassign__"));
-    const transferButton = button("โอนทั้งหมด", "button button-secondary", () => transferAreas(person, areas, selectAll.value)); transferButton.disabled = !areas.length;
-    transferAll.append(selectAll, transferButton);
-    card.append(heading, meta, actions, editor, transferAll); fragment.append(card);
+    const heading = document.createElement("div");
+    heading.className = "staff-card-heading";
+    const dot = document.createElement("span");
+    dot.className = "legend-dot";
+    dot.style.background = person.color;
+    const name = document.createElement("strong");
+    name.textContent = person.name;
+    const status = document.createElement("span");
+    status.className = `staff-status${person.active ? "" : " inactive"}`;
+    status.textContent = person.active ? "ปฏิบัติงาน" : "ปิดใช้งาน";
+    heading.append(dot, name, status);
+
+    const meta = document.createElement("p");
+    meta.className = "staff-card-meta";
+    meta.textContent = `${areas.length} ตำบล · ${new Set(areas.map(Core.districtName)).size} อำเภอ`;
+
+    const actions = document.createElement("div");
+    actions.className = "staff-card-actions";
+    actions.append(
+      button("แก้ชื่อ", "button button-muted", () => renameStaff(person)),
+      button(person.active ? "ปิดใช้งาน" : "เปิดใช้งาน", "button button-muted", () => toggleStaffActive(person)),
+      button("ลบ", "button button-danger", () => deleteStaff(person))
+    );
+
+    const clearRow = document.createElement("div");
+    clearRow.className = "staff-clear-areas";
+    const clearButton = button("ยกเลิกพื้นที่ทั้งหมด", "button button-danger", () => transferAreas(person, areas, "__unassign__"));
+    clearButton.disabled = !areas.length;
+    clearRow.append(clearButton);
+
+    card.append(heading, meta, actions, clearRow);
+    fragment.append(card);
   }
   dom.staff_management_list.replaceChildren(fragment);
 }
@@ -623,64 +632,190 @@ function renderDistrictList() {
 }
 
 function renderTambonList() {
-  const query = Core.sanitizeName(dom.tambon_search.value).toLocaleLowerCase("th");
-  if (!query) { dom.tambon_list.innerHTML = '<p class="empty-result">พิมพ์ชื่อตำบลหรืออำเภอเพื่อค้นหา</p>'; return; }
+  const total = availableFeatures().length;
   const staff = selectedStaff();
-  const matches = availableFeatures().filter((feature) => `${Core.tambonName(feature)} ${Core.districtName(feature)}`.toLocaleLowerCase("th").includes(query)).slice(0, 80);
-  if (!matches.length) { dom.tambon_list.innerHTML = '<p class="empty-result">ไม่พบตำบลที่ค้นหา</p>'; return; }
+  const query = Core.sanitizeName(dom.tambon_search.value).toLocaleLowerCase("th");
+  if (dom.area_selection_count) dom.area_selection_count.textContent = `พื้นที่ทั้งหมด ${total} ตำบล`;
+  if (!staff) {
+    dom.tambon_list.innerHTML = '<p class="empty-result">กรุณาเลือกชื่อผู้รับผิดชอบก่อน แล้วระบบจะแสดงพื้นที่ทั้งหมดให้เลือก</p>';
+    return;
+  }
+  const matches = availableFeatures()
+    .filter((feature) => !query || `${Core.tambonName(feature)} ${Core.districtName(feature)}`.toLocaleLowerCase("th").includes(query))
+    .sort((a, b) => `${Core.districtName(a)} ${Core.tambonName(a)}`.localeCompare(`${Core.districtName(b)} ${Core.tambonName(b)}`, "th"));
+  if (!matches.length) {
+    dom.tambon_list.innerHTML = '<p class="empty-result">ไม่พบตำบลที่ค้นหา</p>';
+    return;
+  }
   const fragment = document.createDocumentFragment();
   for (const feature of matches) {
-    const row = document.createElement("label"); row.className = "tambon-option";
-    const check = document.createElement("input"); check.type = "checkbox"; check.disabled = !staff; check.checked = Boolean(staff && state.assignments[Core.areaId(feature)] === staff.id); check.addEventListener("change", () => assignFeatures([feature], check.checked));
-    const name = document.createElement("span"); name.textContent = Core.tambonName(feature);
-    const small = document.createElement("small"); small.textContent = `${Core.districtName(feature)} · ${Core.formatAmount(featurePrice(feature))}`;
-    row.append(check, name, small); fragment.append(row);
+    const id = Core.areaId(feature);
+    const owner = getStaff(state.assignments[id]);
+    const row = document.createElement("label");
+    row.className = "tambon-option";
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.checked = state.assignments[id] === staff.id;
+    check.addEventListener("change", () => assignFeatures([feature], check.checked));
+    const name = document.createElement("span");
+    name.textContent = Core.tambonName(feature);
+    const small = document.createElement("small");
+    small.textContent = owner ? `อ.${Core.districtName(feature)} · ${owner.id === staff.id ? "รับผิดชอบอยู่" : `ผู้รับผิดชอบ: ${owner.name}`}` : `อ.${Core.districtName(feature)} · ยังไม่มอบหมาย`;
+    row.append(check, name, small);
+    fragment.append(row);
   }
   dom.tambon_list.replaceChildren(fragment);
 }
 
+function renderUnassignedSummary() {
+  if (!dom.unassigned_summary) return;
+  const total = availableFeatures().length;
+  const items = unassignedAreas().sort((a, b) => `${Core.districtName(a)} ${Core.tambonName(a)}`.localeCompare(`${Core.districtName(b)} ${Core.tambonName(b)}`, "th"));
+  dom.unassigned_summary.replaceChildren();
+  dom.unassigned_summary.className = `unassigned-summary ${items.length ? "pending" : "complete"}`;
+  const heading = document.createElement("strong");
+  if (!items.length) {
+    heading.textContent = `มอบหมายผู้รับผิดชอบครบ ${total} ตำบลแล้ว`;
+    const note = document.createElement("p");
+    note.textContent = total === EXPECTED_COURT_TAMBONS ? "ครบ 85 ตำบล" : `ครบ ${total} ตำบล`;
+    dom.unassigned_summary.append(heading, note);
+    return;
+  }
+  heading.textContent = `ตำบลที่ยังไม่มีผู้รับผิดชอบ ${items.length} ตำบล`;
+  const note = document.createElement("p");
+  note.textContent = `มอบหมายแล้ว ${total - items.length}/${total} ตำบล`;
+  const list = document.createElement("div");
+  list.className = "unassigned-area-list";
+  for (const feature of items) {
+    const chip = document.createElement("span");
+    chip.className = "unassigned-area-chip";
+    chip.textContent = `${Core.tambonName(feature)} · อ.${Core.districtName(feature)}`;
+    list.append(chip);
+  }
+  dom.unassigned_summary.append(heading, note, list);
+}
+
 function renderPriceList() {
   const query = Core.sanitizeName(dom.price_search.value).toLocaleLowerCase("th");
-  const items = availableFeatures().filter((feature) => !query || `${Core.tambonName(feature)} ${Core.districtName(feature)}`.toLocaleLowerCase("th").includes(query)).sort((a, b) => `${Core.districtName(a)} ${Core.tambonName(a)}`.localeCompare(`${Core.districtName(b)} ${Core.tambonName(b)}`, "th"));
-  const fragment = document.createDocumentFragment(); let district = "";
+  const items = availableFeatures()
+    .filter((feature) => !query || `${Core.tambonName(feature)} ${Core.districtName(feature)}`.toLocaleLowerCase("th").includes(query))
+    .sort((a, b) => `${Core.districtName(a)} ${Core.tambonName(a)}`.localeCompare(`${Core.districtName(b)} ${Core.tambonName(b)}`, "th"));
+  const fragment = document.createDocumentFragment();
+  let district = "";
   for (const feature of items) {
     if (Core.districtName(feature) !== district) {
-      district = Core.districtName(feature); const heading = document.createElement("p"); heading.className = "price-district-heading"; heading.textContent = `อำเภอ${district}`; fragment.append(heading);
+      district = Core.districtName(feature);
+      const heading = document.createElement("p");
+      heading.className = "price-district-heading";
+      heading.textContent = `อำเภอ${district}`;
+      fragment.append(heading);
     }
-    const row = document.createElement("label"); row.className = "price-option";
-    const info = document.createElement("span"); info.className = "price-name";
-    const name = document.createElement("span"); name.className = "price-tambon"; name.textContent = Core.tambonName(feature);
-    const owner = getStaff(state.assignments[Core.areaId(feature)]); const small = document.createElement("small"); small.textContent = owner ? `ผู้รับผิดชอบ: ${owner.name}` : "ยังไม่มอบหมาย"; info.append(name, small);
-    const input = document.createElement("input"); input.type = "text"; input.inputMode = "decimal"; input.className = "price-input"; input.placeholder = "ยอดบาท"; input.value = featurePrice(feature) === null ? "" : Core.formatAmount(featurePrice(feature), { suffix: false });
-    input.addEventListener("change", () => {
-      if (!setAreaPrice(feature, input.value)) { showToast("กรอกยอดเป็นตัวเลข 0 ขึ้นไป และทศนิยมไม่เกิน 2 ตำแหน่ง"); input.value = featurePrice(feature) === null ? "" : Core.formatAmount(featurePrice(feature), { suffix: false }); }
-      else input.value = featurePrice(feature) === null ? "" : Core.formatAmount(featurePrice(feature), { suffix: false });
+    const row = document.createElement("label");
+    row.className = "price-option";
+    const info = document.createElement("span");
+    info.className = "price-name";
+    const name = document.createElement("span");
+    name.className = "price-tambon";
+    name.textContent = Core.tambonName(feature);
+    const owner = getStaff(state.assignments[Core.areaId(feature)]);
+    const small = document.createElement("small");
+    small.textContent = owner ? `ผู้รับผิดชอบ: ${owner.name}` : "ยังไม่มอบหมาย";
+    info.append(name, small);
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.inputMode = "decimal";
+    input.className = "price-input";
+    input.placeholder = "ยอด";
+    input.dataset.areaId = Core.areaId(feature);
+    input.value = featurePrice(feature) === null ? "" : Core.formatAmount(featurePrice(feature), { suffix: false });
+
+    const commit = ({ notify = false } = {}) => {
+      const previous = featurePrice(feature);
+      if (!setAreaPrice(feature, input.value, { quiet: true })) {
+        input.classList.add("invalid");
+        if (notify) showToast("กรอกยอดเป็นตัวเลข 0 ขึ้นไป และทศนิยมไม่เกิน 2 ตำแหน่ง");
+        input.value = previous === null ? "" : Core.formatAmount(previous, { suffix: false });
+        return false;
+      }
+      input.classList.remove("invalid");
+      const current = featurePrice(feature);
+      input.value = current === null ? "" : Core.formatAmount(current, { suffix: false });
+      persistPriceChange(notify ? `บันทึกยอดตำบล${Core.tambonName(feature)}แล้ว` : "");
+      return true;
+    };
+
+    let timer = null;
+    input.addEventListener("input", () => {
+      clearTimeout(timer);
+      const raw = input.value.trim();
+      if (raw && Core.parseAmount(raw) === null) return;
+      timer = setTimeout(() => commit(), 550);
     });
-    row.append(info, input); fragment.append(row);
+    input.addEventListener("change", () => { clearTimeout(timer); commit({ notify: true }); });
+    input.addEventListener("blur", () => { clearTimeout(timer); commit(); });
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        clearTimeout(timer);
+        commit({ notify: true });
+        input.blur?.();
+      }
+    });
+
+    row.append(info, input);
+    fragment.append(row);
   }
   dom.price_list.replaceChildren(fragment);
-  dom.price_progress.textContent = `${pricedCount()}/${availableFeatures().length} ตำบล`;
+  renderPriceProgress();
+}
+
+function renderPriceProgress() {
+  if (dom.price_progress) dom.price_progress.textContent = `${pricedCount()}/${availableFeatures().length} ตำบล`;
 }
 
 function renderLegend() {
-  if (!state.staff.length) { dom.legend.innerHTML = '<p class="empty-result">ยังไม่มีผู้รับผิดชอบ</p>'; return; }
+  if (!state.staff.length) {
+    dom.legend.innerHTML = '<p class="empty-result">ยังไม่มีผู้รับผิดชอบ</p>';
+    return;
+  }
   const fragment = document.createDocumentFragment();
   for (const person of state.staff) {
-    const areas = assignedAreasFor(person.id); const row = document.createElement("div"); row.className = "legend-item";
-    const dot = document.createElement("span"); dot.className = "legend-dot"; dot.style.background = person.color;
-    const name = document.createElement("strong"); name.textContent = `${person.name}${person.active ? "" : " (ปิดใช้งาน)"}`;
-    const count = document.createElement("span"); count.className = "legend-count"; count.textContent = `${areas.length} ตำบล · ${Core.formatAmount(Core.sumPrices(areas, state.prices))}`;
-    row.append(dot, name, count); fragment.append(row);
+    const areas = assignedAreasFor(person.id);
+    const row = document.createElement("div");
+    row.className = "legend-item";
+    const dot = document.createElement("span");
+    dot.className = "legend-dot";
+    dot.style.background = person.color;
+    const name = document.createElement("strong");
+    name.textContent = `${person.name}${person.active ? "" : " (ปิดใช้งาน)"}`;
+    const count = document.createElement("span");
+    count.className = "legend-count";
+    count.textContent = `${areas.length} ตำบล`;
+    row.append(dot, name, count);
+    fragment.append(row);
   }
   dom.legend.replaceChildren(fragment);
 }
 
 function renderSummary() {
   const total = availableFeatures().length;
-  const totalAmount = Core.sumPrices(availableFeatures(), state.prices);
-  const values = [`${state.staff.length} ผู้รับผิดชอบ`, `มอบหมาย ${assignmentCount()}/${total} ตำบล`, `กำหนดยอด ${pricedCount()}/${total} ตำบล`, `รวม ${Core.formatAmount(totalAmount)}`];
-  dom.assignment_summary.replaceChildren(...values.map((text) => { const item = document.createElement("span"); item.className = "summary-pill"; item.textContent = text; return item; }));
-  dom.updated_at.textContent = state.updatedAt ? `ปรับปรุง: ${new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(state.updatedAt))}` : "ยังไม่มีการบันทึก";
+  const assigned = assignmentCount();
+  const values = [
+    `${state.staff.length} ผู้รับผิดชอบ`,
+    `มอบหมาย ${assigned}/${total} ตำบล`,
+    `ยังไม่มอบหมาย ${total - assigned} ตำบล`,
+    `กำหนดยอด ${pricedCount()}/${total} ตำบล`,
+  ];
+  dom.assignment_summary.replaceChildren(...values.map((text) => {
+    const item = document.createElement("span");
+    item.className = "summary-pill";
+    item.textContent = text;
+    return item;
+  }));
+  dom.updated_at.textContent = state.updatedAt
+    ? `ปรับปรุง: ${new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(state.updatedAt))}`
+    : "ยังไม่มีการบันทึก";
 }
 
 function renderValidation() {
@@ -704,7 +839,7 @@ function renderValidation() {
 
 function workloadFor(person) {
   const areas = assignedAreasFor(person.id);
-  return { person, areas, districts: [...new Set(areas.map(Core.districtName))].sort((a, b) => a.localeCompare(b, "th")), totalAmount: Core.sumPrices(areas, state.prices) };
+  return { person, areas, districts: [...new Set(areas.map(Core.districtName))].sort((a, b) => a.localeCompare(b, "th")) };
 }
 
 function renderReportStaffSelect() {
@@ -716,13 +851,27 @@ function renderReportStaffSelect() {
 
 function renderReportSummary() {
   const fragment = document.createDocumentFragment();
-  const unassigned = document.createElement("div"); unassigned.className = "report-item report-unassigned"; unassigned.innerHTML = `<strong>พื้นที่ยังไม่มอบหมาย</strong><span>${unassignedAreas().length} ตำบล</span>`; fragment.append(unassigned);
+  const unassigned = document.createElement("div");
+  unassigned.className = "report-item report-unassigned";
+  const unassignedName = document.createElement("strong");
+  unassignedName.textContent = "พื้นที่ยังไม่มอบหมาย";
+  const unassignedCount = document.createElement("span");
+  unassignedCount.textContent = `${unassignedAreas().length} ตำบล`;
+  unassigned.append(unassignedName, unassignedCount);
+  fragment.append(unassigned);
   for (const person of state.staff) {
-    const workload = workloadFor(person); const row = document.createElement("div"); row.className = "report-item";
-    const dot = document.createElement("span"); dot.className = "legend-dot"; dot.style.background = person.color;
-    const name = document.createElement("strong"); name.textContent = person.name;
-    const count = document.createElement("span"); count.textContent = `${workload.areas.length} ตำบล · ${Core.formatAmount(workload.totalAmount)}`;
-    row.append(dot, name, count); fragment.append(row);
+    const workload = workloadFor(person);
+    const row = document.createElement("div");
+    row.className = "report-item";
+    const dot = document.createElement("span");
+    dot.className = "legend-dot";
+    dot.style.background = person.color;
+    const name = document.createElement("strong");
+    name.textContent = person.name;
+    const count = document.createElement("span");
+    count.textContent = `${workload.areas.length} ตำบล · ${workload.districts.length} อำเภอ`;
+    row.append(dot, name, count);
+    fragment.append(row);
   }
   dom.report_summary.replaceChildren(fragment);
 }
@@ -771,23 +920,41 @@ function createResetControl(onReset) {
 }
 
 function createTrueNorthControl() {
-  let mapInstance = null; let needle = null; let updateNeedle = null;
+  let mapInstance = null;
+  let needle = null;
+  let updateNeedle = null;
   return {
     onAdd(instance) {
       mapInstance = instance;
-      const control = document.createElement("div"); control.className = "maplibregl-ctrl true-north-control";
-      const controlButton = document.createElement("button"); controlButton.type = "button"; controlButton.className = "true-north-button";
-      controlButton.title = "หันแผนที่สู่ทิศเหนือจริง"; controlButton.setAttribute("aria-label", "หันแผนที่สู่ทิศเหนือจริง");
-      const rose = document.createElement("span"); rose.className = "true-north-rose";
-      needle = document.createElement("span"); needle.className = "true-north-needle";
-      const letter = document.createElement("span"); letter.className = "true-north-letter"; letter.textContent = "N";
-      rose.append(needle, letter); controlButton.append(rose); control.append(controlButton);
+      const control = document.createElement("div");
+      control.className = "maplibregl-ctrl true-north-control";
+      const controlButton = document.createElement("button");
+      controlButton.type = "button";
+      controlButton.className = "true-north-button";
+      controlButton.title = "หันแผนที่สู่ทิศเหนือจริง";
+      controlButton.setAttribute("aria-label", "หันแผนที่สู่ทิศเหนือจริง");
+      const rose = document.createElement("span");
+      rose.className = "true-north-rose";
+      needle = document.createElement("span");
+      needle.className = "true-north-needle";
+      const letter = document.createElement("span");
+      letter.className = "true-north-letter";
+      letter.textContent = "N";
+      rose.append(needle, letter);
+      controlButton.append(rose);
+      control.append(controlButton);
       updateNeedle = () => { if (needle && mapInstance) needle.style.transform = `rotate(${-mapInstance.getBearing()}deg)`; };
       controlButton.addEventListener("click", () => mapInstance?.easeTo({ bearing: 0, duration: 350 }));
-      mapInstance.on("rotate", updateNeedle); updateNeedle();
+      mapInstance.on("rotate", updateNeedle);
+      updateNeedle();
       return control;
     },
-    onRemove() { if (mapInstance && updateNeedle) mapInstance.off("rotate", updateNeedle); mapInstance = null; needle = null; updateNeedle = null; },
+    onRemove() {
+      if (mapInstance && updateNeedle) mapInstance.off("rotate", updateNeedle);
+      mapInstance = null;
+      needle = null;
+      updateNeedle = null;
+    },
   };
 }
 
@@ -835,28 +1002,68 @@ function clearMarkers(type) { for (const marker of labelMarkers[type]) marker.re
 function overlap(a, b) { return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top; }
 
 function renderMapLabels() {
-  clearMarkers("tambon"); clearMarkers("district"); clearMarkers("price");
+  clearMarkers("area");
+  clearMarkers("district");
   if (!map?.isStyleLoaded()) return;
-  const bounds = map.getBounds(); const visible = availableFeatures().filter((feature) => bounds.contains(featureCenter(feature)));
+  const bounds = map.getBounds();
+  const visible = availableFeatures().filter((feature) => bounds.contains(featureCenter(feature)));
   const occupied = [];
-  if (state.showLabels && map.getZoom() >= 8.1) {
-    for (const feature of visible) {
-      const center = featureCenter(feature); const point = map.project(center); const text = Core.tambonName(feature); const width = Math.max(34, text.length * 7.8); const box = { left: point.x - width / 2, right: point.x + width / 2, top: point.y - 11, bottom: point.y + 11 };
-      if (occupied.some((item) => overlap(box, item))) continue; occupied.push(box);
-      const el = document.createElement("span"); el.className = "map-tambon-label"; el.textContent = text; labelMarkers.tambon.push(new maplibregl.Marker({ element: el }).setLngLat(center).addTo(map));
+  const showNames = state.showLabels && map.getZoom() >= 8.1;
+  const showPrices = state.showPriceLabels;
+
+  if (showNames || showPrices) {
+    const ordered = visible.slice().sort((a, b) => {
+      const aScore = (featurePrice(a) !== null ? 2 : 0) + (state.assignments[Core.areaId(a)] ? 1 : 0);
+      const bScore = (featurePrice(b) !== null ? 2 : 0) + (state.assignments[Core.areaId(b)] ? 1 : 0);
+      return bScore - aScore;
+    });
+    for (const feature of ordered) {
+      const price = featurePrice(feature);
+      const nameText = showNames ? Core.tambonName(feature) : "";
+      const priceText = showPrices && price !== null ? Core.formatAmount(price, { suffix: false }) : "";
+      if (!nameText && !priceText) continue;
+      const center = featureCenter(feature);
+      const point = map.project(center);
+      const width = Math.max(46, nameText.length * 7.8 + 16, priceText.length * 7.2 + 16);
+      const height = nameText && priceText ? 37 : 23;
+      const box = { left: point.x - width / 2, right: point.x + width / 2, top: point.y - height / 2, bottom: point.y + height / 2 };
+      if (occupied.some((item) => overlap(box, item))) continue;
+      occupied.push(box);
+
+      const element = document.createElement("span");
+      element.className = `map-area-label${nameText && priceText ? " with-price" : ""}`;
+      if (nameText) {
+        const name = document.createElement("span");
+        name.className = "map-area-name";
+        name.textContent = nameText;
+        element.append(name);
+      }
+      if (priceText) {
+        const amount = document.createElement("span");
+        amount.className = "map-area-price";
+        amount.textContent = priceText;
+        element.append(amount);
+      }
+      labelMarkers.area.push(new maplibregl.Marker({ element, anchor: "center" }).setLngLat(center).addTo(map));
     }
   }
-  if (state.showPriceLabels) {
-    for (const feature of visible) {
-      const price = featurePrice(feature); if (price === null) continue;
-      const center = featureCenter(feature); const el = document.createElement("span"); el.className = "map-price-label"; el.textContent = Core.formatAmount(price); labelMarkers.price.push(new maplibregl.Marker({ element: el, anchor: "top", offset: [0, 10] }).setLngLat(center).addTo(map));
-    }
-  }
+
   if (state.showDistrictLabels) {
-    const groups = new Map(); for (const feature of availableFeatures()) { const district = Core.districtName(feature); if (!groups.has(district)) groups.set(district, []); groups.get(district).push(feature); }
+    const groups = new Map();
+    for (const feature of availableFeatures()) {
+      const district = Core.districtName(feature);
+      if (!groups.has(district)) groups.set(district, []);
+      groups.get(district).push(feature);
+    }
     for (const [district, items] of groups) {
-      const districtBounds = new maplibregl.LngLatBounds(); for (const feature of items) extendBounds(districtBounds, feature.geometry.coordinates); const center = districtBounds.getCenter(); if (!bounds.contains(center)) continue;
-      const el = document.createElement("span"); el.className = "map-district-label"; el.textContent = `อำเภอ${district}`; labelMarkers.district.push(new maplibregl.Marker({ element: el, anchor: "bottom", offset: [0, -8] }).setLngLat(center).addTo(map));
+      const districtBounds = new maplibregl.LngLatBounds();
+      for (const feature of items) extendBounds(districtBounds, feature.geometry.coordinates);
+      const center = districtBounds.getCenter();
+      if (!bounds.contains(center)) continue;
+      const element = document.createElement("span");
+      element.className = "map-district-label";
+      element.textContent = `อำเภอ${district}`;
+      labelMarkers.district.push(new maplibregl.Marker({ element, anchor: "bottom", offset: [0, -20] }).setLngLat(center).addTo(map));
     }
   }
 }
@@ -873,12 +1080,33 @@ function renderMapControls() {
   dom.publish_prices.checked = state.publishPrices;
 }
 
-function renderLightweight() { renderSharedStatus(); renderPriceList(); renderSummary(); renderValidation(); renderReportSummary(); renderLegend(); updateMap(); }
+function renderLightweight() {
+  renderSharedStatus();
+  renderPriceProgress();
+  renderSummary();
+  renderValidation();
+  renderReportSummary();
+  renderLegend();
+  renderUnassignedSummary();
+  updateMap();
+}
 
 function renderAll() {
   renderSharedStatus();
   if (!features.length) return;
-  renderStaffSelect(); renderStaffManagement(); renderDistrictList(); renderTambonList(); renderPriceList(); renderLegend(); renderSummary(); renderValidation(); renderReportStaffSelect(); renderReportSummary(); renderMapControls(); updateMap();
+  renderStaffSelect();
+  renderStaffManagement();
+  renderDistrictList();
+  renderTambonList();
+  renderUnassignedSummary();
+  renderPriceList();
+  renderLegend();
+  renderSummary();
+  renderValidation();
+  renderReportStaffSelect();
+  renderReportSummary();
+  renderMapControls();
+  updateMap();
 }
 
 function reportRows(person) {
@@ -895,62 +1123,78 @@ function workbookSheet(workbook, name, rows, usedNames) {
 
 function exportExcel() {
   if (!window.XLSX) return showToast("โหลดเครื่องมือ Excel ไม่สำเร็จ");
-  const selected = getStaff(dom.report_staff_select.value); const people = selected ? [selected] : state.staff; const workbook = XLSX.utils.book_new(); const used = new Set();
-  workbookSheet(workbook, "สรุปภาระงาน", people.map((person, index) => { const item = workloadFor(person); return { "ลำดับ": index + 1, "ผู้รับผิดชอบ": person.name, "สถานะ": person.active ? "ปฏิบัติงาน" : "ปิดใช้งาน", "จำนวนตำบล": item.areas.length, "จำนวนอำเภอ": item.districts.length, "ยอดรวม (บาท)": item.totalAmount, "อำเภอ": item.districts.join(", ") }; }), used);
+  const selected = getStaff(dom.report_staff_select.value);
+  const people = selected ? [selected] : state.staff;
+  const workbook = XLSX.utils.book_new();
+  const used = new Set();
+  workbookSheet(workbook, "สรุปภาระงาน", people.map((person, index) => {
+    const item = workloadFor(person);
+    return {
+      "ลำดับ": index + 1,
+      "ผู้รับผิดชอบ": person.name,
+      "สถานะ": person.active ? "ปฏิบัติงาน" : "ปิดใช้งาน",
+      "จำนวนตำบล": item.areas.length,
+      "จำนวนอำเภอ": item.districts.length,
+      "อำเภอ": item.districts.join(", "),
+    };
+  }), used);
   if (selected) workbookSheet(workbook, `พื้นที่ ${selected.name}`, reportRows(selected), used);
-  else { workbookSheet(workbook, "รายการพื้นที่ทั้งหมด", state.staff.flatMap(reportRows), used); for (const person of state.staff) workbookSheet(workbook, person.name, reportRows(person), used); }
-  workbookSheet(workbook, "ยังไม่มอบหมาย", unassignedAreas().map((feature, index) => ({ "ลำดับ": index + 1, "อำเภอ": Core.districtName(feature), "ตำบล": Core.tambonName(feature), "ยอด (บาท)": featurePrice(feature) ?? "", "สถานะ": "ยังไม่มอบหมาย" })), used);
-  XLSX.writeFile(workbook, `${selected ? `รายงานเขต-${selected.name}` : "รายงานเขตงานส่งหมาย"}-${new Date().toISOString().slice(0, 10)}.xlsx`); showToast("ดาวน์โหลดรายงาน Excel แล้ว");
+  else {
+    workbookSheet(workbook, "รายการพื้นที่ทั้งหมด", state.staff.flatMap(reportRows), used);
+    for (const person of state.staff) workbookSheet(workbook, person.name, reportRows(person), used);
+  }
+  workbookSheet(workbook, "ยังไม่มอบหมาย", unassignedAreas().map((feature, index) => ({
+    "ลำดับ": index + 1,
+    "อำเภอ": Core.districtName(feature),
+    "ตำบล": Core.tambonName(feature),
+    "ยอด (บาท)": featurePrice(feature) ?? "",
+    "สถานะ": "ยังไม่มอบหมาย",
+  })), used);
+  XLSX.writeFile(workbook, `${selected ? `รายงานเขต-${selected.name}` : "รายงานเขตงานส่งหมาย"}-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  showToast("ดาวน์โหลดรายงาน Excel แล้ว");
 }
 
 function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character])); }
 
 function printPersonReport() {
-  const person = getStaff(dom.report_staff_select.value); if (!person) return showToast("เลือกเจ้าหน้าที่ก่อนพิมพ์ PDF รายคน");
-  const workload = workloadFor(person); const byDistrict = new Map(); for (const feature of workload.areas) { const district = Core.districtName(feature); if (!byDistrict.has(district)) byDistrict.set(district, []); byDistrict.get(district).push(feature); }
-  const groups = [...byDistrict.entries()].map(([district, items]) => `<section><h3>อำเภอ${escapeHtml(district)} (${items.length} ตำบล)</h3><table><thead><tr><th>ตำบล</th><th>ยอด</th></tr></thead><tbody>${items.sort((a,b)=>Core.tambonName(a).localeCompare(Core.tambonName(b),"th")).map((feature)=>`<tr><td>${escapeHtml(Core.tambonName(feature))}</td><td>${escapeHtml(Core.formatAmount(featurePrice(feature)))}</td></tr>`).join("")}</tbody></table></section>`).join("") || "<p>ยังไม่มีพื้นที่รับผิดชอบ</p>";
-  const reportWindow = open("", "_blank"); if (!reportWindow) return showToast("กรุณาอนุญาตป๊อปอัป"); reportWindow.opener = null;
-  reportWindow.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงาน ${escapeHtml(person.name)}</title><style>@page{size:A4;margin:16mm}body{font-family:"Noto Sans Thai",Tahoma,sans-serif;color:#172b3a}h1{font-size:22px;margin:0}h2{font-size:16px;color:#315269}h3{font-size:14px;margin-top:18px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #dbe5ea;padding:6px;text-align:left}th:last-child,td:last-child{text-align:right}.summary{display:flex;gap:8px;margin:12px 0}.tag{background:#edf4f7;padding:5px 9px;border-radius:999px}</style></head><body><h1>รายงานเขตรับผิดชอบงานส่งหมาย</h1><h2>ศาลจังหวัดลพบุรี</h2><p><strong>ผู้รับผิดชอบ:</strong> ${escapeHtml(person.name)}</p><div class="summary"><span class="tag">${workload.areas.length} ตำบล</span><span class="tag">${workload.districts.length} อำเภอ</span><span class="tag">${escapeHtml(Core.formatAmount(workload.totalAmount))}</span></div>${groups}</body></html>`); reportWindow.document.close(); reportWindow.onload = () => reportWindow.print();
+  const person = getStaff(dom.report_staff_select.value);
+  if (!person) return showToast("เลือกเจ้าหน้าที่ก่อนพิมพ์ PDF รายคน");
+  const workload = workloadFor(person);
+  const byDistrict = new Map();
+  for (const feature of workload.areas) {
+    const district = Core.districtName(feature);
+    if (!byDistrict.has(district)) byDistrict.set(district, []);
+    byDistrict.get(district).push(feature);
+  }
+  const groups = [...byDistrict.entries()].map(([district, items]) => `<section><h3>อำเภอ${escapeHtml(district)} (${items.length} ตำบล)</h3><table><thead><tr><th>ตำบล</th><th>ยอดรายตำบล</th></tr></thead><tbody>${items.sort((a,b)=>Core.tambonName(a).localeCompare(Core.tambonName(b),"th")).map((feature)=>`<tr><td>${escapeHtml(Core.tambonName(feature))}</td><td>${escapeHtml(Core.formatAmount(featurePrice(feature)))}</td></tr>`).join("")}</tbody></table></section>`).join("") || "<p>ยังไม่มีพื้นที่รับผิดชอบ</p>";
+  const reportWindow = open("", "_blank");
+  if (!reportWindow) return showToast("กรุณาอนุญาตป๊อปอัป");
+  reportWindow.opener = null;
+  reportWindow.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงาน ${escapeHtml(person.name)}</title><style>@page{size:A4;margin:16mm}body{font-family:"Noto Sans Thai",Tahoma,sans-serif;color:#172b3a}h1{font-size:22px;margin:0}h2{font-size:16px;color:#315269}h3{font-size:14px;margin-top:18px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #dbe5ea;padding:6px;text-align:left}th:last-child,td:last-child{text-align:right}.summary{display:flex;gap:8px;margin:12px 0}.tag{background:#edf4f7;padding:5px 9px;border-radius:999px}</style></head><body><h1>รายงานเขตรับผิดชอบงานส่งหมาย</h1><h2>ศาลจังหวัดลพบุรี</h2><p><strong>ผู้รับผิดชอบ:</strong> ${escapeHtml(person.name)}</p><div class="summary"><span class="tag">${workload.areas.length} ตำบล</span><span class="tag">${workload.districts.length} อำเภอ</span></div>${groups}</body></html>`);
+  reportWindow.document.close();
+  reportWindow.onload = () => reportWindow.print();
 }
 
 function downloadBlob(blob, filename) { const anchor = document.createElement("a"); anchor.href = URL.createObjectURL(blob); anchor.download = filename; document.body.append(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(anchor.href), 1000); }
 
-async function exportPng() {
-  if (!window.html2canvas) return showToast("โหลดเครื่องมือ PNG ไม่สำเร็จ");
-  const original = dom.export_button.textContent; dom.export_button.disabled = true; dom.export_button.textContent = "กำลังสร้าง PNG…";
-  try { map.resize(); await new Promise((resolve) => setTimeout(resolve, 250)); const canvas = await html2canvas(dom.printable, { backgroundColor: "#fff", scale: 2, useCORS: true, logging: false }); const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png")); if (!blob) throw new Error(); downloadBlob(blob, `lopburi-notice-areas-${new Date().toISOString().slice(0, 10)}.png`); showToast("ดาวน์โหลด PNG แล้ว"); }
-  catch (error) { console.error(error); showToast("ส่งออก PNG ไม่สำเร็จ"); }
-  finally { dom.export_button.disabled = false; dom.export_button.textContent = original; }
-}
-
-function printLegendMarkup() { return state.staff.map((person) => { const areas = assignedAreasFor(person.id); return `<span class="legend-entry"><i style="background:${escapeHtml(person.color)}"></i>${escapeHtml(person.name)} (${areas.length} ตำบล · ${escapeHtml(Core.formatAmount(Core.sumPrices(areas, state.prices)))})</span>`; }).join(""); }
-
-async function printMapA4() {
-  if (!window.html2canvas || !map) return showToast("โหลดเครื่องมือพิมพ์ไม่สำเร็จ");
-  const printWindow = open("", "_blank"); if (!printWindow) return showToast("กรุณาอนุญาตป๊อปอัป");
-  const original = { showLabels: state.showLabels, showDistrictLabels: state.showDistrictLabels, showPriceLabels: state.showPriceLabels };
-  try {
-    state.showLabels = dom.print_tambon_labels.checked; state.showDistrictLabels = dom.print_district_labels.checked; state.showPriceLabels = dom.print_price_labels.checked; renderMapControls(); renderMapLabels(); map.resize(); await new Promise((resolve) => setTimeout(resolve, 450));
-    const canvas = await html2canvas(document.getElementById("main-map"), { backgroundColor: "#edf4f5", scale: 2, useCORS: true, logging: false }); const image = canvas.toDataURL("image/png");
-    const legend = dom.print_legend.checked ? `<div class="legend">${printLegendMarkup()}</div>` : "";
-    const summary = dom.print_area_summary.checked ? `<div class="summary">${state.staff.map((person) => { const item = workloadFor(person); return `<div><strong>${escapeHtml(person.name)}</strong><span>${item.areas.length} ตำบล · ${escapeHtml(Core.formatAmount(item.totalAmount))}</span></div>`; }).join("")}</div>` : "";
-    printWindow.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>แผนที่เขตพื้นที่ส่งหมาย</title><style>@page{size:A4 landscape;margin:9mm}body{font-family:"Noto Sans Thai",Tahoma,sans-serif;color:#172b3a}h1{font-size:18px;margin:0}.map{width:100%;height:98mm;object-fit:contain;border:1px solid #d8e3e9}.legend{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:8px;margin-top:5px}.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px}.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:4px 8px;margin-top:6px;font-size:8px}.summary div{display:flex;justify-content:space-between;border:1px solid #dce6eb;padding:4px}</style></head><body><h1>แผนที่เขตพื้นที่ส่งหมาย — ศาลจังหวัดลพบุรี</h1><img class="map" src="${image}">${legend}${summary}</body></html>`); printWindow.document.close(); printWindow.onload = () => printWindow.print();
-  } catch (error) { console.error(error); printWindow.close(); showToast("สร้างแผนพิมพ์ไม่สำเร็จ"); }
-  finally { Object.assign(state, original); renderMapControls(); renderMapLabels(); }
-}
-
 async function captureCurrentMapImage() {
-  if (!map) throw new Error("ยังไม่พร้อมสร้างภาพแผนที่");
+  if (!window.html2canvas || !map) throw new Error("แผนที่ยังไม่พร้อมสร้างภาพ");
   map.resize();
   renderMapLabels();
   await new Promise((resolve) => {
     let completed = false;
     const finish = () => { if (!completed) { completed = true; resolve(); } };
     if (map.isStyleLoaded()) map.once("idle", finish);
-    setTimeout(finish, 500);
+    setTimeout(finish, 520);
   });
-  const image = map.getCanvas().toDataURL("image/png");
-  if (!image.startsWith("data:image/png")) throw new Error("ไม่สามารถอ่านภาพแผนที่ได้");
+  const canvas = await window.html2canvas(document.getElementById("main-map"), {
+    backgroundColor: "#edf4f5",
+    scale: 2,
+    useCORS: true,
+    logging: false,
+  });
+  const image = canvas.toDataURL("image/png");
+  if (!image.startsWith("data:image")) throw new Error("ไม่สามารถสร้างภาพแผนที่ได้");
   return image;
 }
 
@@ -971,10 +1215,17 @@ async function createPrintableMapCopy(image) {
     imageElement.alt = "แผนที่เขตพื้นที่ส่งหมาย";
     imageElement.src = image;
     mapCopy.replaceChildren(imageElement);
-    await imageElement.decode();
+    if (typeof imageElement.decode === "function") await imageElement.decode().catch(() => {});
   }
   document.body.append(copy);
   return copy;
+}
+
+function printLegendMarkup() {
+  return state.staff.map((person) => {
+    const areas = assignedAreasFor(person.id);
+    return `<span class="legend-entry"><i style="background:${escapeHtml(person.color)}"></i>${escapeHtml(person.name)} (${areas.length} ตำบล)</span>`;
+  }).join("");
 }
 
 function groupedAreaMarkup(person) {
@@ -993,7 +1244,7 @@ function groupedAreaMarkup(person) {
 function professionalStaffCardsMarkup() {
   return state.staff.map((person) => {
     const workload = workloadFor(person);
-    return `<article class="print-staff-card" style="--staff-color:${escapeHtml(person.color)}"><header><i></i><div><h3>${escapeHtml(person.name)}</h3><p>${person.active ? "ปฏิบัติงาน" : "ปิดใช้งาน"} · ${workload.areas.length} ตำบล · ${workload.districts.length} อำเภอ · ${escapeHtml(Core.formatAmount(workload.totalAmount))}</p></div></header>${groupedAreaMarkup(person)}</article>`;
+    return `<article class="print-staff-card" style="--staff-color:${escapeHtml(person.color)}"><header><i></i><div><h3>${escapeHtml(person.name)}</h3><p>${person.active ? "ปฏิบัติงาน" : "ปิดใช้งาน"} · ${workload.areas.length} ตำบล · ${workload.districts.length} อำเภอ</p></div></header>${groupedAreaMarkup(person)}</article>`;
   }).join("");
 }
 
@@ -1002,14 +1253,14 @@ async function exportProfessionalPng() {
   const original = dom.export_button.textContent;
   dom.export_button.disabled = true;
   dom.export_button.textContent = "กำลังสร้าง PNG…";
-  let copy;
+  let copy = null;
   try {
     copy = await createPrintableMapCopy(await captureCurrentMapImage());
-    const canvas = await html2canvas(copy, { backgroundColor: "#fff", scale: 2, useCORS: true, logging: false });
+    const canvas = await window.html2canvas(copy, { backgroundColor: "#fff", scale: 2, useCORS: true, logging: false });
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
     if (!blob) throw new Error("ไม่สามารถสร้างไฟล์ PNG ได้");
     downloadBlob(blob, `lopburi-notice-areas-${new Date().toISOString().slice(0, 10)}.png`);
-    showToast("ดาวน์โหลด PNG แผนที่สีจริงแล้ว");
+    showToast("ดาวน์โหลด PNG แผนที่แล้ว");
   } catch (error) {
     console.error(error);
     showToast("ส่งออก PNG ไม่สำเร็จ");
@@ -1021,9 +1272,10 @@ async function exportProfessionalPng() {
 }
 
 async function printProfessionalMapA4() {
-  if (!map) return showToast("แผนที่ยังโหลดไม่เสร็จ");
+  if (!window.html2canvas || !map) return showToast("แผนที่ยังโหลดไม่เสร็จ");
   const printWindow = open("", "_blank");
   if (!printWindow) return showToast("กรุณาอนุญาตป๊อปอัป");
+  printWindow.opener = null;
   const original = { showLabels: state.showLabels, showDistrictLabels: state.showDistrictLabels, showPriceLabels: state.showPriceLabels };
   try {
     state.showLabels = dom.print_tambon_labels.checked;
@@ -1033,7 +1285,14 @@ async function printProfessionalMapA4() {
     const image = await captureCurrentMapImage();
     const legend = dom.print_legend.checked ? `<div class="print-legend">${printLegendMarkup()}</div>` : "";
     const staffCards = dom.print_area_summary.checked ? `<section class="print-staff-section"><h2>สรุปเขตรับผิดชอบรายบุคคล</h2><div class="print-staff-grid">${professionalStaffCardsMarkup()}</div></section>` : "";
-    printWindow.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>แผนที่เขตพื้นที่ส่งหมาย</title><style>@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}body{margin:0;color:#142638;font-family:"Noto Sans Thai","Leelawadee UI",Tahoma,sans-serif}.print-header{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:6px}.print-header h1{margin:0;font-size:18px;color:#123d5a}.print-header p{margin:3px 0 0;font-size:9px;color:#607482}.print-map{display:block;width:100%;height:103mm;object-fit:contain;background:#edf4f5;border:1px solid #d8e3e9}.print-legend{display:flex;flex-wrap:wrap;gap:4px 10px;margin:5px 0 0;font-size:8px}.legend-entry{white-space:nowrap}.legend-entry i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px}.print-staff-section{margin-top:8px;break-before:page}.print-staff-section h2{margin:0 0 6px;font-size:16px;color:#123d5a}.print-staff-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.print-staff-card{break-inside:avoid;border:1px solid #d7e2e8;border-left:5px solid var(--staff-color);border-radius:6px;padding:7px 8px;background:#fff}.print-staff-card header{display:flex;gap:7px;align-items:center}.print-staff-card header i{width:10px;height:10px;border-radius:50%;background:var(--staff-color);flex:0 0 10px}.print-staff-card h3{margin:0;font-size:12px;color:#173f59}.print-staff-card header p{margin:1px 0 0;font-size:8px;color:#5f7280}.print-district{margin-top:7px}.print-district h4{margin:0 0 3px;font-size:9px;color:#2b5874}.print-district h4 span{margin-left:4px;color:#6a7c87;font-weight:400}.print-district ul{margin:0;padding:0;list-style:none;columns:2;column-gap:13px}.print-district li{display:flex;justify-content:space-between;gap:7px;padding:2px 0;border-bottom:1px dotted #dce6eb;font-size:8px;break-inside:avoid}.print-district li b{white-space:nowrap;color:#315a70}.print-empty{margin:6px 0 0;font-size:8px;color:#6b7d88}</style></head><body><header class="print-header"><div><h1>แผนที่เขตพื้นที่ส่งหมาย</h1><p>ศาลจังหวัดลพบุรี · ภาพแผนที่ตามการแสดงผลปัจจุบัน</p></div><p>${escapeHtml(new Date().toLocaleDateString("th-TH", { dateStyle: "medium" }))}</p></header><img class="print-map" src="${image}" alt="แผนที่เขตพื้นที่ส่งหมาย">${legend}${staffCards}</body></html>`);
+    const printedAt = escapeHtml(new Date().toLocaleDateString("th-TH", { dateStyle: "medium" }));
+    printWindow.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>แผนที่เขตพื้นที่ส่งหมาย</title><style>
+      @page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}body{margin:0;color:#142638;font-family:"Noto Sans Thai","Leelawadee UI",Tahoma,sans-serif}
+      .print-header{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:6px}.print-header h1{margin:0;font-size:18px;color:#123d5a}.print-header p{margin:3px 0 0;font-size:9px;color:#607482}
+      .print-map{display:block;width:100%;height:103mm;object-fit:contain;background:#edf4f5;border:1px solid #d8e3e9}.print-legend{display:flex;flex-wrap:wrap;gap:4px 10px;margin:5px 0 0;font-size:8px}.legend-entry{white-space:nowrap}.legend-entry i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px}
+      .print-staff-section{margin-top:8px;break-before:page}.print-staff-section h2{margin:0 0 6px;font-size:16px;color:#123d5a}.print-staff-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.print-staff-card{break-inside:avoid;border:1px solid #d7e2e8;border-left:5px solid var(--staff-color);border-radius:6px;padding:7px 8px;background:#fff}.print-staff-card header{display:flex;gap:7px;align-items:center}.print-staff-card header i{width:10px;height:10px;border-radius:50%;background:var(--staff-color);flex:0 0 10px}.print-staff-card h3{margin:0;font-size:12px;color:#173f59}.print-staff-card header p{margin:1px 0 0;font-size:8px;color:#5f7280}
+      .print-district{margin-top:7px}.print-district h4{margin:0 0 3px;font-size:9px;color:#2b5874}.print-district h4 span{margin-left:4px;color:#6a7c87;font-weight:400}.print-district ul{margin:0;padding:0;list-style:none;columns:2;column-gap:13px}.print-district li{display:flex;justify-content:space-between;gap:7px;padding:2px 0;border-bottom:1px dotted #dce6eb;font-size:8px;break-inside:avoid}.print-district li b{white-space:nowrap;color:#315a70}.print-empty{margin:6px 0 0;font-size:8px;color:#6b7d88}
+    </style></head><body><header class="print-header"><div><h1>แผนที่เขตพื้นที่ส่งหมาย</h1><p>ศาลจังหวัดลพบุรี · ยอดแสดงแยกรายตำบล ไม่มีการรวมยอด</p></div><p>${printedAt}</p></header><img class="print-map" src="${image}" alt="แผนที่เขตพื้นที่ส่งหมาย">${legend}${staffCards}</body></html>`);
     printWindow.document.close();
     printWindow.onload = () => printWindow.print();
   } catch (error) {

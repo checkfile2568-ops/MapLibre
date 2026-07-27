@@ -8,7 +8,7 @@
   <title>ระบบบริหารเขตงานส่งหมาย | ศาลจังหวัดลพบุรี</title>
   <link rel="preconnect" href="https://unpkg.com">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.20.0/dist/maplibre-gl.css">
-  <link rel="stylesheet" href="styles.css?v=4.1.1">
+  <link rel="stylesheet" href="styles.css?v=4.2.0">
 </head>
 <body>
   <header class="app-header">
@@ -30,7 +30,7 @@
 
       <section class="panel-section">
         <div class="section-heading"><div><p class="eyebrow">จัดการรายชื่อ</p><h2>เจ้าหน้าที่</h2></div><button id="toggle-staff-management" class="text-button" type="button" aria-expanded="false">แสดงข้อมูล</button></div>
-        <div id="staff-management-content" hidden><p class="helper-text">แก้ชื่อ ปิดใช้งาน โอนพื้นที่รายตำบล หรือโอนทั้งหมดก่อนลบ</p><div id="staff-management-list" class="staff-management-list"></div></div>
+        <div id="staff-management-content" hidden><p class="helper-text">แก้ชื่อ ปิดใช้งาน หรือลบรายชื่อได้ หากต้องการลบต้องยกเลิกพื้นที่ทั้งหมดก่อน</p><div id="staff-management-list" class="staff-management-list"></div></div>
       </section>
 
       <section class="panel-section sharing-section">
@@ -48,12 +48,13 @@
       </section>
 
       <section class="panel-section">
-        <div class="section-heading"><div><p class="eyebrow">ขั้นที่ 2</p><h2>เลือกพื้นที่</h2></div></div>
-        <p class="helper-text">เลือกทั้งอำเภอ หรือค้นหาและเลือกเป็นรายตำบล</p>
+        <div class="section-heading"><div><p class="eyebrow">ขั้นที่ 2</p><h2>เลือกพื้นที่</h2></div><span id="area-selection-count" class="count-tag">พื้นที่ทั้งหมด 85 ตำบล</span></div>
+        <p class="helper-text">เลือกชื่อผู้รับผิดชอบก่อน ระบบจะแสดงพื้นที่ทั้งหมด 85 ตำบล และสามารถพิมพ์ค้นหาเพื่อเปลี่ยนพื้นที่ได้</p>
         <div id="district-list" class="district-list"></div>
         <label for="tambon-search">ค้นหาตำบล</label>
         <input id="tambon-search" type="search" autocomplete="off" placeholder="พิมพ์ชื่อตำบลหรืออำเภอ">
         <div id="tambon-list" class="tambon-list"></div>
+        <div id="unassigned-summary" class="unassigned-summary pending" aria-live="polite"></div>
       </section>
 
       <section class="panel-section price-section">
@@ -79,7 +80,7 @@
       </section>
 
       <section class="panel-section report-section">
-        <div class="section-heading"><div><p class="eyebrow">รายงาน</p><h2>ภาระงานและยอด</h2></div></div>
+        <div class="section-heading"><div><p class="eyebrow">รายงาน</p><h2>ภาระงานและพื้นที่</h2></div></div>
         <label for="report-staff-select">เลือกรายบุคคล</label><select id="report-staff-select"><option value="">— รายงานทั้งหมด —</option></select>
         <div class="report-actions"><button id="excel-report-button" class="button button-muted" type="button">ดาวน์โหลด Excel</button><button id="pdf-report-button" class="button button-primary" type="button">พิมพ์ / PDF</button></div>
         <div id="report-summary" class="report-summary"></div>
@@ -98,7 +99,7 @@
           <div class="map-card-heading"><div><h3>แผนที่เขตหลัก</h3><p>สีแทนผู้รับผิดชอบ และป้ายยอดแยกรายตำบล</p></div><div class="map-card-options"><button id="labels-button" class="map-option" type="button">ซ่อนชื่อตำบล</button><button id="district-labels-button" class="map-option" type="button">ซ่อนชื่ออำเภอ</button><button id="price-labels-button" class="map-option" type="button">ซ่อนยอด</button><button id="toggle-legend-button" class="map-option" type="button">ซ่อนคำอธิบายสี</button></div></div>
           <div id="main-map" class="map-canvas"></div>
         </article>
-        <aside id="legend-rail" class="right-rail legend-rail"><article class="legend-card"><div class="map-card-heading"><div><h3>คำอธิบายสี</h3><p>จำนวนพื้นที่และยอดรวมรายบุคคล</p></div></div><div id="legend" class="legend"></div></article></aside>
+        <aside id="legend-rail" class="right-rail legend-rail"><article class="legend-card"><div class="map-card-heading"><div><h3>คำอธิบายสี</h3><p>สีและจำนวนพื้นที่ของผู้รับผิดชอบ</p></div></div><div id="legend" class="legend"></div></article></aside>
       </div>
       <footer class="map-footer"><span>ข้อมูลขอบเขตตำบล: Thailand Subdistrict Boundaries 2025</span><span id="updated-at">ยังไม่มีการบันทึก</span></footer>
     </section>
@@ -110,7 +111,7 @@
   <script src="https://unpkg.com/maplibre-gl@5.20.0/dist/maplibre-gl.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="core.js"></script>
-  <script src="app.js?v=4.1.1"></script>
+  <script src="core.js?v=4.2.0"></script>
+  <script src="app.js?v=4.2.0"></script>
 </body>
 </html>

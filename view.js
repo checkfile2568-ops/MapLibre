@@ -26,6 +26,7 @@ let resizeTimer = null;
 let overview = null;
 let mapViewport = "province";
 let mapIs3d = false;
+let provinceOverviewZoom = null;
 
 function sharedDataUrl() {
   const url = new URL(SHARED_DATA_URL, location.href);
@@ -274,7 +275,16 @@ function fitProvinceOverview({ duration = 0 } = {}) {
   if (!map) return;
   if (!overview?.province?.features?.[0]) return fitMap({ duration });
   mapViewport = "province";
-  map.fitBounds(boundsForFeature(overview.province.features[0]), { padding: mapPadding("province"), maxZoom: 10, duration });
+  setMap3d(false, { duration: 0 });
+  const bounds = boundsForFeature(overview.province.features[0]);
+  const camera = map.cameraForBounds?.(bounds, { padding: mapPadding("province"), maxZoom: 10 });
+  if (camera) {
+    provinceOverviewZoom = Math.min(camera.zoom + 1, 11);
+    map.easeTo({ ...camera, zoom: provinceOverviewZoom, pitch: 0, bearing: 0, duration });
+  } else {
+    provinceOverviewZoom = 11;
+    map.fitBounds(bounds, { padding: mapPadding("province"), maxZoom: 11, duration });
+  }
   scheduleLabels();
 }
 
@@ -425,17 +435,80 @@ function renderOutsideDistrictLabels(bounds) {
   }
 }
 
+function districtLabelOffsets(overviewMode) {
+  return overviewMode
+    ? [[0, -80], [82, -64], [-82, -64], [106, -18], [-106, -18], [98, 38], [-98, 38], [58, 78], [-58, 78], [0, 88], [0, 0]]
+    : [[0, -10], [20, -8], [-20, -8], [22, 12], [-22, 12], [0, 18]];
+}
+
+function renderCompactDistrictLabels(bounds, filtered) {
+  const groups = new Map();
+  for (const feature of filtered) {
+    const district = Core.districtName(feature);
+    if (!groups.has(district)) groups.set(district, []);
+    groups.get(district).push(feature);
+  }
+  const entries = [];
+  for (const [district, items] of groups) {
+    const districtBounds = new maplibregl.LngLatBounds();
+    for (const feature of items) districtBounds.extend(boundsForFeature(feature));
+    const center = districtBounds.getCenter();
+    if (bounds.contains(center)) entries.push({ name: district, center, outside: false });
+  }
+  for (const feature of overview?.outsideAmphoes?.features || []) {
+    const center = centerForFeature(feature);
+    if (bounds.contains(center)) entries.push({ name: feature.properties.amphoe_th, center, outside: true });
+  }
+
+  const overviewMode = mapViewport === "province" && map.getZoom() < (provinceOverviewZoom ?? 10) + 0.5;
+  const offsets = districtLabelOffsets(overviewMode);
+  const canvas = map.getCanvas();
+  const canvasWidth = canvas.clientWidth || canvas.width;
+  const canvasHeight = canvas.clientHeight || canvas.height;
+  const occupied = [];
+  entries.forEach((entry, index) => {
+    const point = map.project(entry.center);
+    const width = Math.max(34, entry.name.length * 6.4);
+    const height = 15;
+    const candidates = offsets.map((_, offsetIndex) => offsets[(index * 3 + offsetIndex) % offsets.length]);
+    let offset = candidates[candidates.length - 1];
+    for (const candidate of candidates) {
+      const box = {
+        left: point.x + candidate[0] - width / 2,
+        right: point.x + candidate[0] + width / 2,
+        top: point.y + candidate[1] - height / 2,
+        bottom: point.y + candidate[1] + height / 2,
+      };
+      const insideMap = box.left >= 4 && box.right <= canvasWidth - 4 && box.top >= 4 && box.bottom <= canvasHeight - 4;
+      if (insideMap && !occupied.some((item) => boxesOverlap(box, item))) {
+        offset = candidate;
+        occupied.push(box);
+        break;
+      }
+    }
+    const element = document.createElement("span");
+    element.className = `display-district-label${entry.outside ? " outside" : ""}`;
+    element.textContent = entry.name;
+    const target = entry.outside ? markers.context : markers.district;
+    target.push(new maplibregl.Marker({ element, anchor: "center", offset }).setLngLat(entry.center).addTo(map));
+  });
+}
+
 function renderLabels() {
   clearMarkers("tambon"); clearMarkers("district"); clearMarkers("context");
   if (!map?.isStyleLoaded()) return;
   const bounds = map.getBounds(); const filtered = currentFeatures(); const visible = filtered.filter((feature) => bounds.contains(centerForFeature(feature)));
   const occupied = [];
-  if (ui.showTambonLabels && map.getZoom() >= 10.2) {
+  if (ui.showTambonLabels && map.getZoom() >= (provinceOverviewZoom ?? 10) + 0.75) {
     for (const feature of visible) {
       const center = centerForFeature(feature); const point = map.project(center); const text = Core.tambonName(feature); const width = Math.max(34, text.length * 7.8); const box = { left: point.x - width / 2, right: point.x + width / 2, top: point.y - 10, bottom: point.y + 10 };
       if (occupied.some((item) => boxesOverlap(box, item))) continue; occupied.push(box);
       const el = document.createElement("span"); el.className = "display-tambon-label"; el.textContent = text; markers.tambon.push(new maplibregl.Marker({ element: el }).setLngLat(center).addTo(map));
     }
+  }
+  if (ui.showDistrictLabels) {
+    renderCompactDistrictLabels(bounds, filtered);
+    return;
   }
   if (ui.showDistrictLabels) {
     const groups = new Map(); for (const feature of filtered) { const district = Core.districtName(feature); if (!groups.has(district)) groups.set(district, []); groups.get(district).push(feature); }

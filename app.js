@@ -892,17 +892,6 @@ function mapData() {
   }) };
 }
 
-function landmarkSurfaceElevation(landmark) {
-  if (!mapIs3d) return 0;
-  const feature = availableFeatures().find((candidate) => Core.areaId(candidate) === landmark.areaId);
-  if (!feature) return 0;
-  return getStaff(state.assignments[Core.areaId(feature)]) ? 1180 : 640;
-}
-
-function landmarkPlacementFeature(landmark) {
-  return availableFeatures().find((feature) => Core.areaId(feature) === landmark.areaId) || null;
-}
-
 function supportsWebGL() {
   if (!window.WebGLRenderingContext) return false;
   try { const canvas = document.createElement("canvas"); return Boolean(canvas.getContext("webgl2") || canvas.getContext("webgl")); } catch { return false; }
@@ -1037,7 +1026,7 @@ function createMap() {
       map.on("mouseenter", layer, () => { map.getCanvas().style.cursor = "pointer"; });
       map.on("mouseleave", layer, () => { map.getCanvas().style.cursor = ""; });
     }
-    landmarkLayer = Landmarks?.addToMap(map, { getSurfaceElevation: landmarkSurfaceElevation, getPlacementFeature: landmarkPlacementFeature }) || null;
+    landmarkLayer = Landmarks?.addToMap(map) || null;
     map.on("moveend", renderMapLabels);
     playIntroFlight();
   });

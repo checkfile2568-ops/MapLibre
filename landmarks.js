@@ -43,14 +43,19 @@
     const elevation = Number(getSurfaceElevation?.(landmark) || 0);
     const transform = map?.transform;
     const MercatorCoordinate = window.maplibregl?.MercatorCoordinate;
-    if (!Number.isFinite(elevation) || elevation <= 0 || !transform?.coordinatePoint || !MercatorCoordinate?.fromLngLat) return [0, 0];
+    const elevationMatrix = transform?._pixelMatrix3D;
+    if (!Number.isFinite(elevation) || elevation <= 0 || !transform?.coordinatePoint || !elevationMatrix || !MercatorCoordinate?.fromLngLat) return [0, 0];
     try {
       // Markers use map.project() at ground level, whereas fill-extrusion draws
-      // the coloured tambon on its raised top surface.  Project that same point
-      // at the extrusion height, then use the screen-space delta as the marker
-      // offset.  It keeps the model attached during zoom, pan and 3D tilt.
+      // the coloured tambon on its raised top surface.  MapLibre maintains a
+      // separate 3D pixel matrix for an elevated point.  The ordinary matrix
+      // (the previous implementation) projects only the ground plane, which
+      // leaves DOM markers visibly detached when the camera is tilted.
+      // Project the same location with that 3D matrix and use the screen-space
+      // delta as the marker offset.  It follows the surface through pan, zoom
+      // and every frame of the 3D camera transition.
       const ground = map.project(landmark.coordinates);
-      const raised = transform.coordinatePoint(MercatorCoordinate.fromLngLat(landmark.coordinates), elevation);
+      const raised = transform.coordinatePoint(MercatorCoordinate.fromLngLat(landmark.coordinates), elevation, elevationMatrix);
       const x = raised.x - ground.x;
       const y = raised.y - ground.y;
       return Number.isFinite(x) && Number.isFinite(y) ? [x, y] : [0, 0];

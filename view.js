@@ -9,18 +9,18 @@ const SHARED_DATA_URL = "data/assignments.json";
 const VILLAGE_COUNTS_URL = "data/tambon-village-counts.json";
 const DISPLAY_VERSION = "V4";
 const DISPLAY_UPDATED_LABEL = "ปรับปรุงล่าสุด: 24 ก.ค. 2569";
-// Each anchor sits on the shared boundary in the static provincial map.  These
-// are MapLibre markers (not screen overlays), so their position is fixed to the
-// map ground and follows the map naturally while panning, zooming, or using 3D.
+// Each anchor sits inside its neighbouring province, beyond the shared border.
+// These are MapLibre markers (not screen overlays), so their position is fixed
+// to the map ground and follows the map naturally while panning, zooming, or 3D.
 const ADJACENT_PROVINCE_LABELS = [
-  { code: "TH60", name: "นครสวรรค์", coordinate: [100.522544, 15.153787], offset: [-10, -6] },
-  { code: "TH67", name: "เพชรบูรณ์", coordinate: [101.31767, 15.566629], offset: [5, -8] },
-  { code: "TH36", name: "ชัยภูมิ", coordinate: [101.376026, 15.462084], offset: [9, -3] },
-  { code: "TH17", name: "สิงห์บุรี", coordinate: [100.442714, 14.891092], offset: [-10, 0] },
-  { code: "TH30", name: "นครราชสีมา", coordinate: [101.391125, 15.202598], offset: [10, 0] },
-  { code: "TH15", name: "อ่างทอง", coordinate: [100.480677, 14.695508], offset: [-10, 7] },
-  { code: "TH14", name: "พระนครศรีอยุธยา", coordinate: [100.552849, 14.662485], offset: [-2, 10] },
-  { code: "TH19", name: "สระบุรี", coordinate: [100.878608, 14.76869], offset: [5, 10] },
+  { code: "TH60", name: "นครสวรรค์", coordinate: [100.323215, 15.320724], offset: [-10, -6] },
+  { code: "TH67", name: "เพชรบูรณ์", coordinate: [101.081525, 15.654422], offset: [5, -8] },
+  { code: "TH36", name: "ชัยภูมิ", coordinate: [101.616323, 15.461403], offset: [9, -3] },
+  { code: "TH17", name: "สิงห์บุรี", coordinate: [100.203695, 14.947096], offset: [-10, 0] },
+  { code: "TH30", name: "นครราชสีมา", coordinate: [101.636895, 15.117761], offset: [10, 0] },
+  { code: "TH15", name: "อ่างทอง", coordinate: [100.249306, 14.576901], offset: [-10, 7] },
+  { code: "TH14", name: "พระนครศรีอยุธยา", coordinate: [100.518817, 14.404722], offset: [-2, 10] },
+  { code: "TH19", name: "สระบุรี", coordinate: [100.832285, 14.532746], offset: [5, 10] },
 ];
 
 const dom = Object.fromEntries([

@@ -6,6 +6,7 @@ const Overview = window.MapLibreOverview;
 // display-only endpoint returned HTTP 400, so MapLibre was never created.
 const GIS_QUERY_URL = "https://services1.arcgis.com/jSaRWj2TDlcN1zOC/arcgis/rest/services/Thailand_Subdistrict_Boundaries_%28%E0%B8%82%E0%B9%89%E0%B8%AD%E0%B8%A1%E0%B8%B9%E0%B8%A5%E0%B8%82%E0%B8%AD%E0%B8%9A%E0%B9%80%E0%B8%82%E0%B8%95%E0%B8%95%E0%B8%B3%E0%B8%9A%E0%B8%A5%E0%B8%9B%E0%B8%A3%E0%B8%B0%E0%B9%80%E0%B8%97%E0%B8%A8%E0%B9%84%E0%B8%97%E0%B8%A2%29/FeatureServer/1/query";
 const SHARED_DATA_URL = "data/assignments.json";
+const VILLAGE_COUNTS_URL = "data/tambon-village-counts.json";
 const DISPLAY_VERSION = "V4";
 const DISPLAY_UPDATED_LABEL = "ปรับปรุงล่าสุด: 24 ก.ค. 2569";
 
@@ -13,15 +14,17 @@ const dom = Object.fromEntries([
   "loading", "display-title", "search-input", "overview-stats", "updated-at", "data-status", "coverage-main", "coverage-exclusion",
   "display-content", "search-menu", "legend-panel", "legend", "search-results", "central-notice", "toggle-tambon-labels", "toggle-district-labels",
   "toggle-legend-button", "staff-filter", "clear-staff-filter", "person-detail", "price-privacy-note",
-  "province-overview-button", "tambon-view-button", "three-d-button"
+  "province-overview-button", "tambon-view-button", "three-d-button", "tambon-info-card", "close-tambon-info-button",
+  "tambon-info-title", "tambon-info-district", "tambon-info-list"
 ].map((id) => [id.replaceAll("-", "_"), document.getElementById(id)]));
 
 let features = [];
 let state = Core.initialState();
+let villageCounts = {};
 let map = null;
 let revision = null;
 let markers = { tambon: [], district: [], context: [] };
-let ui = { selectedStaffId: "", showTambonLabels: true, showDistrictLabels: true, showLegend: true };
+let ui = { selectedStaffId: "", selectedFeatureId: "", showTambonLabels: true, showDistrictLabels: true, showLegend: true };
 let resizeTimer = null;
 let overview = null;
 let mapViewport = "province";
@@ -68,6 +71,92 @@ function owner(feature) {
 
 function publicPricesEnabled() {
   return state.publishPrices !== false;
+}
+
+function numericValue(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function formatInteger(value, suffix = "") {
+  const number = numericValue(value);
+  return number === null ? "ไม่ระบุ" : `${new Intl.NumberFormat("th-TH", { maximumFractionDigits: 0 }).format(number)}${suffix}`;
+}
+
+function ringAreaSquareMetres(ring) {
+  if (!Array.isArray(ring) || ring.length < 3) return 0;
+  const radius = 6378137;
+  let sum = 0;
+  for (let index = 0; index < ring.length; index += 1) {
+    const [longitudeA, latitudeA] = ring[index] || [];
+    const [longitudeB, latitudeB] = ring[(index + 1) % ring.length] || [];
+    if (![longitudeA, latitudeA, longitudeB, latitudeB].every(Number.isFinite)) continue;
+    sum += (longitudeB - longitudeA) * Math.PI / 180 * (2 + Math.sin(latitudeA * Math.PI / 180) + Math.sin(latitudeB * Math.PI / 180));
+  }
+  return Math.abs(sum) * radius * radius / 2;
+}
+
+function polygonAreaSquareMetres(rings) {
+  if (!Array.isArray(rings) || !rings.length) return 0;
+  return Math.max(0, ringAreaSquareMetres(rings[0]) - rings.slice(1).reduce((total, ring) => total + ringAreaSquareMetres(ring), 0));
+}
+
+function featureAreaSquareKilometres(feature) {
+  const geometry = feature?.geometry;
+  if (!geometry) return null;
+  const squareMetres = geometry.type === "Polygon"
+    ? polygonAreaSquareMetres(geometry.coordinates)
+    : geometry.type === "MultiPolygon"
+      ? geometry.coordinates.reduce((total, rings) => total + polygonAreaSquareMetres(rings), 0)
+      : 0;
+  return squareMetres > 0 ? squareMetres / 1000000 : null;
+}
+
+function formatArea(feature) {
+  const area = featureAreaSquareKilometres(feature);
+  return area === null ? "ไม่สามารถคำนวณได้" : `${new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 }).format(area)} ตร.กม.`;
+}
+
+function villageCount(feature) {
+  const savedCount = numericValue(villageCounts[Core.areaId(feature)]);
+  if (savedCount !== null && savedCount >= 0) return savedCount;
+  const candidates = ["VILLAGE_COUNT", "VILLAGES", "VILLAGE", "MOO_COUNT", "MOO"];
+  for (const field of candidates) {
+    const value = numericValue(feature?.properties?.[field]);
+    if (value !== null && value >= 0) return value;
+  }
+  return null;
+}
+
+function renderTambonInfoCard() {
+  const feature = features.find((item) => Core.areaId(item) === ui.selectedFeatureId);
+  if (!feature) {
+    dom.tambon_info_card.hidden = true;
+    return;
+  }
+  dom.tambon_info_card.hidden = false;
+  dom.tambon_info_title.textContent = `ตำบล${Core.tambonName(feature)}`;
+  dom.tambon_info_district.textContent = `อำเภอ${Core.districtName(feature)}`;
+  const villages = villageCount(feature);
+  const items = [
+    ["จำนวนหมู่บ้าน", villages === null ? "ไม่พบข้อมูล" : `${formatInteger(villages)} หมู่`],
+    ["เนื้อที่", formatArea(feature)],
+    ["ประชากร", formatInteger(feature.properties.POPULATION, " คน")],
+  ];
+  dom.tambon_info_list.replaceChildren(...items.map(([label, value]) => {
+    const row = document.createElement("div");
+    const term = document.createElement("dt");
+    term.textContent = label;
+    const detail = document.createElement("dd");
+    detail.textContent = value;
+    row.append(term, detail);
+    return row;
+  }));
+}
+
+function showTambonInfoCard(feature) {
+  ui.selectedFeatureId = Core.areaId(feature);
+  renderTambonInfoCard();
 }
 
 function searchText() {
@@ -332,6 +421,7 @@ function playIntroFlight() {
 function focusFeature(feature) {
   mapViewport = "detail";
   const bounds = boundsForFeature(feature); map.fitBounds(bounds, { padding: 70, maxZoom: 12.2, duration: 500 });
+  showTambonInfoCard(feature);
   setTimeout(() => new maplibregl.Popup({ offset: 12 }).setLngLat(bounds.getCenter()).setDOMContent(popupForFeature(feature)).addTo(map), 520);
 }
 
@@ -378,7 +468,7 @@ function createMap() {
     map.addLayer({ id: "tambon-ground", type: "fill", source: "tambons", paint: { "fill-color": ["get", "color"], "fill-opacity": .84 } });
     map.addLayer({ id: "tambon-3d", type: "fill-extrusion", source: "tambons", layout: { visibility: "none" }, paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-height": ["get", "height"], "fill-extrusion-base": 0, "fill-extrusion-opacity": .9 } });
     map.addLayer({ id: "tambon-outline", type: "line", source: "tambons", paint: { "line-color": "#fff", "line-width": 1.1, "line-opacity": .96 } });
-    const onTambonClick = (event) => { const id = String(event.features?.[0]?.properties?.id || ""); const feature = features.find((item) => Core.areaId(item) === id); if (feature) new maplibregl.Popup({ offset: 12 }).setLngLat(event.lngLat).setDOMContent(popupForFeature(feature)).addTo(map); };
+    const onTambonClick = (event) => { const id = String(event.features?.[0]?.properties?.id || ""); const feature = features.find((item) => Core.areaId(item) === id); if (feature) { showTambonInfoCard(feature); new maplibregl.Popup({ offset: 12 }).setLngLat(event.lngLat).setDOMContent(popupForFeature(feature)).addTo(map); } };
     for (const layer of ["tambon-ground", "tambon-3d"]) map.on("click", layer, onTambonClick);
     map.on("moveend", renderLabels);
     playIntroFlight();
@@ -506,10 +596,11 @@ function updateMap() {
 }
 
 async function loadData() {
-  const params = new URLSearchParams({ where: "ADMIN_ID1 = '16'", outFields: "ADMIN_ID1,ADMIN_ID2,ADMIN_ID3,NAME1,NAME2,NAME3", returnGeometry: "true", outSR: "4326", f: "geojson" });
-  const [boundariesResponse, dataResponse] = await Promise.all([fetch(`${GIS_QUERY_URL}?${params}`), fetch(sharedDataUrl(), { cache: "no-store" })]);
+  const params = new URLSearchParams({ where: "ADMIN_ID1 = '16'", outFields: "ADMIN_ID1,ADMIN_ID2,ADMIN_ID3,NAME1,NAME2,NAME3,POPULATION,HOUSE", returnGeometry: "true", outSR: "4326", f: "geojson" });
+  const [boundariesResponse, dataResponse, villageCountsResponse] = await Promise.all([fetch(`${GIS_QUERY_URL}?${params}`), fetch(sharedDataUrl(), { cache: "no-store" }), fetch(VILLAGE_COUNTS_URL, { cache: "no-store" })]);
   if (!boundariesResponse.ok) throw new Error("โหลดขอบเขตตำบลไม่สำเร็จ"); if (!dataResponse.ok) throw new Error("โหลดข้อมูลส่วนกลางไม่สำเร็จ");
-  const [collection, rawState] = await Promise.all([boundariesResponse.json(), dataResponse.json()]);
+  const [collection, rawState, rawVillageCounts] = await Promise.all([boundariesResponse.json(), dataResponse.json(), villageCountsResponse.ok ? villageCountsResponse.json() : Promise.resolve({})]);
+  villageCounts = rawVillageCounts?.counts && typeof rawVillageCounts.counts === "object" ? rawVillageCounts.counts : {};
   features = collection.features.filter((feature) => Core.areaId(feature) && Core.isCourtFeature(feature)).map((feature) => ({ ...feature, id: Core.areaId(feature) }));
   if (!features.length) throw new Error("ไม่พบตำบลในเขตศาลจังหวัดลพบุรี");
   state = Core.filterStateToFeatures(Core.normalizeState(rawState), features); revision = rawState.updatedAt || JSON.stringify(rawState);
@@ -522,7 +613,7 @@ async function refreshData() {
     const raw = await response.json(); const nextRevision = raw.updatedAt || JSON.stringify(raw);
     if (nextRevision === revision) return renderDataStatus(true);
     state = Core.filterStateToFeatures(Core.normalizeState(raw), features); revision = nextRevision;
-    renderStaffFilter(); renderStats(); renderLegend(); renderPersonDetail(); renderControls(); updateMap();
+    renderStaffFilter(); renderStats(); renderLegend(); renderPersonDetail(); renderControls(); renderTambonInfoCard(); updateMap();
   } catch (error) { console.warn(error); renderDataStatus(false); }
 }
 
@@ -533,6 +624,7 @@ function bindEvents() {
   dom.province_overview_button.addEventListener("click", () => resetMapToOverview());
   dom.tambon_view_button.addEventListener("click", showTambonView);
   dom.three_d_button.addEventListener("click", () => setMap3d(!mapIs3d));
+  dom.close_tambon_info_button.addEventListener("click", () => { ui.selectedFeatureId = ""; renderTambonInfoCard(); });
   dom.toggle_tambon_labels.addEventListener("click", () => { ui.showTambonLabels = !ui.showTambonLabels; renderControls(); renderLabels(); });
   dom.toggle_district_labels.addEventListener("click", () => { ui.showDistrictLabels = !ui.showDistrictLabels; renderControls(); renderLabels(); });
   dom.toggle_legend_button.addEventListener("click", () => { ui.showLegend = !ui.showLegend; renderControls(); refitViewport(); });

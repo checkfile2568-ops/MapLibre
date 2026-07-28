@@ -8,7 +8,7 @@
   <title>เขตพื้นที่ส่งหมาย | ศาลจังหวัดลพบุรี</title>
   <link rel="preconnect" href="https://unpkg.com">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.20.0/dist/maplibre-gl.css">
-  <link rel="stylesheet" href="view.css?v=4.1.1">
+  <link rel="stylesheet" href="view.css?v=4.3.3">
   <link rel="stylesheet" href="overview.css?v=4.3.0">
 </head>
 <body>
@@ -21,7 +21,7 @@
     <section class="map-frame">
       <div class="map-frame-header"><div><p class="eyebrow">ภาพรวมการมอบหมาย</p><h2>แผนที่เขตศาลจังหวัดลพบุรี</h2></div><div class="map-view-shortcuts" role="group" aria-label="มุมมองแผนที่"><button id="province-overview-button" class="map-view-button" type="button">⌖ ภาพรวมลพบุรี</button><button id="tambon-view-button" class="map-view-button" type="button">⌕ ดูตำบล</button><button id="three-d-button" class="map-view-button" type="button" aria-pressed="false">◧ มุมมอง 3D</button></div></div>
       <div id="display-content" class="display-content">
-        <div class="map-column"><div id="display-map" class="display-map"></div></div>
+        <div class="map-column"><div id="display-map" class="display-map"></div><aside id="tambon-info-card" class="tambon-info-card" aria-live="polite" hidden><button id="close-tambon-info-button" class="tambon-info-close" type="button" aria-label="ปิดข้อมูลตำบล">×</button><p class="eyebrow">ข้อมูลตำบล</p><h3 id="tambon-info-title">—</h3><p id="tambon-info-district" class="tambon-info-district">—</p><dl id="tambon-info-list" class="tambon-info-list"></dl></aside></div>
       </div>
     </section>
 
@@ -48,6 +48,6 @@
   <script src="https://unpkg.com/maplibre-gl@5.20.0/dist/maplibre-gl.js"></script>
   <script src="core.js?v=4.2.0"></script>
   <script src="overview.js?v=4.3.0"></script>
-  <script src="view.js?v=4.3.0"></script>
+  <script src="view.js?v=4.3.3"></script>
 </body>
 </html>

@@ -216,6 +216,10 @@ function landmarkSurfaceElevation(landmark) {
   return dimmed ? 420 : (selected ? 1600 : (match && query ? 1280 : person ? 1100 : 640));
 }
 
+function landmarkPlacementFeature(landmark) {
+  return features.find((feature) => Core.areaId(feature) === landmark.areaId) || null;
+}
+
 function formatDate(value) {
   if (!value) return "—";
   const date = new Date(value);
@@ -486,7 +490,7 @@ function createMap() {
     map.addLayer({ id: "tambon-outline", type: "line", source: "tambons", paint: { "line-color": "#fff", "line-width": 1.1, "line-opacity": .96 } });
     const onTambonClick = (event) => { const id = String(event.features?.[0]?.properties?.id || ""); const feature = features.find((item) => Core.areaId(item) === id); if (feature) { showTambonInfoCard(feature); new maplibregl.Popup({ offset: 12 }).setLngLat(event.lngLat).setDOMContent(popupForFeature(feature)).addTo(map); } };
     for (const layer of ["tambon-ground", "tambon-3d"]) map.on("click", layer, onTambonClick);
-    landmarkLayer = Landmarks?.addToMap(map, { getSurfaceElevation: landmarkSurfaceElevation }) || null;
+    landmarkLayer = Landmarks?.addToMap(map, { getSurfaceElevation: landmarkSurfaceElevation, getPlacementFeature: landmarkPlacementFeature }) || null;
     map.on("moveend", renderLabels);
     playIntroFlight();
   });

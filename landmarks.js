@@ -56,6 +56,7 @@
       for (const { element } of entries) {
         const name = element.querySelector(".landmark-name");
         if (!name || element.hidden || element.classList.contains("is-compact")) continue;
+        name.hidden = false;
         let placed = false;
         for (const [x, y] of options) {
           element.style.setProperty("--landmark-label-x", `${x}px`);
@@ -64,7 +65,7 @@
           const insideMap = box.left >= mapBounds.left + 4 && box.right <= mapBounds.right - 4 && box.top >= mapBounds.top + 4 && box.bottom <= mapBounds.bottom - 4;
           if (insideMap && !occupied.some((other) => overlaps(box, other))) { occupied.push(box); placed = true; break; }
         }
-        if (!placed) { element.style.setProperty("--landmark-label-x", "0px"); element.style.setProperty("--landmark-label-y", "0px"); }
+        if (!placed) name.hidden = true;
       }
     };
     const scheduleLabelPositioning = () => window.setTimeout(positionLabels, 0);

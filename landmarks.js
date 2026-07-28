@@ -4,9 +4,12 @@
 // never change a tambon owner, price, search result, or the map's GeoJSON.
 (function registerMapLibreLandmarks() {
   const LANDMARKS = Object.freeze([
-    { id: "phra-prang-sam-yot", name: "พระปรางค์สามยอด", district: "ตำบลท่าหิน · อำเภอเมืองลพบุรี", description: "โบราณสถานสำคัญของลพบุรี", coordinates: [100.6141130, 14.8029199], type: "prang", image: "assets/landmarks/phra-prang-sam-yot.png" },
-    { id: "wat-khao-wong-phrachan", name: "วัดเขาวงพระจันทร์", district: "ตำบลห้วยโป่ง · อำเภอโคกสำโรง", description: "จุดสักการะบนเขาวงพระจันทร์", coordinates: [100.6974408, 14.9669191], type: "mountain", image: "assets/landmarks/wat-khao-wong-phrachan.png" },
-    { id: "pa-sak-jolasid-dam", name: "เขื่อนป่าสักชลสิทธิ์", district: "ตำบลแก่งเสือเต้น · อำเภอพัฒนานิคม", description: "เขื่อนและแหล่งเก็บกักน้ำสำคัญของลพบุรี", coordinates: [101.0620622, 14.8668986], type: "dam", image: "assets/landmarks/pa-sak-jolasid-dam.png" },
+    // baseline is the transparent lower margin inside each generated PNG.  It
+    // is applied to the image only, so the visual base—not an invisible edge—
+    // is exactly at the geographic coordinate.
+    { id: "phra-prang-sam-yot", name: "พระปรางค์สามยอด", district: "ตำบลท่าหิน · อำเภอเมืองลพบุรี", description: "โบราณสถานสำคัญของลพบุรี", coordinates: [100.6141130, 14.8029199], type: "prang", image: "assets/landmarks/phra-prang-sam-yot.png", baseline: "9.90%" },
+    { id: "wat-khao-wong-phrachan", name: "วัดเขาวงพระจันทร์", district: "ตำบลห้วยโป่ง · อำเภอโคกสำโรง", description: "จุดสักการะบนเขาวงพระจันทร์", coordinates: [100.6974408, 14.9669191], type: "mountain", image: "assets/landmarks/wat-khao-wong-phrachan.png", baseline: "6.25%" },
+    { id: "pa-sak-jolasid-dam", name: "เขื่อนป่าสักชลสิทธิ์", district: "ตำบลหนองบัว · อำเภอพัฒนานิคม", description: "เขื่อนและแหล่งเก็บกักน้ำสำคัญของลพบุรี", coordinates: [101.0620622, 14.8668986], type: "dam", image: "assets/landmarks/pa-sak-jolasid-dam.png", baseline: "18.23%" },
   ]);
 
   function popupContent(landmark) {
@@ -25,6 +28,7 @@
     button.dataset.landmark = landmark.id;
     button.title = landmark.name;
     button.setAttribute("aria-label", `ดูข้อมูล ${landmark.name}`);
+    button.style.setProperty("--landmark-image-baseline", landmark.baseline || "0%");
     const model = document.createElement("span"); model.className = "landmark-model has-image"; model.setAttribute("aria-hidden", "true");
     const image = document.createElement("img"); image.src = landmark.image; image.alt = ""; image.decoding = "async";
     image.addEventListener("error", () => { image.remove(); model.classList.remove("has-image"); });
@@ -39,7 +43,17 @@
     if (!map || !window.maplibregl) return { remove() {} };
     const entries = LANDMARKS.map((landmark) => {
       const element = markerElement(landmark);
-      const marker = new maplibregl.Marker({ element, anchor: "bottom", offset: [0, 3] }).setLngLat(landmark.coordinates).addTo(map);
+      // A custom marker is positioned from its box edge.  Keep that edge at
+      // the coordinates with no extra downward offset, and avoid the default
+      // pixel rounding that is especially visible on small mobile maps.
+      const marker = new maplibregl.Marker({
+        element,
+        anchor: "bottom",
+        offset: [0, 0],
+        rotationAlignment: "viewport",
+        pitchAlignment: "viewport",
+        subpixelPositioning: true,
+      }).setLngLat(landmark.coordinates).addTo(map);
       element.addEventListener("click", (event) => {
         event.preventDefault(); event.stopPropagation();
         new maplibregl.Popup({ offset: 16, closeButton: true, focusAfterOpen: false }).setLngLat(landmark.coordinates).setDOMContent(popupContent(landmark)).addTo(map);

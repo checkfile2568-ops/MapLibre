@@ -17,7 +17,7 @@ const dom = Object.fromEntries([
   "price-labels-button", "publish-prices", "validation-list", "validate-button", "assignment-summary", "maps-layout", "legend-rail", "legend",
   "province-overview-button", "tambon-view-button", "three-d-button",
   "toggle-legend-button", "labels-button", "district-labels-button", "export-button", "print-map-button", "print-tambon-labels",
-  "print-district-labels", "print-price-labels", "print-legend", "print-area-summary", "backup-button", "restore-input",
+  "print-district-labels", "print-price-labels", "print-legend", "backup-button", "restore-input",
   "report-staff-select", "excel-report-button", "pdf-report-button", "report-summary", "save-shared-button", "reload-shared-button",
   "check-token-button", "github-token", "remember-github-token", "remembered-token-status", "forget-github-token-button", "shared-status",
   "token-status", "updated-at", "toast", "printable"
@@ -31,6 +31,7 @@ let overview = null;
 let mapViewport = "province";
 let mapIs3d = false;
 let provinceOverviewZoom = null;
+let mapCaptureMode = false;
 let shared = { available: false, loading: false, error: null };
 let tokenCheck = { checking: false, valid: false, login: null, expiresAt: null };
 let toastTimer = null;
@@ -928,18 +929,31 @@ function addOverviewMapLayers() {
   map.addLayer({ id: "overview-tambon-outline", type: "line", source: "overview-tambons", minzoom: 6.4, paint: { "line-color": "#f6f9fa", "line-width": 0.6, "line-opacity": 0.86 } });
 }
 
-function fitProvinceOverview({ duration = 0 } = {}) {
+function provinceViewCenter({ focusCourt = true } = {}) {
+  const provinceCenter = boundsForGeometry(overview.province.features[0].geometry).getCenter();
+  if (!focusCourt || !overview?.courtAmphoes?.features?.length) return [provinceCenter.lng, provinceCenter.lat];
+  const courtCenter = boundsForCollection(overview.courtAmphoes).getCenter();
+  const weight = 0.58;
+  return [
+    provinceCenter.lng + (courtCenter.lng - provinceCenter.lng) * weight,
+    provinceCenter.lat + (courtCenter.lat - provinceCenter.lat) * weight,
+  ];
+}
+
+function fitProvinceOverview({ duration = 0, zoomBoost = 1, focusCourt = true } = {}) {
   if (!map) return;
   if (!overview?.province?.features?.[0]) return fitMapToData();
   mapViewport = "province";
   const bounds = boundsForGeometry(overview.province.features[0].geometry);
   const camera = map.cameraForBounds?.(bounds, { padding: mapPadding("province"), maxZoom: 10 });
+  const center = provinceViewCenter({ focusCourt });
   if (camera) {
-    provinceOverviewZoom = Math.min(camera.zoom + 1, 11);
-    map.easeTo({ ...camera, zoom: provinceOverviewZoom, pitch: mapIs3d ? 50 : 0, bearing: mapIs3d ? -15 : 0, duration });
+    provinceOverviewZoom = Math.min(camera.zoom + zoomBoost, 11);
+    map.easeTo({ ...camera, center, zoom: provinceOverviewZoom, pitch: mapIs3d ? 50 : 0, bearing: mapIs3d ? -15 : 0, duration });
   } else {
-    provinceOverviewZoom = 11;
+    provinceOverviewZoom = Math.min(10 + zoomBoost, 11);
     map.fitBounds(bounds, { padding: mapPadding("province"), maxZoom: 11, duration });
+    map.easeTo({ center, pitch: mapIs3d ? 50 : 0, bearing: mapIs3d ? -15 : 0, duration: 0 });
   }
   scheduleMapLabels();
 }
@@ -1119,8 +1133,8 @@ function renderMapLabels() {
   const bounds = map.getBounds();
   const visible = availableFeatures().filter((feature) => bounds.contains(featureCenter(feature)));
   const occupied = [];
-  const showNames = state.showLabels && map.getZoom() >= (provinceOverviewZoom ?? 10) + 0.75;
-  const showPrices = state.showPriceLabels && map.getZoom() >= 10.2;
+  const showNames = state.showLabels && (mapCaptureMode || map.getZoom() >= (provinceOverviewZoom ?? 10) + 0.75);
+  const showPrices = state.showPriceLabels && (mapCaptureMode || map.getZoom() >= 10.2);
 
   if (showNames || showPrices) {
     const ordered = visible.slice().sort((a, b) => {
@@ -1305,7 +1319,7 @@ async function captureCurrentMapImage() {
     setTimeout(finish, 520);
   });
   const canvas = await window.html2canvas(document.getElementById("main-map"), {
-    backgroundColor: "#edf4f5",
+    backgroundColor: "#f6f7f8",
     scale: 2,
     useCORS: true,
     logging: false,
@@ -1313,6 +1327,30 @@ async function captureCurrentMapImage() {
   const image = canvas.toDataURL("image/png");
   if (!image.startsWith("data:image")) throw new Error("ไม่สามารถสร้างภาพแผนที่ได้");
   return image;
+}
+
+async function captureFullProvinceMapImage() {
+  if (!map) throw new Error("แผนที่ยังไม่พร้อม");
+  const center = map.getCenter();
+  const previous = {
+    center: [center.lng, center.lat],
+    zoom: map.getZoom(),
+    bearing: map.getBearing(),
+    pitch: map.getPitch(),
+    viewport: mapViewport,
+    overviewZoom: provinceOverviewZoom,
+  };
+  try {
+    mapCaptureMode = true;
+    fitProvinceOverview({ duration: 0, zoomBoost: 0, focusCourt: false });
+    return await captureCurrentMapImage();
+  } finally {
+    mapCaptureMode = false;
+    mapViewport = previous.viewport;
+    provinceOverviewZoom = previous.overviewZoom;
+    map.jumpTo({ center: previous.center, zoom: previous.zoom, bearing: previous.bearing, pitch: previous.pitch });
+    scheduleMapLabels();
+  }
 }
 
 async function createPrintableMapCopy(image) {
@@ -1372,7 +1410,7 @@ async function exportProfessionalPng() {
   dom.export_button.textContent = "กำลังสร้าง PNG…";
   let copy = null;
   try {
-    copy = await createPrintableMapCopy(await captureCurrentMapImage());
+    copy = await createPrintableMapCopy(await captureFullProvinceMapImage());
     const canvas = await window.html2canvas(copy, { backgroundColor: "#fff", scale: 2, useCORS: true, logging: false });
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
     if (!blob) throw new Error("ไม่สามารถสร้างไฟล์ PNG ได้");
@@ -1399,17 +1437,14 @@ async function printProfessionalMapA4() {
     state.showDistrictLabels = dom.print_district_labels.checked;
     state.showPriceLabels = dom.print_price_labels.checked;
     renderMapControls();
-    const image = await captureCurrentMapImage();
+    const image = await captureFullProvinceMapImage();
     const legend = dom.print_legend.checked ? `<div class="print-legend">${printLegendMarkup()}</div>` : "";
-    const staffCards = dom.print_area_summary.checked ? `<section class="print-staff-section"><h2>สรุปเขตรับผิดชอบรายบุคคล</h2><div class="print-staff-grid">${professionalStaffCardsMarkup()}</div></section>` : "";
     const printedAt = escapeHtml(new Date().toLocaleDateString("th-TH", { dateStyle: "medium" }));
     printWindow.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>แผนที่เขตพื้นที่ส่งหมาย</title><style>
-      @page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}body{margin:0;color:#142638;font-family:"Noto Sans Thai","Leelawadee UI",Tahoma,sans-serif}
-      .print-header{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:6px}.print-header h1{margin:0;font-size:18px;color:#123d5a}.print-header p{margin:3px 0 0;font-size:9px;color:#607482}
-      .print-map{display:block;width:100%;height:103mm;object-fit:contain;background:#edf4f5;border:1px solid #d8e3e9}.print-legend{display:flex;flex-wrap:wrap;gap:4px 10px;margin:5px 0 0;font-size:8px}.legend-entry{white-space:nowrap}.legend-entry i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px}
-      .print-staff-section{margin-top:8px;break-before:page}.print-staff-section h2{margin:0 0 6px;font-size:16px;color:#123d5a}.print-staff-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.print-staff-card{break-inside:avoid;border:1px solid #d7e2e8;border-left:5px solid var(--staff-color);border-radius:6px;padding:7px 8px;background:#fff}.print-staff-card header{display:flex;gap:7px;align-items:center}.print-staff-card header i{width:10px;height:10px;border-radius:50%;background:var(--staff-color);flex:0 0 10px}.print-staff-card h3{margin:0;font-size:12px;color:#173f59}.print-staff-card header p{margin:1px 0 0;font-size:8px;color:#5f7280}
-      .print-district{margin-top:7px}.print-district h4{margin:0 0 3px;font-size:9px;color:#2b5874}.print-district h4 span{margin-left:4px;color:#6a7c87;font-weight:400}.print-district ul{margin:0;padding:0;list-style:none;columns:2;column-gap:13px}.print-district li{display:flex;justify-content:space-between;gap:7px;padding:2px 0;border-bottom:1px dotted #dce6eb;font-size:8px;break-inside:avoid}.print-district li b{white-space:nowrap;color:#315a70}.print-empty{margin:6px 0 0;font-size:8px;color:#6b7d88}
-    </style></head><body><header class="print-header"><div><h1>แผนที่เขตพื้นที่ส่งหมาย</h1><p>ศาลจังหวัดลพบุรี · ยอดแสดงแยกรายตำบล ไม่มีการรวมยอด</p></div><p>${printedAt}</p></header><img class="print-map" src="${image}" alt="แผนที่เขตพื้นที่ส่งหมาย">${legend}${staffCards}</body></html>`);
+      @page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}html,body{width:281mm;height:194mm;overflow:hidden}body{margin:0;color:#142638;font-family:"Noto Sans Thai","Leelawadee UI",Tahoma,sans-serif}
+      .print-header{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:4px}.print-header h1{margin:0;font-size:18px;color:#123d5a}.print-header p{margin:3px 0 0;font-size:9px;color:#607482}
+      .print-map{display:block;width:100%;height:172mm;object-fit:contain;background:#f6f7f8;border:1px solid #d8e3e9}.print-legend{display:flex;flex-wrap:wrap;gap:3px 9px;margin:4px 0 0;font-size:8px;line-height:1.2}.legend-entry{white-space:nowrap}.legend-entry i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px}
+    </style></head><body><header class="print-header"><div><h1>แผนที่เขตพื้นที่ส่งหมาย</h1><p>ศาลจังหวัดลพบุรี · แผนที่เต็มจังหวัด · A4 แนวนอน 1 แผ่น</p></div><p>${printedAt}</p></header><img class="print-map" src="${image}" alt="แผนที่เขตพื้นที่ส่งหมาย">${legend}</body></html>`);
     printWindow.document.close();
     printWindow.onload = () => printWindow.print();
   } catch (error) {

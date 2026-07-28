@@ -271,18 +271,31 @@ function addOverviewMapLayers() {
   map.addLayer({ id: "overview-tambon-outline", type: "line", source: "overview-tambons", minzoom: 6.4, paint: { "line-color": "#f6f9fa", "line-width": 0.6, "line-opacity": 0.86 } });
 }
 
-function fitProvinceOverview({ duration = 0 } = {}) {
+function provinceViewCenter({ focusCourt = true } = {}) {
+  const provinceCenter = boundsForFeature(overview.province.features[0]).getCenter();
+  if (!focusCourt || !overview?.courtAmphoes?.features?.length) return [provinceCenter.lng, provinceCenter.lat];
+  const courtCenter = boundsForCollection(overview.courtAmphoes).getCenter();
+  const weight = 0.58;
+  return [
+    provinceCenter.lng + (courtCenter.lng - provinceCenter.lng) * weight,
+    provinceCenter.lat + (courtCenter.lat - provinceCenter.lat) * weight,
+  ];
+}
+
+function fitProvinceOverview({ duration = 0, zoomBoost = 1, focusCourt = true } = {}) {
   if (!map) return;
   if (!overview?.province?.features?.[0]) return fitMap({ duration });
   mapViewport = "province";
   const bounds = boundsForFeature(overview.province.features[0]);
   const camera = map.cameraForBounds?.(bounds, { padding: mapPadding("province"), maxZoom: 10 });
+  const center = provinceViewCenter({ focusCourt });
   if (camera) {
-    provinceOverviewZoom = Math.min(camera.zoom + 1, 11);
-    map.easeTo({ ...camera, zoom: provinceOverviewZoom, pitch: mapIs3d ? 50 : 0, bearing: mapIs3d ? -15 : 0, duration });
+    provinceOverviewZoom = Math.min(camera.zoom + zoomBoost, 11);
+    map.easeTo({ ...camera, center, zoom: provinceOverviewZoom, pitch: mapIs3d ? 50 : 0, bearing: mapIs3d ? -15 : 0, duration });
   } else {
-    provinceOverviewZoom = 11;
+    provinceOverviewZoom = Math.min(10 + zoomBoost, 11);
     map.fitBounds(bounds, { padding: mapPadding("province"), maxZoom: 11, duration });
+    map.easeTo({ center, pitch: mapIs3d ? 50 : 0, bearing: mapIs3d ? -15 : 0, duration: 0 });
   }
   scheduleLabels();
 }

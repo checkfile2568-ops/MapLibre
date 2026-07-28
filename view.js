@@ -9,18 +9,18 @@ const SHARED_DATA_URL = "data/assignments.json";
 const VILLAGE_COUNTS_URL = "data/tambon-village-counts.json";
 const DISPLAY_VERSION = "V4";
 const DISPLAY_UPDATED_LABEL = "ปรับปรุงล่าสุด: 24 ก.ค. 2569";
-// These positions follow the side of Lop Buri's shared provincial boundaries.
-// They are an overview-only guide, so all neighbouring names remain visible on
-// a phone even though the opening camera intentionally starts one zoom level in.
+// Each anchor sits on the shared boundary in the static provincial map.  These
+// are MapLibre markers (not screen overlays), so their position is fixed to the
+// map ground and follows the map naturally while panning, zooming, or using 3D.
 const ADJACENT_PROVINCE_LABELS = [
-  { code: "TH60", name: "นครสวรรค์", position: "north-west" },
-  { code: "TH67", name: "เพชรบูรณ์", position: "north" },
-  { code: "TH36", name: "ชัยภูมิ", position: "north-east" },
-  { code: "TH17", name: "สิงห์บุรี", position: "west" },
-  { code: "TH30", name: "นครราชสีมา", position: "east" },
-  { code: "TH15", name: "อ่างทอง", position: "south-west" },
-  { code: "TH14", name: "พระนครศรีอยุธยา", position: "south" },
-  { code: "TH19", name: "สระบุรี", position: "south-east" },
+  { code: "TH60", name: "นครสวรรค์", coordinate: [100.522544, 15.153787], offset: [-10, -6] },
+  { code: "TH67", name: "เพชรบูรณ์", coordinate: [101.31767, 15.566629], offset: [5, -8] },
+  { code: "TH36", name: "ชัยภูมิ", coordinate: [101.376026, 15.462084], offset: [9, -3] },
+  { code: "TH17", name: "สิงห์บุรี", coordinate: [100.442714, 14.891092], offset: [-10, 0] },
+  { code: "TH30", name: "นครราชสีมา", coordinate: [101.391125, 15.202598], offset: [10, 0] },
+  { code: "TH15", name: "อ่างทอง", coordinate: [100.480677, 14.695508], offset: [-10, 7] },
+  { code: "TH14", name: "พระนครศรีอยุธยา", coordinate: [100.552849, 14.662485], offset: [-2, 10] },
+  { code: "TH19", name: "สระบุรี", coordinate: [100.878608, 14.76869], offset: [5, 10] },
 ];
 
 const dom = Object.fromEntries([
@@ -36,7 +36,7 @@ let state = Core.initialState();
 let villageCounts = {};
 let map = null;
 let revision = null;
-let markers = { tambon: [], district: [], context: [] };
+let markers = { tambon: [], district: [], context: [], province: [] };
 let ui = { selectedStaffId: "", selectedFeatureId: "", showTambonLabels: true, showDistrictLabels: true, showLegend: true };
 let resizeTimer = null;
 let overview = null;
@@ -537,38 +537,21 @@ function configureInteraction() {
 function clearMarkers(type) { for (const marker of markers[type]) marker.remove(); markers[type] = []; }
 function boxesOverlap(a, b) { return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top; }
 
-function clearProvinceOverviewContext() {
-  map?.getContainer()?.querySelector(".province-overview-context")?.remove();
-}
-
-function showProvinceOverviewContext() {
-  clearProvinceOverviewContext();
+function renderProvinceBoundaryLabels() {
   if (!map || mapViewport !== "province" || !overview?.country?.features?.length) return;
   if (map.getZoom() > (provinceOverviewZoom ?? 10) + 0.4) return;
-
-  const context = document.createElement("div");
-  context.className = "province-overview-context";
-
-  // The title is deliberately screen-centred at the opening overview. The
-  // neighbour labels are placed by direction so none disappear beyond a
-  // narrow mobile viewport.
-  const title = document.createElement("span");
-  title.className = "province-overview-title";
-  title.textContent = "จังหวัดลพบุรี";
-  title.setAttribute("aria-hidden", "true");
-  context.append(title);
 
   const availableCodes = new Set(overview.country.features.map((feature) => feature.properties?.prov_code));
   for (const entry of ADJACENT_PROVINCE_LABELS) {
     if (!availableCodes.has(entry.code)) continue;
     const element = document.createElement("span");
     element.className = "display-province-label";
-    element.dataset.position = entry.position;
     element.textContent = entry.name;
     element.setAttribute("aria-label", `จังหวัด${entry.name}`);
-    context.append(element);
+    markers.province.push(new maplibregl.Marker({ element, anchor: "center", offset: entry.offset })
+      .setLngLat(entry.coordinate)
+      .addTo(map));
   }
-  map.getContainer().append(context);
 }
 
 function renderOutsideDistrictLabels(bounds) {
@@ -613,10 +596,10 @@ function renderCompactDistrictLabels(bounds, filtered) {
 }
 
 function renderLabels() {
-  clearMarkers("tambon"); clearMarkers("district"); clearMarkers("context");
+  clearMarkers("tambon"); clearMarkers("district"); clearMarkers("context"); clearMarkers("province");
   if (!map?.isStyleLoaded()) return;
   const bounds = map.getBounds(); const filtered = currentFeatures(); const visible = filtered.filter((feature) => bounds.contains(centerForFeature(feature)));
-  showProvinceOverviewContext();
+  renderProvinceBoundaryLabels();
   const occupied = [];
   if (ui.showTambonLabels && map.getZoom() >= (provinceOverviewZoom ?? 10) + 0.75) {
     for (const feature of visible) {

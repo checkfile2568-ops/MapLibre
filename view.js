@@ -9,6 +9,19 @@ const SHARED_DATA_URL = "data/assignments.json";
 const VILLAGE_COUNTS_URL = "data/tambon-village-counts.json";
 const DISPLAY_VERSION = "V4";
 const DISPLAY_UPDATED_LABEL = "ปรับปรุงล่าสุด: 24 ก.ค. 2569";
+// These positions follow the side of Lop Buri's shared provincial boundaries.
+// They are an overview-only guide, so all neighbouring names remain visible on
+// a phone even though the opening camera intentionally starts one zoom level in.
+const ADJACENT_PROVINCE_LABELS = [
+  { code: "TH60", name: "นครสวรรค์", position: "north-west" },
+  { code: "TH67", name: "เพชรบูรณ์", position: "north" },
+  { code: "TH36", name: "ชัยภูมิ", position: "north-east" },
+  { code: "TH17", name: "สิงห์บุรี", position: "west" },
+  { code: "TH30", name: "นครราชสีมา", position: "east" },
+  { code: "TH15", name: "อ่างทอง", position: "south-west" },
+  { code: "TH14", name: "พระนครศรีอยุธยา", position: "south" },
+  { code: "TH19", name: "สระบุรี", position: "south-east" },
+];
 
 const dom = Object.fromEntries([
   "loading", "display-title", "search-input", "overview-stats", "updated-at", "data-status", "coverage-main", "coverage-exclusion",
@@ -524,6 +537,40 @@ function configureInteraction() {
 function clearMarkers(type) { for (const marker of markers[type]) marker.remove(); markers[type] = []; }
 function boxesOverlap(a, b) { return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top; }
 
+function clearProvinceOverviewContext() {
+  map?.getContainer()?.querySelector(".province-overview-context")?.remove();
+}
+
+function showProvinceOverviewContext() {
+  clearProvinceOverviewContext();
+  if (!map || mapViewport !== "province" || !overview?.country?.features?.length) return;
+  if (map.getZoom() > (provinceOverviewZoom ?? 10) + 0.4) return;
+
+  const context = document.createElement("div");
+  context.className = "province-overview-context";
+
+  // The title is deliberately screen-centred at the opening overview. The
+  // neighbour labels are placed by direction so none disappear beyond a
+  // narrow mobile viewport.
+  const title = document.createElement("span");
+  title.className = "province-overview-title";
+  title.textContent = "จังหวัดลพบุรี";
+  title.setAttribute("aria-hidden", "true");
+  context.append(title);
+
+  const availableCodes = new Set(overview.country.features.map((feature) => feature.properties?.prov_code));
+  for (const entry of ADJACENT_PROVINCE_LABELS) {
+    if (!availableCodes.has(entry.code)) continue;
+    const element = document.createElement("span");
+    element.className = "display-province-label";
+    element.dataset.position = entry.position;
+    element.textContent = entry.name;
+    element.setAttribute("aria-label", `จังหวัด${entry.name}`);
+    context.append(element);
+  }
+  map.getContainer().append(context);
+}
+
 function renderOutsideDistrictLabels(bounds) {
   if (!overview?.outsideAmphoes || !map) return;
   for (const feature of overview.outsideAmphoes.features) {
@@ -569,6 +616,7 @@ function renderLabels() {
   clearMarkers("tambon"); clearMarkers("district"); clearMarkers("context");
   if (!map?.isStyleLoaded()) return;
   const bounds = map.getBounds(); const filtered = currentFeatures(); const visible = filtered.filter((feature) => bounds.contains(centerForFeature(feature)));
+  showProvinceOverviewContext();
   const occupied = [];
   if (ui.showTambonLabels && map.getZoom() >= (provinceOverviewZoom ?? 10) + 0.75) {
     for (const feature of visible) {

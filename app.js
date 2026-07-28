@@ -885,7 +885,7 @@ function renderReportSummary() {
 function mapData() {
   return { type: "FeatureCollection", features: availableFeatures().map((feature) => {
     const id = Core.areaId(feature); const owner = getStaff(state.assignments[id]); const price = featurePrice(feature);
-    return { ...feature, id, properties: { ...feature.properties, id, color: owner ? owner.color : "#dce6ea", height: owner ? 1250 : 340, price: price ?? null } };
+    return { ...feature, id, properties: { ...feature.properties, id, color: owner ? owner.color : "#dce6ea", height: owner ? 1180 : 640, price: price ?? null } };
   }) };
 }
 
@@ -921,10 +921,10 @@ function addOverviewMapLayers() {
   map.addSource("country-provinces", { type: "geojson", data: overview.country });
   map.addSource("outside-amphoes", { type: "geojson", data: overview.outsideAmphoes });
   map.addSource("overview-tambons", { type: "geojson", data: overview.tambons });
-  map.addLayer({ id: "country-fill", type: "fill", source: "country-provinces", paint: { "fill-color": "#e7ecef", "fill-opacity": 1 } });
+  map.addLayer({ id: "country-fill", type: "fill", source: "country-provinces", paint: { "fill-color": "#f1f3f4", "fill-opacity": 1 } });
   map.addLayer({ id: "country-outline", type: "line", source: "country-provinces", paint: { "line-color": "#ffffff", "line-width": 0.75, "line-opacity": 0.95 } });
-  map.addLayer({ id: "outside-amphoe-fill", type: "fill", source: "outside-amphoes", paint: { "fill-color": "#d7dfe4", "fill-opacity": 0.9 } });
-  map.addLayer({ id: "outside-amphoe-3d", type: "fill-extrusion", source: "outside-amphoes", layout: { visibility: "none" }, paint: { "fill-extrusion-color": "#c6d1d7", "fill-extrusion-height": 720, "fill-extrusion-base": 0, "fill-extrusion-opacity": 0.86 } });
+  map.addLayer({ id: "outside-amphoe-fill", type: "fill", source: "outside-amphoes", paint: { "fill-color": "#e4eaed", "fill-opacity": 0.94 } });
+  map.addLayer({ id: "outside-amphoe-3d", type: "fill-extrusion", source: "outside-amphoes", layout: { visibility: "none" }, paint: { "fill-extrusion-color": "#d2dce1", "fill-extrusion-height": 620, "fill-extrusion-base": 0, "fill-extrusion-opacity": 0.92 } });
   map.addLayer({ id: "overview-tambon-outline", type: "line", source: "overview-tambons", minzoom: 6.4, paint: { "line-color": "#f6f9fa", "line-width": 0.6, "line-opacity": 0.86 } });
 }
 
@@ -987,7 +987,7 @@ function createMap() {
   if (!supportsWebGL() && !window.__MAPLIBRE_TEST__) throw new Error("อุปกรณ์นี้ไม่รองรับ WebGL กรุณาอัปเดต Chrome หรือ Android System WebView");
   map = new maplibregl.Map({
     container: "main-map",
-    style: { version: 8, sources: {}, layers: [{ id: "background", type: "background", paint: { "background-color": "#edf4f5" } }] },
+    style: { version: 8, sources: {}, layers: [{ id: "background", type: "background", paint: { "background-color": "#f6f7f8" } }] },
     center: [101.0, 13.7], zoom: 5.1, minZoom: 5, maxZoom: 12.5, pitch: 0, bearing: 0, antialias: true, preserveDrawingBuffer: true,
   });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
@@ -999,8 +999,8 @@ function createMap() {
     decorateMapControls();
     addOverviewMapLayers();
     map.addSource("tambons", { type: "geojson", data: mapData(), promoteId: "id" });
-    map.addLayer({ id: "tambon-ground", type: "fill", source: "tambons", paint: { "fill-color": ["get", "color"], "fill-opacity": 0.78 } });
-    map.addLayer({ id: "tambon-3d", type: "fill-extrusion", source: "tambons", layout: { visibility: "none" }, paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-height": ["get", "height"], "fill-extrusion-base": 0, "fill-extrusion-opacity": 0.82 } });
+    map.addLayer({ id: "tambon-ground", type: "fill", source: "tambons", paint: { "fill-color": ["get", "color"], "fill-opacity": 0.84 } });
+    map.addLayer({ id: "tambon-3d", type: "fill-extrusion", source: "tambons", layout: { visibility: "none" }, paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-height": ["get", "height"], "fill-extrusion-base": 0, "fill-extrusion-opacity": 0.9 } });
     map.addLayer({ id: "tambon-outline", type: "line", source: "tambons", paint: { "line-color": "#fff", "line-width": 1.1, "line-opacity": 0.96 } });
     const onTambonClick = (event) => { const id = String(event.features?.[0]?.properties?.id || ""); const feature = features.find((item) => Core.areaId(item) === id); if (feature) toggleFeatureFromMap(feature); };
     for (const layer of ["tambon-ground", "tambon-3d"]) {

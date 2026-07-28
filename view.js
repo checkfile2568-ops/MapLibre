@@ -106,7 +106,7 @@ function mapData() {
         ...feature.properties,
         id: Core.areaId(feature),
         color: dimmed ? "#dce5e9" : person ? person.color : (match && query ? "#e1a14d" : "#d4e1e6"),
-        height: dimmed ? 180 : (selected ? 2450 : (match && query ? 1450 : person ? 1100 : 320)),
+        height: dimmed ? 420 : (selected ? 1600 : (match && query ? 1280 : person ? 1100 : 640)),
       },
     };
   }) };
@@ -264,10 +264,10 @@ function addOverviewMapLayers() {
   map.addSource("country-provinces", { type: "geojson", data: overview.country });
   map.addSource("outside-amphoes", { type: "geojson", data: overview.outsideAmphoes });
   map.addSource("overview-tambons", { type: "geojson", data: overview.tambons });
-  map.addLayer({ id: "country-fill", type: "fill", source: "country-provinces", paint: { "fill-color": "#e7ecef", "fill-opacity": 1 } });
+  map.addLayer({ id: "country-fill", type: "fill", source: "country-provinces", paint: { "fill-color": "#f1f3f4", "fill-opacity": 1 } });
   map.addLayer({ id: "country-outline", type: "line", source: "country-provinces", paint: { "line-color": "#ffffff", "line-width": 0.75, "line-opacity": 0.95 } });
-  map.addLayer({ id: "outside-amphoe-fill", type: "fill", source: "outside-amphoes", paint: { "fill-color": "#d7dfe4", "fill-opacity": 0.9 } });
-  map.addLayer({ id: "outside-amphoe-3d", type: "fill-extrusion", source: "outside-amphoes", layout: { visibility: "none" }, paint: { "fill-extrusion-color": "#c6d1d7", "fill-extrusion-height": 720, "fill-extrusion-base": 0, "fill-extrusion-opacity": 0.86 } });
+  map.addLayer({ id: "outside-amphoe-fill", type: "fill", source: "outside-amphoes", paint: { "fill-color": "#e4eaed", "fill-opacity": 0.94 } });
+  map.addLayer({ id: "outside-amphoe-3d", type: "fill-extrusion", source: "outside-amphoes", layout: { visibility: "none" }, paint: { "fill-extrusion-color": "#d2dce1", "fill-extrusion-height": 620, "fill-extrusion-base": 0, "fill-extrusion-opacity": 0.92 } });
   map.addLayer({ id: "overview-tambon-outline", type: "line", source: "overview-tambons", minzoom: 6.4, paint: { "line-color": "#f6f9fa", "line-width": 0.6, "line-opacity": 0.86 } });
 }
 
@@ -352,7 +352,7 @@ function supportsWebGL() {
 function createMap() {
   if (!window.maplibregl) throw new Error("ไม่พบ MapLibre GL");
   if (!supportsWebGL() && !window.__MAPLIBRE_TEST__) throw new Error("อุปกรณ์นี้ไม่รองรับ WebGL");
-  map = new maplibregl.Map({ container: "display-map", style: { version: 8, sources: {}, layers: [{ id: "background", type: "background", paint: { "background-color": "#edf4f5" } }] }, center: [101.0, 13.7], zoom: 5.1, minZoom: 5, maxZoom: 12.5, pitch: 0, bearing: 0, antialias: true });
+  map = new maplibregl.Map({ container: "display-map", style: { version: 8, sources: {}, layers: [{ id: "background", type: "background", paint: { "background-color": "#f6f7f8" } }] }, center: [101.0, 13.7], zoom: 5.1, minZoom: 5, maxZoom: 12.5, pitch: 0, bearing: 0, antialias: true });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
   map.addControl({ onAdd() { const group = document.createElement("div"); group.className = "maplibregl-ctrl maplibregl-ctrl-group"; const btn = document.createElement("button"); btn.type = "button"; btn.className = "map-reset-button"; btn.textContent = "⌖"; btn.addEventListener("click", resetMapToOverview); group.append(btn); return group; }, onRemove() {} }, "top-right");
   map.addControl(createTrueNorthControl(), "top-left");
@@ -362,8 +362,8 @@ function createMap() {
     decorateMapControls();
     addOverviewMapLayers();
     map.addSource("tambons", { type: "geojson", data: mapData(), promoteId: "id" });
-    map.addLayer({ id: "tambon-ground", type: "fill", source: "tambons", paint: { "fill-color": ["get", "color"], "fill-opacity": .78 } });
-    map.addLayer({ id: "tambon-3d", type: "fill-extrusion", source: "tambons", layout: { visibility: "none" }, paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-height": ["get", "height"], "fill-extrusion-base": 0, "fill-extrusion-opacity": .84 } });
+    map.addLayer({ id: "tambon-ground", type: "fill", source: "tambons", paint: { "fill-color": ["get", "color"], "fill-opacity": .84 } });
+    map.addLayer({ id: "tambon-3d", type: "fill-extrusion", source: "tambons", layout: { visibility: "none" }, paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-height": ["get", "height"], "fill-extrusion-base": 0, "fill-extrusion-opacity": .9 } });
     map.addLayer({ id: "tambon-outline", type: "line", source: "tambons", paint: { "line-color": "#fff", "line-width": 1.1, "line-opacity": .96 } });
     const onTambonClick = (event) => { const id = String(event.features?.[0]?.properties?.id || ""); const feature = features.find((item) => Core.areaId(item) === id); if (feature) new maplibregl.Popup({ offset: 12 }).setLngLat(event.lngLat).setDOMContent(popupForFeature(feature)).addTo(map); };
     for (const layer of ["tambon-ground", "tambon-3d"]) map.on("click", layer, onTambonClick);

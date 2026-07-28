@@ -2,7 +2,6 @@
 
 const Core = window.MapLibreCore;
 const Overview = window.MapLibreOverview;
-const Landmarks = window.MapLibreLandmarks;
 const GIS_QUERY_URL = "https://services1.arcgis.com/jSaRWj2TDlcN1zOC/arcgis/rest/services/Thailand_Subdistrict_Boundaries_%28%E0%B8%82%E0%B9%89%E0%B8%AD%E0%B8%A1%E0%B8%B9%E0%B8%A5%E0%B8%82%E0%B8%AD%E0%B8%9A%E0%B9%80%E0%B8%82%E0%B8%95%E0%B8%95%E0%B8%B3%E0%B8%9A%E0%B8%A5%E0%B8%9B%E0%B8%A3%E0%B8%B0%E0%B9%80%E0%B8%97%E0%B8%A8%E0%B9%84%E0%B8%97%E0%B8%A2%29/FeatureServer/1/query";
 const SHARED_DATA_URL = "data/assignments.json";
 const SHARED_DATA_API = "https://api.github.com/repos/checkfile2568-ops/MapLibre/contents/data/assignments.json";
@@ -33,7 +32,6 @@ let mapViewport = "province";
 let mapIs3d = false;
 let provinceOverviewZoom = null;
 let mapCaptureMode = false;
-let landmarkLayer = null;
 let shared = { available: false, loading: false, error: null };
 let tokenCheck = { checking: false, valid: false, login: null, expiresAt: null };
 let toastTimer = null;
@@ -989,7 +987,6 @@ function setMap3d(enabled, { duration = 450 } = {}) {
     }
     map.easeTo({ pitch: mapIs3d ? 50 : 0, bearing: mapIs3d ? -15 : 0, duration });
   }
-  landmarkLayer?.update();
   renderMapControls();
 }
 
@@ -1026,7 +1023,6 @@ function createMap() {
       map.on("mouseenter", layer, () => { map.getCanvas().style.cursor = "pointer"; });
       map.on("mouseleave", layer, () => { map.getCanvas().style.cursor = ""; });
     }
-    landmarkLayer = Landmarks?.addToMap(map) || null;
     map.on("moveend", renderMapLabels);
     playIntroFlight();
   });
@@ -1202,7 +1198,7 @@ function renderMapLabels() {
 
 function scheduleMapLabels() { if (!map) return; const run = () => { if (!map.isStyleLoaded()) return; map.resize(); renderMapLabels(); }; map.once("idle", run); setTimeout(run, 220); }
 
-function updateMap() { if (map?.isStyleLoaded() && map.getSource("tambons")) map.getSource("tambons").setData(mapData()); landmarkLayer?.update(); renderMapLabels(); }
+function updateMap() { if (map?.isStyleLoaded() && map.getSource("tambons")) map.getSource("tambons").setData(mapData()); renderMapLabels(); }
 
 function renderMapControls() {
   if (dom.three_d_button) {

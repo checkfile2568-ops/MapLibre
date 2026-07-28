@@ -908,10 +908,11 @@ function boundsForCollection(collection) {
 }
 
 function mapPadding(view = "province") {
+  if (mapCaptureMode && view === "province") return { top: 44, right: 58, bottom: 66, left: 58 };
   const landscape = matchMedia?.("(orientation: landscape)")?.matches;
   if (view === "province") return landscape
     ? { top: 44, right: 30, bottom: 30, left: 30 }
-    : { top: 82, right: 18, bottom: 40, left: 18 };
+    : { top: 70, right: 18, bottom: 120, left: 18 };
   return landscape
     ? { top: 54, right: 48, bottom: 42, left: 48 }
     : { top: 104, right: 36, bottom: 52, left: 36 };
@@ -933,7 +934,7 @@ function provinceViewCenter({ focusCourt = true } = {}) {
   const provinceCenter = boundsForGeometry(overview.province.features[0].geometry).getCenter();
   if (!focusCourt || !overview?.courtAmphoes?.features?.length) return [provinceCenter.lng, provinceCenter.lat];
   const courtCenter = boundsForCollection(overview.courtAmphoes).getCenter();
-  const weight = 0.58;
+  const weight = 0.70;
   return [
     provinceCenter.lng + (courtCenter.lng - provinceCenter.lng) * weight,
     provinceCenter.lat + (courtCenter.lat - provinceCenter.lat) * weight,
@@ -1329,6 +1330,29 @@ async function captureCurrentMapImage() {
   return image;
 }
 
+function startPrintMapCaptureLayout() {
+  const mapElement = document.getElementById("main-map");
+  if (!mapElement) throw new Error("ไม่พบพื้นที่แผนที่สำหรับสร้างไฟล์");
+  const originalStyle = mapElement.getAttribute("style");
+  mapElement.classList.add("map-export-capture");
+  Object.assign(mapElement.style, {
+    position: "fixed",
+    left: "-100000px",
+    top: "0",
+    width: "1440px",
+    height: "820px",
+    minHeight: "0",
+    zIndex: "-1",
+  });
+  map.resize();
+  return () => {
+    mapElement.classList.remove("map-export-capture");
+    if (originalStyle === null) mapElement.removeAttribute("style");
+    else mapElement.setAttribute("style", originalStyle);
+    map.resize();
+  };
+}
+
 async function captureFullProvinceMapImage() {
   if (!map) throw new Error("แผนที่ยังไม่พร้อม");
   const center = map.getCenter();
@@ -1340,6 +1364,7 @@ async function captureFullProvinceMapImage() {
     viewport: mapViewport,
     overviewZoom: provinceOverviewZoom,
   };
+  const restoreCaptureLayout = startPrintMapCaptureLayout();
   try {
     mapCaptureMode = true;
     fitProvinceOverview({ duration: 0, zoomBoost: 0, focusCourt: false });
@@ -1348,6 +1373,7 @@ async function captureFullProvinceMapImage() {
     mapCaptureMode = false;
     mapViewport = previous.viewport;
     provinceOverviewZoom = previous.overviewZoom;
+    restoreCaptureLayout();
     map.jumpTo({ center: previous.center, zoom: previous.zoom, bearing: previous.bearing, pitch: previous.pitch });
     scheduleMapLabels();
   }
@@ -1441,10 +1467,10 @@ async function printProfessionalMapA4() {
     const legend = dom.print_legend.checked ? `<div class="print-legend">${printLegendMarkup()}</div>` : "";
     const printedAt = escapeHtml(new Date().toLocaleDateString("th-TH", { dateStyle: "medium" }));
     printWindow.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>แผนที่เขตพื้นที่ส่งหมาย</title><style>
-      @page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}html,body{width:281mm;height:194mm;overflow:hidden}body{margin:0;color:#142638;font-family:"Noto Sans Thai","Leelawadee UI",Tahoma,sans-serif}
+      @page{size:A4;margin:8mm}*{box-sizing:border-box}html,body{width:auto;height:auto;min-height:0;overflow:visible}body{margin:0;color:#142638;font-family:"Noto Sans Thai","Leelawadee UI",Tahoma,sans-serif}
       .print-header{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:4px}.print-header h1{margin:0;font-size:18px;color:#123d5a}.print-header p{margin:3px 0 0;font-size:9px;color:#607482}
-      .print-map{display:block;width:100%;height:172mm;object-fit:contain;background:#f6f7f8;border:1px solid #d8e3e9}.print-legend{display:flex;flex-wrap:wrap;gap:3px 9px;margin:4px 0 0;font-size:8px;line-height:1.2}.legend-entry{white-space:nowrap}.legend-entry i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px}
-    </style></head><body><header class="print-header"><div><h1>แผนที่เขตพื้นที่ส่งหมาย</h1><p>ศาลจังหวัดลพบุรี · แผนที่เต็มจังหวัด · A4 แนวนอน 1 แผ่น</p></div><p>${printedAt}</p></header><img class="print-map" src="${image}" alt="แผนที่เขตพื้นที่ส่งหมาย">${legend}</body></html>`);
+      .print-map{display:block;width:100%;height:auto;max-height:172mm;object-fit:contain;background:#f6f7f8;border:1px solid #d8e3e9}.print-legend{display:flex;flex-wrap:wrap;gap:3px 9px;margin:4px 0 0;font-size:8px;line-height:1.2}.legend-entry{white-space:nowrap}.legend-entry i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px}
+    </style></head><body><header class="print-header"><div><h1>แผนที่เขตพื้นที่ส่งหมาย</h1><p>ศาลจังหวัดลพบุรี · แผนที่เต็มจังหวัด · A4 1 แผ่น</p></div><p>${printedAt}</p></header><img class="print-map" src="${image}" alt="แผนที่เขตพื้นที่ส่งหมาย">${legend}</body></html>`);
     printWindow.document.close();
     printWindow.onload = () => printWindow.print();
   } catch (error) {

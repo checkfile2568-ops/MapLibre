@@ -2,6 +2,7 @@
 
 const Core = window.MapLibreCore;
 const Overview = window.MapLibreOverview;
+const Landmarks = window.MapLibreLandmarks;
 // Keep this endpoint identical to the management page.  The former
 // display-only endpoint returned HTTP 400, so MapLibre was never created.
 const GIS_QUERY_URL = "https://services1.arcgis.com/jSaRWj2TDlcN1zOC/arcgis/rest/services/Thailand_Subdistrict_Boundaries_%28%E0%B8%82%E0%B9%89%E0%B8%AD%E0%B8%A1%E0%B8%B9%E0%B8%A5%E0%B8%82%E0%B8%AD%E0%B8%9A%E0%B9%80%E0%B8%82%E0%B8%95%E0%B8%95%E0%B8%B3%E0%B8%9A%E0%B8%A5%E0%B8%9B%E0%B8%A3%E0%B8%B0%E0%B9%80%E0%B8%97%E0%B8%A8%E0%B9%84%E0%B8%97%E0%B8%A2%29/FeatureServer/1/query";
@@ -470,6 +471,7 @@ function createMap() {
     map.addLayer({ id: "tambon-outline", type: "line", source: "tambons", paint: { "line-color": "#fff", "line-width": 1.1, "line-opacity": .96 } });
     const onTambonClick = (event) => { const id = String(event.features?.[0]?.properties?.id || ""); const feature = features.find((item) => Core.areaId(item) === id); if (feature) { showTambonInfoCard(feature); new maplibregl.Popup({ offset: 12 }).setLngLat(event.lngLat).setDOMContent(popupForFeature(feature)).addTo(map); } };
     for (const layer of ["tambon-ground", "tambon-3d"]) map.on("click", layer, onTambonClick);
+    Landmarks?.addToMap(map);
     map.on("moveend", renderLabels);
     playIntroFlight();
   });

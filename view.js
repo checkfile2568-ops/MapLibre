@@ -31,6 +31,7 @@ let overview = null;
 let mapViewport = "province";
 let mapIs3d = false;
 let provinceOverviewZoom = null;
+let landmarkLayer = null;
 
 function sharedDataUrl() {
   const url = new URL(SHARED_DATA_URL, location.href);
@@ -200,6 +201,19 @@ function mapData() {
       },
     };
   }) };
+}
+
+function landmarkSurfaceElevation(landmark) {
+  if (!mapIs3d) return 0;
+  const feature = features.find((candidate) => Core.areaId(candidate) === landmark.areaId);
+  if (!feature) return 0;
+  const query = searchText();
+  const person = owner(feature);
+  const match = matchesDisplay(feature, query);
+  const filtered = Boolean(query || ui.selectedStaffId);
+  const dimmed = filtered && !match;
+  const selected = Boolean(ui.selectedStaffId && person?.id === ui.selectedStaffId);
+  return dimmed ? 420 : (selected ? 1600 : (match && query ? 1280 : person ? 1100 : 640));
 }
 
 function formatDate(value) {
@@ -409,6 +423,7 @@ function setMap3d(enabled, { duration = 450 } = {}) {
     }
     map.easeTo({ pitch: mapIs3d ? 50 : 0, bearing: mapIs3d ? -15 : 0, duration });
   }
+  landmarkLayer?.update();
   renderControls();
 }
 
@@ -471,7 +486,7 @@ function createMap() {
     map.addLayer({ id: "tambon-outline", type: "line", source: "tambons", paint: { "line-color": "#fff", "line-width": 1.1, "line-opacity": .96 } });
     const onTambonClick = (event) => { const id = String(event.features?.[0]?.properties?.id || ""); const feature = features.find((item) => Core.areaId(item) === id); if (feature) { showTambonInfoCard(feature); new maplibregl.Popup({ offset: 12 }).setLngLat(event.lngLat).setDOMContent(popupForFeature(feature)).addTo(map); } };
     for (const layer of ["tambon-ground", "tambon-3d"]) map.on("click", layer, onTambonClick);
-    Landmarks?.addToMap(map);
+    landmarkLayer = Landmarks?.addToMap(map, { getSurfaceElevation: landmarkSurfaceElevation }) || null;
     map.on("moveend", renderLabels);
     playIntroFlight();
   });
@@ -594,6 +609,7 @@ function scheduleLabels() { if (!map) return; const run = () => { if (!map.isSty
 
 function updateMap() {
   if (map?.isStyleLoaded() && map.getSource("tambons")) map.getSource("tambons").setData(mapData());
+  landmarkLayer?.update();
   renderLabels(); renderSearchResults();
 }
 

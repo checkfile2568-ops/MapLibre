@@ -33,6 +33,7 @@ let mapViewport = "province";
 let mapIs3d = false;
 let provinceOverviewZoom = null;
 let mapCaptureMode = false;
+let landmarkLayer = null;
 let shared = { available: false, loading: false, error: null };
 let tokenCheck = { checking: false, valid: false, login: null, expiresAt: null };
 let toastTimer = null;
@@ -891,6 +892,13 @@ function mapData() {
   }) };
 }
 
+function landmarkSurfaceElevation(landmark) {
+  if (!mapIs3d) return 0;
+  const feature = availableFeatures().find((candidate) => Core.areaId(candidate) === landmark.areaId);
+  if (!feature) return 0;
+  return getStaff(state.assignments[Core.areaId(feature)]) ? 1180 : 640;
+}
+
 function supportsWebGL() {
   if (!window.WebGLRenderingContext) return false;
   try { const canvas = document.createElement("canvas"); return Boolean(canvas.getContext("webgl2") || canvas.getContext("webgl")); } catch { return false; }
@@ -988,6 +996,7 @@ function setMap3d(enabled, { duration = 450 } = {}) {
     }
     map.easeTo({ pitch: mapIs3d ? 50 : 0, bearing: mapIs3d ? -15 : 0, duration });
   }
+  landmarkLayer?.update();
   renderMapControls();
 }
 
@@ -1024,7 +1033,7 @@ function createMap() {
       map.on("mouseenter", layer, () => { map.getCanvas().style.cursor = "pointer"; });
       map.on("mouseleave", layer, () => { map.getCanvas().style.cursor = ""; });
     }
-    Landmarks?.addToMap(map);
+    landmarkLayer = Landmarks?.addToMap(map, { getSurfaceElevation: landmarkSurfaceElevation }) || null;
     map.on("moveend", renderMapLabels);
     playIntroFlight();
   });
@@ -1200,7 +1209,7 @@ function renderMapLabels() {
 
 function scheduleMapLabels() { if (!map) return; const run = () => { if (!map.isStyleLoaded()) return; map.resize(); renderMapLabels(); }; map.once("idle", run); setTimeout(run, 220); }
 
-function updateMap() { if (map?.isStyleLoaded() && map.getSource("tambons")) map.getSource("tambons").setData(mapData()); renderMapLabels(); }
+function updateMap() { if (map?.isStyleLoaded() && map.getSource("tambons")) map.getSource("tambons").setData(mapData()); landmarkLayer?.update(); renderMapLabels(); }
 
 function renderMapControls() {
   if (dom.three_d_button) {

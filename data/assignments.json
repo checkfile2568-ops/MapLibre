@@ -200,7 +200,7 @@
   "showLabels": true,
   "showDistrictLabels": true,
   "showLegend": true,
-  "showPriceLabels": false,
+  "showPriceLabels": true,
   "publishPrices": false,
-  "updatedAt": "2026-08-03T06:31:50.751Z"
+  "updatedAt": "2026-08-03T06:32:45.575Z"
 }

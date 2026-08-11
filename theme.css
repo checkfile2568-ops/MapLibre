@@ -215,3 +215,34 @@ option{background:#081d43;color:#edf5ff}
   .app-shell{grid-template-columns:1fr;padding:9px}.display-shell{padding:9px}.panel-section{padding:14px}
   .summary-pills{justify-content:flex-start}.summary-pill{min-width:0;flex:1 1 145px}
 }
+
+/* Quiet rainbow orbit: visible only while searching or viewing a selected owner. */
+@property --rainbow-orbit {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes rainbow-border-orbit {
+  to { --rainbow-orbit: 360deg; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .search-box input:focus,
+  .legend-item[aria-pressed=true] {
+    border:2px solid transparent;
+    background:
+      linear-gradient(135deg,rgb(6 29 69 / 98%),rgb(8 39 87 / 98%)) padding-box,
+      conic-gradient(
+        from var(--rainbow-orbit),
+        rgb(104 191 255 / 28%),
+        rgb(163 125 255 / 34%),
+        rgb(255 132 193 / 32%),
+        rgb(255 217 130 / 30%),
+        rgb(109 230 198 / 32%),
+        rgb(104 191 255 / 28%)
+      ) border-box;
+    animation:rainbow-border-orbit 13s linear infinite;
+    box-shadow:0 0 12px rgb(93 181 255 / 15%);
+  }
+  .search-box input:focus{outline:none}
+  .legend-item[aria-pressed=true]{box-shadow:0 0 14px rgb(93 181 255 / 18%)}
+}

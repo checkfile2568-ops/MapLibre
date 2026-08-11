@@ -216,7 +216,7 @@ option{background:#081d43;color:#edf5ff}
   .summary-pills{justify-content:flex-start}.summary-pill{min-width:0;flex:1 1 145px}
 }
 
-/* Quiet rainbow orbit: visible only while searching or viewing a selected owner. */
+/* Bright rainbow orbit: visible only while searching or viewing a selected owner. */
 @property --rainbow-orbit {
   syntax: "<angle>";
   inherits: false;
@@ -225,24 +225,24 @@ option{background:#081d43;color:#edf5ff}
 @keyframes rainbow-border-orbit {
   to { --rainbow-orbit: 360deg; }
 }
-@media (prefers-reduced-motion: no-preference) {
-  .search-box input:focus,
-  .legend-item[aria-pressed=true] {
-    border:2px solid transparent;
-    background:
-      linear-gradient(135deg,rgb(6 29 69 / 98%),rgb(8 39 87 / 98%)) padding-box,
-      conic-gradient(
-        from var(--rainbow-orbit),
-        rgb(104 191 255 / 28%),
-        rgb(163 125 255 / 34%),
-        rgb(255 132 193 / 32%),
-        rgb(255 217 130 / 30%),
-        rgb(109 230 198 / 32%),
-        rgb(104 191 255 / 28%)
-      ) border-box;
-    animation:rainbow-border-orbit 13s linear infinite;
-    box-shadow:0 0 12px rgb(93 181 255 / 15%);
-  }
-  .search-box input:focus{outline:none}
-  .legend-item[aria-pressed=true]{box-shadow:0 0 14px rgb(93 181 255 / 18%)}
+.search-box input:focus,
+.legend-item[aria-pressed=true] {
+  --rainbow-orbit:0deg;
+  border:2px solid transparent!important;
+  background:
+    linear-gradient(135deg,#061d45,#092e67) padding-box,
+    conic-gradient(
+      from var(--rainbow-orbit,0deg),
+      #16c9ff 0deg,
+      #7a66ff 72deg,
+      #f34fbd 144deg,
+      #ff8b3d 216deg,
+      #f6ef5e 270deg,
+      #2cf0b1 324deg,
+      #16c9ff 360deg
+    ) border-box!important;
+  animation:rainbow-border-orbit 8s linear infinite!important;
+  box-shadow:0 0 5px rgb(40 205 255 / 80%),0 0 15px rgb(122 102 255 / 58%),0 0 24px rgb(243 79 189 / 30%);
 }
+.search-box input:focus{outline:none!important}
+.legend-item[aria-pressed=true]{box-shadow:0 0 6px rgb(40 205 255 / 86%),0 0 17px rgb(122 102 255 / 60%),0 0 26px rgb(243 79 189 / 34%)}

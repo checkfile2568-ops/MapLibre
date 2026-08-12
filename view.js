@@ -24,7 +24,7 @@ const ADJACENT_PROVINCE_LABELS = [
 ];
 
 const dom = Object.fromEntries([
-  "loading", "display-title", "search-input", "overview-stats", "updated-at", "data-status", "coverage-main", "coverage-exclusion",
+  "loading", "display-title", "map-title", "search-input", "overview-stats", "updated-at", "data-status", "coverage-main", "coverage-exclusion",
   "display-content", "search-menu", "legend-panel", "legend", "search-results", "central-notice", "toggle-tambon-labels", "toggle-district-labels",
   "toggle-legend-button", "staff-filter", "clear-staff-filter", "person-detail", "price-privacy-note",
   "province-overview-button", "tambon-view-button", "three-d-button", "staff-area-summary-card", "staff-area-summary-title",
@@ -42,8 +42,10 @@ let ui = { selectedStaffId: "", selectedFeatureId: "", showTambonLabels: true, s
 let resizeTimer = null;
 let overview = null;
 let mapViewport = "province";
-let mapIs3d = false;
+let mapIs3d = true;
 let provinceOverviewZoom = null;
+const INTRO_DELAY = 320;
+const INTRO_DURATION = 2600;
 
 function sharedDataUrl() {
   const url = new URL(SHARED_DATA_URL, location.href);
@@ -72,6 +74,24 @@ function typeTitle() {
   let index = 0;
   const tick = () => { title.textContent += graphemes[index] || ""; index += 1; if (index < graphemes.length) setTimeout(tick, 75); };
   setTimeout(tick, 420);
+}
+
+function typeMapTitle({ duration = INTRO_DELAY + INTRO_DURATION } = {}) {
+  const title = dom.map_title;
+  if (!title || title.dataset.typed === "true") return;
+  const fullText = title.dataset.text || title.textContent.trim();
+  const graphemes = typeof Intl.Segmenter === "function" ? [...new Intl.Segmenter("th", { granularity: "grapheme" }).segment(fullText)].map((item) => item.segment) : Array.from(fullText);
+  title.dataset.typed = "true";
+  title.setAttribute("aria-label", fullText);
+  title.textContent = "";
+  const startedAt = performance.now();
+  const draw = (now) => {
+    const progress = Math.min((now - startedAt) / duration, 1);
+    title.textContent = graphemes.slice(0, Math.floor(graphemes.length * progress)).join("");
+    if (progress < 1) requestAnimationFrame(draw);
+    else title.textContent = fullText;
+  };
+  requestAnimationFrame(draw);
 }
 
 function areaPrice(feature) {
@@ -481,10 +501,12 @@ function setMap3d(enabled, { duration = 700 } = {}) {
 }
 
 function playIntroFlight() {
-  if (!map || !overview) return fitMap();
-  setMap3d(false, { duration: 0 });
+  if (!map) return;
+  typeMapTitle();
+  setMap3d(true, { duration: 0 });
+  if (!overview) return fitMap({ duration: INTRO_DURATION });
   map.fitBounds(boundsForCollection(overview.country), { padding: mapPadding("province"), duration: 0, maxZoom: 6.2 });
-  setTimeout(() => fitProvinceOverview({ duration: 1900 }), 280);
+  setTimeout(() => fitProvinceOverview({ duration: INTRO_DURATION }), INTRO_DELAY);
 }
 
 function focusFeature(feature) {
@@ -524,7 +546,7 @@ function supportsWebGL() {
 function createMap() {
   if (!window.maplibregl) throw new Error("ไม่พบ MapLibre GL");
   if (!supportsWebGL() && !window.__MAPLIBRE_TEST__) throw new Error("อุปกรณ์นี้ไม่รองรับ WebGL");
-  map = new maplibregl.Map({ container: "display-map", style: { version: 8, sources: {}, layers: [{ id: "background", type: "background", paint: { "background-color": "#f6f7f8" } }] }, center: [101.0, 13.7], zoom: 5.1, minZoom: 5, maxZoom: 12.5, pitch: 0, bearing: 0, antialias: true });
+  map = new maplibregl.Map({ container: "display-map", style: { version: 8, sources: {}, layers: [{ id: "background", type: "background", paint: { "background-color": "#f6f7f8" } }] }, center: [101.0, 13.7], zoom: 5.1, minZoom: 5, maxZoom: 12.5, ...mapPerspective(), antialias: true });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
   map.addControl({ onAdd() { const group = document.createElement("div"); group.className = "maplibregl-ctrl maplibregl-ctrl-group"; const btn = document.createElement("button"); btn.type = "button"; btn.className = "map-reset-button"; btn.textContent = "⌖"; btn.addEventListener("click", resetMapToOverview); group.append(btn); return group; }, onRemove() {} }, "top-right");
   map.addControl(createTrueNorthControl(), "top-left");

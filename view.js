@@ -244,7 +244,7 @@ function mapData() {
         ...feature.properties,
         id: Core.areaId(feature),
         color: dimmed ? "#dce5e9" : person ? person.color : (match && query ? "#e1a14d" : "#d4e1e6"),
-        height: dimmed ? 420 : (selected ? 1600 : (match && query ? 1280 : person ? 1100 : 640)),
+        height: dimmed ? 620 : (selected ? 3900 : (match && query ? 3200 : person ? 2450 : 1250)),
       },
     };
   }) };
@@ -348,7 +348,8 @@ function renderPersonDetail() {
 
 function renderControls() {
   dom.three_d_button.setAttribute("aria-pressed", String(mapIs3d));
-  dom.three_d_button.textContent = mapIs3d ? "◧ มุมมอง 3D" : "▱ มุมมองปกติ";
+  dom.three_d_button.setAttribute("aria-label", mapIs3d ? "กลับสู่มุมมองปกติ" : "เปิดมุมมอง 3 มิติ");
+  dom.three_d_button.textContent = mapIs3d ? "▱ มุมมองปกติ" : "◧ มุมมอง 3D";
   dom.toggle_tambon_labels.setAttribute("aria-checked", String(ui.showTambonLabels));
   dom.toggle_district_labels.setAttribute("aria-checked", String(ui.showDistrictLabels));
   dom.legend_panel.hidden = !ui.showLegend; dom.search_menu.classList.toggle("legend-hidden", !ui.showLegend); dom.toggle_legend_button.setAttribute("aria-checked", String(ui.showLegend));
@@ -398,6 +399,24 @@ function mapPadding(view = "province") {
     : { top: 104, right: 36, bottom: 52, left: 36 };
 }
 
+function mapPerspective() {
+  return mapIs3d ? { pitch: 58, bearing: -24 } : { pitch: 0, bearing: 0 };
+}
+
+function smoothCamera(progress) {
+  return progress < .5 ? 4 * progress ** 3 : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+}
+
+function easeToBounds(bounds, { padding, maxZoom, duration = 650 } = {}) {
+  const camera = map?.cameraForBounds?.(bounds, { padding, maxZoom });
+  if (camera) {
+    map.easeTo({ ...camera, ...mapPerspective(), duration, easing: smoothCamera });
+    return;
+  }
+  map.fitBounds(bounds, { padding, maxZoom, duration: 0 });
+  map.easeTo({ ...mapPerspective(), duration, easing: smoothCamera });
+}
+
 function addOverviewMapLayers() {
   if (!overview) return;
   map.addSource("country-provinces", { type: "geojson", data: overview.country });
@@ -406,7 +425,7 @@ function addOverviewMapLayers() {
   map.addLayer({ id: "country-fill", type: "fill", source: "country-provinces", paint: { "fill-color": "#f1f3f4", "fill-opacity": 1 } });
   map.addLayer({ id: "country-outline", type: "line", source: "country-provinces", paint: { "line-color": "#ffffff", "line-width": 0.75, "line-opacity": 0.95 } });
   map.addLayer({ id: "outside-amphoe-fill", type: "fill", source: "outside-amphoes", paint: { "fill-color": "#e4eaed", "fill-opacity": 0.94 } });
-  map.addLayer({ id: "outside-amphoe-3d", type: "fill-extrusion", source: "outside-amphoes", layout: { visibility: "none" }, paint: { "fill-extrusion-color": "#d2dce1", "fill-extrusion-height": 620, "fill-extrusion-base": 0, "fill-extrusion-opacity": 0.92 } });
+  map.addLayer({ id: "outside-amphoe-3d", type: "fill-extrusion", source: "outside-amphoes", layout: { visibility: "none" }, paint: { "fill-extrusion-color": "#d2dce1", "fill-extrusion-height": 880, "fill-extrusion-base": 0, "fill-extrusion-opacity": 0.9 } });
   map.addLayer({ id: "overview-tambon-outline", type: "line", source: "overview-tambons", minzoom: 6.4, paint: { "line-color": "#f6f9fa", "line-width": 0.6, "line-opacity": 0.86 } });
 }
 
@@ -430,11 +449,11 @@ function fitProvinceOverview({ duration = 0, zoomBoost = 1, focusCourt = true } 
   const center = provinceViewCenter({ focusCourt });
   if (camera) {
     provinceOverviewZoom = Math.min(camera.zoom + zoomBoost, 11);
-    map.easeTo({ ...camera, center, zoom: provinceOverviewZoom, pitch: mapIs3d ? 50 : 0, bearing: mapIs3d ? -15 : 0, duration });
+    map.easeTo({ ...camera, center, zoom: provinceOverviewZoom, ...mapPerspective(), duration, easing: smoothCamera });
   } else {
     provinceOverviewZoom = Math.min(10 + zoomBoost, 11);
     map.fitBounds(bounds, { padding: mapPadding("province"), maxZoom: 11, duration });
-    map.easeTo({ center, pitch: mapIs3d ? 50 : 0, bearing: mapIs3d ? -15 : 0, duration: 0 });
+    map.easeTo({ center, ...mapPerspective(), duration: 0 });
   }
   scheduleLabels();
 }
@@ -446,39 +465,39 @@ function showTambonView() {
   }
   if (!map) return;
   mapViewport = "detail";
-  map.easeTo({ center: map.getCenter(), zoom: Math.max(map.getZoom(), 10.2), duration: 450 });
+  map.easeTo({ center: map.getCenter(), zoom: Math.max(map.getZoom(), 10.2), ...mapPerspective(), duration: mapIs3d ? 700 : 450, easing: smoothCamera });
   scheduleLabels();
 }
 
-function setMap3d(enabled, { duration = 450 } = {}) {
+function setMap3d(enabled, { duration = 700 } = {}) {
   mapIs3d = Boolean(enabled);
   if (map?.isStyleLoaded()) {
     for (const layer of ["tambon-3d", "outside-amphoe-3d"]) {
       if (map.getLayer(layer)) map.setLayoutProperty(layer, "visibility", mapIs3d ? "visible" : "none");
     }
-    map.easeTo({ pitch: mapIs3d ? 50 : 0, bearing: mapIs3d ? -15 : 0, duration });
+    map.easeTo({ ...mapPerspective(), duration, easing: smoothCamera });
   }
   renderControls();
 }
 
 function playIntroFlight() {
   if (!map || !overview) return fitMap();
-  setMap3d(true, { duration: 0 });
+  setMap3d(false, { duration: 0 });
   map.fitBounds(boundsForCollection(overview.country), { padding: mapPadding("province"), duration: 0, maxZoom: 6.2 });
   setTimeout(() => fitProvinceOverview({ duration: 1900 }), 280);
 }
 
 function focusFeature(feature) {
   mapViewport = "detail";
-  const bounds = boundsForFeature(feature); map.fitBounds(bounds, { padding: 70, maxZoom: 12.2, duration: 500 });
+  const bounds = boundsForFeature(feature); easeToBounds(bounds, { padding: 70, maxZoom: 12.2, duration: mapIs3d ? 720 : 520 });
   showTambonInfoCard(feature);
-  setTimeout(() => new maplibregl.Popup({ offset: 12 }).setLngLat(bounds.getCenter()).setDOMContent(popupForFeature(feature)).addTo(map), 520);
+  setTimeout(() => new maplibregl.Popup({ offset: 12 }).setLngLat(bounds.getCenter()).setDOMContent(popupForFeature(feature)).addTo(map), mapIs3d ? 740 : 540);
 }
 
 function focusFeatures(items) {
   if (!items.length) return;
   mapViewport = "staff";
-  const bounds = new maplibregl.LngLatBounds(); for (const feature of items) bounds.extend(boundsForFeature(feature)); map.fitBounds(bounds, { padding: mapPadding("detail"), maxZoom: 11.5, duration: 500 });
+  const bounds = new maplibregl.LngLatBounds(); for (const feature of items) bounds.extend(boundsForFeature(feature)); easeToBounds(bounds, { padding: mapPadding("detail"), maxZoom: 11.5, duration: mapIs3d ? 760 : 540 });
 }
 
 function fitMap({ duration = 0 } = {}) {
@@ -516,7 +535,7 @@ function createMap() {
     addOverviewMapLayers();
     map.addSource("tambons", { type: "geojson", data: mapData(), promoteId: "id" });
     map.addLayer({ id: "tambon-ground", type: "fill", source: "tambons", paint: { "fill-color": ["get", "color"], "fill-opacity": .84 } });
-    map.addLayer({ id: "tambon-3d", type: "fill-extrusion", source: "tambons", layout: { visibility: "none" }, paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-height": ["get", "height"], "fill-extrusion-base": 0, "fill-extrusion-opacity": .9 } });
+    map.addLayer({ id: "tambon-3d", type: "fill-extrusion", source: "tambons", layout: { visibility: "none" }, paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-height": ["get", "height"], "fill-extrusion-base": 0, "fill-extrusion-opacity": .96 } });
     map.addLayer({ id: "tambon-outline", type: "line", source: "tambons", paint: { "line-color": "#fff", "line-width": 1.1, "line-opacity": .96 } });
     const onTambonClick = (event) => { const id = String(event.features?.[0]?.properties?.id || ""); const feature = features.find((item) => Core.areaId(item) === id); if (feature) { showTambonInfoCard(feature); new maplibregl.Popup({ offset: 12 }).setLngLat(event.lngLat).setDOMContent(popupForFeature(feature)).addTo(map); } };
     for (const layer of ["tambon-ground", "tambon-3d"]) map.on("click", layer, onTambonClick);

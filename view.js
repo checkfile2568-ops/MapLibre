@@ -27,7 +27,8 @@ const dom = Object.fromEntries([
   "loading", "display-title", "search-input", "overview-stats", "updated-at", "data-status", "coverage-main", "coverage-exclusion",
   "display-content", "search-menu", "legend-panel", "legend", "search-results", "central-notice", "toggle-tambon-labels", "toggle-district-labels",
   "toggle-legend-button", "staff-filter", "clear-staff-filter", "person-detail", "price-privacy-note",
-  "province-overview-button", "tambon-view-button", "three-d-button", "tambon-info-card", "close-tambon-info-button",
+  "province-overview-button", "tambon-view-button", "three-d-button", "staff-area-summary-card", "staff-area-summary-title",
+  "staff-area-summary-groups", "tambon-info-card", "close-tambon-info-button",
   "tambon-info-title", "tambon-info-district", "tambon-info-list"
 ].map((id) => [id.replaceAll("-", "_"), document.getElementById(id)]));
 
@@ -167,9 +168,44 @@ function renderTambonInfoCard() {
   }));
 }
 
+function renderStaffAreaSummary() {
+  const person = state.staff.find((item) => item.id === ui.selectedStaffId);
+  const showSummary = Boolean(person && !ui.selectedFeatureId);
+  dom.staff_area_summary_card.hidden = !showSummary;
+  dom.staff_area_summary_groups.replaceChildren();
+  if (!showSummary) return;
+
+  dom.staff_area_summary_title.textContent = `ผู้รับผิดชอบ: ${person.name}`;
+  const byDistrict = new Map();
+  for (const feature of features.filter((item) => owner(item)?.id === person.id)) {
+    const district = Core.districtName(feature);
+    if (!byDistrict.has(district)) byDistrict.set(district, []);
+    byDistrict.get(district).push(feature);
+  }
+
+  const fragment = document.createDocumentFragment();
+  for (const [district, districtFeatures] of [...byDistrict.entries()].sort(([a], [b]) => a.localeCompare(b, "th"))) {
+    const group = document.createElement("section");
+    group.className = "staff-area-summary-district";
+    const heading = document.createElement("h4");
+    heading.textContent = `อำเภอ${district}`;
+    const tambons = document.createElement("div");
+    tambons.className = "staff-area-summary-tambons";
+    for (const feature of districtFeatures.sort((a, b) => Core.tambonName(a).localeCompare(Core.tambonName(b), "th"))) {
+      const tambon = document.createElement("span");
+      tambon.textContent = `ตำบล${Core.tambonName(feature)}`;
+      tambons.append(tambon);
+    }
+    group.append(heading, tambons);
+    fragment.append(group);
+  }
+  dom.staff_area_summary_groups.append(fragment);
+}
+
 function showTambonInfoCard(feature) {
   ui.selectedFeatureId = Core.areaId(feature);
   renderTambonInfoCard();
+  renderStaffAreaSummary();
 }
 
 function searchText() {
@@ -320,9 +356,10 @@ function renderControls() {
 
 function selectStaff(id, focus = false) {
   ui.selectedStaffId = id;
+  ui.selectedFeatureId = "";
   dom.staff_filter.value = id;
   dom.clear_staff_filter.hidden = !id;
-  renderStats(); renderLegend(); renderPersonDetail(); updateMap();
+  renderStats(); renderLegend(); renderPersonDetail(); renderTambonInfoCard(); renderStaffAreaSummary(); updateMap();
   if (focus) {
     if (id) focusFeatures(features.filter((feature) => owner(feature)?.id === id));
     else fitProvinceOverview({ duration: 500 });
@@ -644,7 +681,7 @@ async function refreshData() {
     const raw = await response.json(); const nextRevision = raw.updatedAt || JSON.stringify(raw);
     if (nextRevision === revision) return renderDataStatus(true);
     state = Core.filterStateToFeatures(Core.normalizeState(raw), features); revision = nextRevision;
-    renderStaffFilter(); renderStats(); renderLegend(); renderPersonDetail(); renderControls(); renderTambonInfoCard(); updateMap();
+    renderStaffFilter(); renderStats(); renderLegend(); renderPersonDetail(); renderControls(); renderTambonInfoCard(); renderStaffAreaSummary(); updateMap();
   } catch (error) { console.warn(error); renderDataStatus(false); }
 }
 
@@ -655,7 +692,7 @@ function bindEvents() {
   dom.province_overview_button.addEventListener("click", () => resetMapToOverview());
   dom.tambon_view_button.addEventListener("click", showTambonView);
   dom.three_d_button.addEventListener("click", () => setMap3d(!mapIs3d));
-  dom.close_tambon_info_button.addEventListener("click", () => { ui.selectedFeatureId = ""; renderTambonInfoCard(); });
+  dom.close_tambon_info_button.addEventListener("click", () => { ui.selectedFeatureId = ""; renderTambonInfoCard(); renderStaffAreaSummary(); });
   dom.toggle_tambon_labels.addEventListener("click", () => { ui.showTambonLabels = !ui.showTambonLabels; renderControls(); renderLabels(); });
   dom.toggle_district_labels.addEventListener("click", () => { ui.showDistrictLabels = !ui.showDistrictLabels; renderControls(); renderLabels(); });
   dom.toggle_legend_button.addEventListener("click", () => { ui.showLegend = !ui.showLegend; renderControls(); refitViewport(); });
@@ -672,7 +709,7 @@ async function init() {
   typeTitle();
   try {
     await Promise.all([loadData(), loadOverviewMapData()]);
-    renderStaffFilter(); renderStats(); renderLegend(); renderPersonDetail(); renderControls(); createMap(); bindEvents();
+    renderStaffFilter(); renderStats(); renderLegend(); renderPersonDetail(); renderControls(); renderStaffAreaSummary(); createMap(); bindEvents();
     setInterval(refreshData, 30000);
   } catch (error) {
     console.error(error); dom.updated_at.textContent = error.message || "ไม่สามารถโหลดข้อมูลได้"; renderDataStatus(false);

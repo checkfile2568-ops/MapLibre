@@ -180,12 +180,13 @@ option{background:#081d43;color:#edf5ff}
 .staff-area-summary-card{
   position:absolute;
   z-index:4;
-  top:16px;
-  left:77px;
-  width:min(690px,calc(100% - 112px));
-  max-height:calc(100% - 48px);
+  top:12px;
+  left:76px;
+  right:70px;
+  width:auto;
+  max-height:150px;
   overflow:auto;
-  padding:8px 12px 10px;
+  padding:5px 10px 6px;
   border:1px solid rgb(198 222 243 / 92%);
   border-radius:8px;
   color:#133952;
@@ -195,21 +196,18 @@ option{background:#081d43;color:#edf5ff}
   pointer-events:none;
 }
 .staff-area-summary-card[hidden]{display:none}
-.staff-area-summary-card h3{margin:0 0 5px;color:#123e61;font-size:.8rem;line-height:1.25}
-.staff-area-summary-groups{display:grid;gap:7px}
-.staff-area-summary-district h4{margin:0;color:#234c6c;font-size:.74rem;line-height:1.3}
+.staff-area-summary-card h3{margin:0 0 2px;color:#123e61;font-size:.72rem;line-height:1.25}
+.staff-area-summary-groups{display:block}
+.staff-area-summary-district{display:block;margin:1px 0;color:#1a405e;font-size:.66rem;font-weight:700;line-height:1.38}
+.staff-area-summary-district h4{display:inline;margin:0;color:#234c6c;font:inherit;font-weight:800}
 .staff-area-summary-tambons{
-  display:grid;
-  grid-template-columns:repeat(3,max-content);
-  gap:2px 16px;
-  margin:2px 0 0;
-  padding-left:1.25rem;
-  color:#1a405e;
-  font-size:.72rem;
-  font-weight:700;
-  line-height:1.42;
+  display:inline;
+  margin:0;
+  padding:0;
+  color:inherit;
+  font:inherit;
 }
-.staff-area-summary-tambons span{white-space:nowrap}
+.staff-area-summary-tambons span{display:inline-block;margin-left:.75rem;white-space:nowrap}
 .search-menu{gap:12px}
 .search-results,.result{border-color:rgb(84 137 213 / 32%);background:#071d45;color:#e8f3ff}
 .result-heading{background:#0d326d;border-color:rgb(84 137 213 / 32%);color:#bad1ee}
@@ -280,6 +278,8 @@ option{background:#081d43;color:#edf5ff}
 .search-box input:focus{outline:none!important}
 .legend-item[aria-pressed=true]{box-shadow:0 0 6px rgb(40 205 255 / 86%),0 0 17px rgb(122 102 255 / 60%),0 0 26px rgb(243 79 189 / 34%)}
 @media(max-width:700px){
-  .staff-area-summary-card{top:60px;left:10px;width:calc(100% - 20px);max-height:calc(100% - 100px)}
-  .staff-area-summary-tambons{grid-template-columns:1fr;padding-left:1.1rem}
+  .staff-area-summary-card{top:60px;left:10px;right:10px;max-height:132px;padding:4px 8px 5px}
+  .staff-area-summary-card h3{font-size:.68rem}
+  .staff-area-summary-district{font-size:.6rem;line-height:1.35}
+  .staff-area-summary-tambons span{margin-left:.5rem}
 }

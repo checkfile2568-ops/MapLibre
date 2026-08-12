@@ -493,7 +493,7 @@ function popupForFeature(feature) {
   const district = document.createElement("div"); district.className = "popup-sub"; district.textContent = `อำเภอ${Core.districtName(feature)}`;
   const assignment = document.createElement("div"); assignment.className = "popup-sub"; assignment.textContent = owner(feature) ? `ผู้รับผิดชอบ: ${owner(feature).name}` : "ยังไม่มอบหมายผู้รับผิดชอบ";
   card.append(title, district, assignment);
-  if (publicPricesEnabled()) { const price = document.createElement("div"); price.className = "popup-price"; price.textContent = `ยอด: ${Core.formatAmount(areaPrice(feature))}`; card.append(price); }
+  if (publicPricesEnabled()) { const price = document.createElement("div"); price.className = "popup-price"; price.textContent = Core.formatAmount(areaPrice(feature), { suffix: false }); card.append(price); }
   return card;
 }
 

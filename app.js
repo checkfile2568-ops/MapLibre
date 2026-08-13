@@ -5,6 +5,7 @@ const Overview = window.MapLibreOverview;
 const GIS_QUERY_URL = "https://services1.arcgis.com/jSaRWj2TDlcN1zOC/arcgis/rest/services/Thailand_Subdistrict_Boundaries_%28%E0%B8%82%E0%B9%89%E0%B8%AD%E0%B8%A1%E0%B8%B9%E0%B8%A5%E0%B8%82%E0%B8%AD%E0%B8%9A%E0%B9%80%E0%B8%82%E0%B8%95%E0%B8%95%E0%B8%B3%E0%B8%9A%E0%B8%A5%E0%B8%9B%E0%B8%A3%E0%B8%B0%E0%B9%80%E0%B8%97%E0%B8%A8%E0%B9%84%E0%B8%97%E0%B8%A2%29/FeatureServer/1/query";
 const SHARED_DATA_URL = "data/assignments.json";
 const SHARED_DATA_API = "https://api.github.com/repos/checkfile2568-ops/MapLibre/contents/data/assignments.json";
+const NOTICE_AREA_CSV_API = "https://api.github.com/repos/checkfile2568-ops/MapLibre/contents/data/notice-area-sheet.csv";
 const SHARED_BRANCH = "main";
 const TOKEN_KEY = `${Core.STORAGE_KEY}:github-token`;
 const TOKEN_META_KEY = `${Core.STORAGE_KEY}:github-token-metadata`;
@@ -92,6 +93,24 @@ function serializableState() {
   return Core.serializableState(state);
 }
 
+function csvField(value) {
+  return `"${String(value ?? "").replaceAll('"', '""')}"`;
+}
+
+function noticeAreaSheetCsv() {
+  const rows = availableFeatures()
+    .slice()
+    .sort((left, right) => `${Core.districtName(left)} ${Core.tambonName(left)}`.localeCompare(`${Core.districtName(right)} ${Core.tambonName(right)}`, "th"))
+    .map((feature) => {
+      const person = getStaff(state.assignments[Core.areaId(feature)]);
+      return [
+        `อำเภอ${Core.districtName(feature)} / ตำบล${Core.tambonName(feature)}`,
+        person?.name || "ยังไม่มอบหมาย",
+      ];
+    });
+  return `\uFEFF${rows.map((row) => row.map(csvField).join(",")).join("\r\n")}\r\n`;
+}
+
 function selectedStaffId() {
   return dom.staff_select?.value || "";
 }
@@ -153,8 +172,8 @@ function sharedDataUrl() {
   return url;
 }
 
-function sharedRevisionUrl() {
-  const url = new URL(SHARED_DATA_API);
+function githubRevisionUrl(apiUrl) {
+  const url = new URL(apiUrl);
   url.searchParams.set("ref", SHARED_BRANCH);
   return url;
 }
@@ -335,12 +354,27 @@ async function reloadSharedState() {
   showToast(ok ? "โหลดข้อมูลส่วนกลางล่าสุดแล้ว" : "โหลดข้อมูลส่วนกลางไม่สำเร็จ");
 }
 
-async function loadSharedRevision(token) {
-  const response = await fetch(sharedRevisionUrl(), { headers: githubHeaders(token), cache: "no-store" });
-  if (!response.ok) throw new Error(explainGitHubError(await readGitHubError(response)));
+async function loadSharedRevision(token, apiUrl = SHARED_DATA_API, { allowMissing = false } = {}) {
+  const response = await fetch(githubRevisionUrl(apiUrl), { headers: githubHeaders(token), cache: "no-store" });
+  if (!response.ok) {
+    if (allowMissing && response.status === 404) return null;
+    throw new Error(explainGitHubError(await readGitHubError(response)));
+  }
   const payload = await response.json();
   if (!payload.sha) throw new Error("ไม่พบรหัสอ้างอิงของไฟล์ข้อมูลกลาง");
   return payload.sha;
+}
+
+async function saveGitHubFile(token, { apiUrl, sha, content, message }) {
+  const response = await fetch(apiUrl, {
+    method: "PUT",
+    headers: { ...githubHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ message, content: encodeBase64Utf8(content), branch: SHARED_BRANCH, ...(sha ? { sha } : {}) }),
+  });
+  if (!response.ok) {
+    if (response.status === 409 || response.status === 422) throw new Error("ข้อมูลกลางถูกแก้ไขจากเครื่องอื่น กรุณาโหลดค่ากลางใหม่ก่อนบันทึก");
+    throw new Error(explainGitHubError(await readGitHubError(response)));
+  }
 }
 
 async function saveSharedState() {
@@ -349,24 +383,27 @@ async function saveSharedState() {
   if (!checked.valid) { showToast(checked.reason); return false; }
   shared.loading = true;
   renderSharedStatus();
+  let sharedDataSaved = false;
   try {
-    const sha = await loadSharedRevision(token);
+    const [sha, csvSha] = await Promise.all([
+      loadSharedRevision(token),
+      loadSharedRevision(token, NOTICE_AREA_CSV_API, { allowMissing: true }),
+    ]);
     state.updatedAt = new Date().toISOString();
     const payload = serializableState();
-    const response = await fetch(SHARED_DATA_API, {
-      method: "PUT",
-      headers: { ...githubHeaders(token), "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: "Update Lopburi notice areas and prices",
-        content: encodeBase64Utf8(JSON.stringify(payload, null, 2)),
-        branch: SHARED_BRANCH,
-        sha,
-      }),
+    await saveGitHubFile(token, {
+      apiUrl: SHARED_DATA_API,
+      sha,
+      content: JSON.stringify(payload, null, 2),
+      message: "Update Lopburi notice areas and prices",
     });
-    if (!response.ok) {
-      if (response.status === 409 || response.status === 422) throw new Error("ข้อมูลกลางถูกแก้ไขจากเครื่องอื่น กรุณาโหลดค่ากลางใหม่ก่อนบันทึก");
-      throw new Error(explainGitHubError(await readGitHubError(response)));
-    }
+    sharedDataSaved = true;
+    await saveGitHubFile(token, {
+      apiUrl: NOTICE_AREA_CSV_API,
+      sha: csvSha,
+      content: noticeAreaSheetCsv(),
+      message: "Update notice area Google Sheets data",
+    });
     state.pendingChanges = false;
     saveLocalState();
     shared = { available: true, loading: false, error: null };
@@ -376,10 +413,18 @@ async function saveSharedState() {
       tokenCheck = { checking: false, valid: false, login: null, expiresAt: null };
       setTokenStatus("บันทึกสำเร็จและล้างรหัสออกจากช่องแล้ว");
     }
-    showToast("บันทึกข้อมูลส่วนกลางแล้ว");
+    showToast("บันทึกข้อมูลส่วนกลางและอัปเดต Google Sheets แล้ว");
     return true;
   } catch (error) {
     console.error(error);
+    if (sharedDataSaved) {
+      state.pendingChanges = true;
+      saveLocalState();
+      shared = { available: true, loading: false, error: error.message };
+      renderAll();
+      showToast("บันทึกเขตส่งหมายแล้ว แต่ยังอัปเดต Google Sheets ไม่สำเร็จ กรุณากดบันทึกส่วนกลางอีกครั้ง");
+      return false;
+    }
     shared = { ...shared, loading: false, error: error.message };
     renderSharedStatus();
     showToast(error.message || "บันทึกข้อมูลส่วนกลางไม่สำเร็จ");

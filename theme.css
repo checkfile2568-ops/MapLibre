@@ -283,3 +283,81 @@ option{background:#081d43;color:#edf5ff}
   .staff-area-summary-district{font-size:.6rem;line-height:1.35}
   .staff-area-summary-tambons span{margin-left:.5rem}
 }
+
+/* Glass-green presentation layer for the public notice-area display.
+   Presentation only: keeps the page structure, map configuration and data flow intact. */
+:root{
+  --ink:#effff8;
+  --muted:#b7decf;
+  --line:rgb(157 239 204 / 42%);
+  --panel:rgb(7 58 45 / 70%);
+  --canvas:#031b15;
+  --navy:#0b8a69;
+  --navy-dark:#063d30;
+  --navy-deep:#052e24;
+  --accent:#54e2af;
+  --gold:#bdf6bd;
+  color-scheme:dark;
+}
+body{
+  background:
+    radial-gradient(900px 520px at 78% 8%,rgb(43 212 151 / 25%),transparent 67%),
+    radial-gradient(760px 540px at 8% 92%,rgb(17 147 110 / 18%),transparent 72%),
+    linear-gradient(135deg,#031b15,#062b21 55%,#041f19);
+}
+body::before{
+  opacity:.36;
+  background-image:linear-gradient(rgb(155 255 211 / 7%) 1px,transparent 1px),linear-gradient(90deg,rgb(155 255 211 / 7%) 1px,transparent 1px);
+}
+.display-header{
+  border-color:rgb(117 246 192 / 56%);
+  background:linear-gradient(110deg,rgb(4 48 36 / 93%),rgb(8 106 77 / 82%) 58%,rgb(5 68 50 / 91%));
+  box-shadow:inset 0 1px rgb(225 255 240 / 18%),0 12px 34px rgb(0 0 0 / 28%);
+}
+.display-header::after{
+  background:linear-gradient(90deg,transparent,#36e5a9 28%,#c0ffd8 53%,#28bd89 80%,transparent);
+  box-shadow:0 0 12px #36e5a9;
+}
+.read-only-badge{border-color:rgb(180 255 215 / 35%);background:rgb(3 52 39 / 45%)}
+.map-frame,.search-menu,.person-detail{
+  border-color:var(--line);
+  background:linear-gradient(145deg,rgb(10 82 61 / 61%),rgb(3 43 33 / 68%));
+  box-shadow:inset 0 1px rgb(227 255 240 / 13%),0 13px 32px rgb(0 0 0 / 24%);
+  backdrop-filter:blur(16px) saturate(125%);
+}
+.map-frame-header{
+  border-color:rgb(143 242 198 / 31%);
+  background:linear-gradient(90deg,rgb(18 116 84 / 58%),rgb(4 62 47 / 65%));
+}
+.map-frame-header .eyebrow,.search-heading .eyebrow,.app-header .eyebrow,.display-header .eyebrow{color:#c9f6da}
+.map-view-shortcuts{border-color:rgb(137 245 194 / 36%);background:rgb(2 58 42 / 46%)}
+.button,.map-option,.map-view-button{
+  border-color:rgb(139 247 196 / 47%);
+  background:linear-gradient(180deg,rgb(24 151 108 / 68%),rgb(6 91 66 / 75%));
+}
+.map-view-button:hover,.map-view-button:focus-visible,.button-muted:hover,.button-secondary:hover,.map-option:hover{
+  border-color:#9affc5;
+  background:linear-gradient(180deg,rgb(43 186 134 / 82%),rgb(8 110 79 / 88%));
+}
+.map-option[aria-pressed=true],.map-view-button[aria-pressed="true"]{border-color:#a4ffd0;background:linear-gradient(180deg,#27ad7e,#087052);color:#fff}
+.search-box input,.person-filter select,input,select,textarea{
+  color:#f2fff8;
+  border-color:rgb(149 243 202 / 48%);
+  background:rgb(2 49 36 / 62%);
+}
+input::placeholder,textarea::placeholder{color:#b0d8c7}
+input:focus,select:focus,textarea:focus{border-color:#84ffc1;outline-color:rgb(108 244 175 / 36%)}
+.search-results,.result{border-color:rgb(130 231 188 / 34%);background:rgb(3 58 43 / 88%);color:#f0fff8}
+.result-heading{border-color:rgb(130 231 188 / 34%);background:rgb(6 100 72 / 82%);color:#d8ffea}.result:hover{background:rgb(18 132 94 / 76%)}.result small{color:#c3e8d5}
+.stat,.person-summary span{border-color:rgb(147 245 203 / 38%);background:rgb(22 125 91 / 55%);color:#effff7}
+.display-options,.legend-panel,.district-assignment{border-color:rgb(132 233 190 / 30%)}
+.options-heading h3,.legend-panel h3,.person-detail h2,.person-detail h3,.district-assignment h4{color:#f1fff8}.options-heading p,.legend-panel>p,.updated-at{color:#c1e4d3}
+.map-switch{border-color:rgb(137 237 193 / 42%);background:rgb(3 61 45 / 66%);color:#effff7}.map-switch:hover{background:rgb(13 111 79 / 74%)}.map-switch i{background:#336f5a}.map-switch[aria-checked=true]{border-color:#8dffc4;background:rgb(14 128 90 / 74%)}.map-switch[aria-checked=true] i{background:#39c98f}.map-switch[aria-checked=true] i::after{background:#eafff2}
+.legend-item{border-color:rgb(128 226 184 / 34%);background:rgb(2 55 41 / 66%);color:#effff8}.legend-item[aria-pressed=true]{border-color:#8dffc4;background:rgb(11 118 83 / 78%)}.legend-count{color:#c4e7d7}
+.area-chip{border-color:rgb(130 226 185 / 34%);background:rgb(2 55 41 / 66%);color:#eafff3}.popup-sub{color:#c6e9d9}.popup-price{background:rgb(16 132 86 / 48%);color:#e1ffed}
+.loading-overlay{background:rgb(2 36 27 / 91%);color:#e4ffef}.spinner{border-color:#175d46;border-top-color:#70ffc0}
+.true-north-button{border-color:rgb(107 228 174 / 58%);background:rgb(3 70 51 / 88%)}.true-north-rose{border-color:#74e7ae;background:#e4f9ed}
+.maplibregl-popup-content{border-color:rgb(125 242 192 / 55%);background:rgb(4 74 54 / 94%);color:#f0fff8}.maplibregl-popup-tip{border-top-color:#044a36!important;border-bottom-color:#044a36!important}
+.maplibregl-ctrl-group{border-color:#61e8ac!important;background:#075a42!important}.maplibregl-ctrl-group button{border-color:rgb(173 255 215 / 50%)!important;background-color:#108461!important}.maplibregl-ctrl-group button:hover{background-color:#24b783!important}
+/* Labels remain deliberately dark because they sit directly on the light map base. */
+.map-population-note{color:#163e30}.staff-area-summary-card{border-color:rgb(205 255 227 / 82%);color:#123c2d;background:rgb(240 255 247 / 86%)}.staff-area-summary-card h3{color:#0b4933}.staff-area-summary-district{color:#174b38}.staff-area-summary-district h4{color:#0c5940}

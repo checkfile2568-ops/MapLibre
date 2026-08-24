@@ -361,3 +361,58 @@ input:focus,select:focus,textarea:focus{border-color:#84ffc1;outline-color:rgb(1
 .maplibregl-ctrl-group{border-color:#61e8ac!important;background:#075a42!important}.maplibregl-ctrl-group button{border-color:rgb(173 255 215 / 50%)!important;background-color:#108461!important}.maplibregl-ctrl-group button:hover{background-color:#24b783!important}
 /* Labels remain deliberately dark because they sit directly on the light map base. */
 .map-population-note{color:#163e30}.staff-area-summary-card{border-color:rgb(205 255 227 / 82%);color:#123c2d;background:rgb(240 255 247 / 86%)}.staff-area-summary-card h3{color:#0b4933}.staff-area-summary-district{color:#174b38}.staff-area-summary-district h4{color:#0c5940}
+
+/* Premium navy-and-gold system theme. Kept as the final layer so it changes
+   presentation only and does not alter map data, controls or application logic. */
+:root{
+  --ink:#102743;
+  --muted:#667891;
+  --line:#e3d9c6;
+  --panel:rgb(255 253 249 / 91%);
+  --canvas:#eef1f5;
+  --navy:#102743;
+  --navy-dark:#0b1d34;
+  --navy-deep:#0b1d34;
+  --accent:#d9b458;
+  --gold:#d9b458;
+  color-scheme:light;
+  font-family:"Noto Sans Thai","Leelawadee UI",Tahoma,sans-serif;
+}
+body{
+  color:var(--ink);
+  background:
+    radial-gradient(900px 480px at 92% 2%,rgb(217 180 88 / 13%),transparent 68%),
+    radial-gradient(720px 500px at 8% 96%,rgb(16 39 67 / 7%),transparent 74%),
+    #eef1f5;
+}
+body::before{opacity:.42;background-image:linear-gradient(rgb(16 39 67 / 3.5%) 1px,transparent 1px),linear-gradient(90deg,rgb(16 39 67 / 3.5%) 1px,transparent 1px)}
+.display-header{
+  border:0;
+  border-radius:0;
+  margin:0;
+  min-height:78px;
+  background:#102743;
+  box-shadow:inset 0 -1px rgb(217 180 88 / 55%),0 5px 18px rgb(8 23 41 / 14%);
+}
+.display-header::after{right:0;bottom:0;width:100%;height:1px;background:linear-gradient(90deg,transparent 2%,#d9b458 22%,#f6dc91 50%,#d9b458 78%,transparent 98%);box-shadow:none}
+.display-header h1{font-weight:850;letter-spacing:-.025em;text-shadow:none}.app-header .eyebrow,.display-header .eyebrow{color:#c9d4e3;font-weight:700;letter-spacing:.06em}
+.read-only-badge{border:1px solid rgb(217 180 88 / 65%);background:rgb(255 255 255 / 7%);color:#fff4d7;font-weight:800;box-shadow:inset 0 1px rgb(255 255 255 / 12%)}.read-only-badge.online{color:#d8ffe9}.read-only-badge.offline{color:#ffd7d7}
+.coverage-summary{color:#d7e0ed;opacity:1;font-weight:650}
+.display-shell{max-width:1540px;padding:20px 24px 28px;gap:18px}
+.map-frame,.search-menu,.person-detail{
+  border:1px solid rgb(218 203 172 / 75%);
+  background:var(--panel);
+  box-shadow:0 16px 36px rgb(16 39 67 / 9%),inset 0 1px rgb(255 255 255 / 90%);
+  backdrop-filter:blur(14px) saturate(115%);
+}
+.map-frame{overflow:hidden}.map-frame-header{min-height:68px;border-color:#eadfcd;background:linear-gradient(90deg,rgb(255 253 249 / 94%),rgb(249 245 237 / 88%))}.map-frame-header h2{font-weight:850;letter-spacing:-.015em}.map-frame-header .eyebrow,.search-heading .eyebrow{color:#9a7b32;font-weight:800;letter-spacing:.07em}
+.map-view-shortcuts{padding:5px;border:1px solid #e6dcc8;border-radius:11px;background:#f4f5f7}.button,.map-option,.map-view-button{border:1px solid #cdb16b;border-radius:9px;color:#fff8e8;background:linear-gradient(180deg,#1b3a60,#102743);box-shadow:inset 0 1px rgb(255 255 255 / 17%),0 3px 8px rgb(16 39 67 / 14%);font-weight:800}.map-view-button:hover,.map-view-button:focus-visible,.button-muted:hover,.button-secondary:hover,.map-option:hover{border-color:#f2d682;background:linear-gradient(180deg,#28517e,#143458);box-shadow:inset 0 1px rgb(255 255 255 / 18%),0 5px 13px rgb(16 39 67 / 20%)}.map-option[aria-pressed=true],.map-view-button[aria-pressed="true"]{border-color:#d4ac43;background:linear-gradient(180deg,#d9b458,#b98d2e);color:#102743;text-shadow:0 1px rgb(255 255 255 / 44%)}
+.search-box input,.person-filter select,input,select,textarea{border-color:#d7cbb6;background:rgb(255 255 255 / 92%);color:#102743;box-shadow:inset 0 1px 4px rgb(16 39 67 / 5%)}input::placeholder,textarea::placeholder{color:#8c9bae}input:focus,select:focus,textarea:focus{border-color:#c69d36;outline:3px solid rgb(217 180 88 / 22%)}option{color:#102743;background:#fff}
+.search-box label,.person-filter span,label{color:#223c5b;font-weight:800}.search-results,.result{border-color:#e3d8c5;background:#fffdf9;color:#173451}.result-heading{border-color:#e3d8c5;background:#f5f1e8;color:#725b2a}.result:hover{background:#fff6dd}.result small{color:#708098}
+.stat,.person-summary span{border:1px solid #eadfca;background:#f9f4e9;color:#3b5068;font-weight:700}.display-options,.legend-panel,.district-assignment{border-color:#e4dac8}.options-heading h3,.legend-panel h3,.person-detail h2,.person-detail h3,.district-assignment h4{color:#102743;font-weight:850}.options-heading p,.legend-panel>p,.updated-at{color:#6b7c91}
+.map-switch{border-color:#ddd2be;background:linear-gradient(180deg,#fffefa,#f7f3eb);color:#1d3856;box-shadow:inset 0 1px #fff}.map-switch:hover{background:#fbf1d9}.map-switch i{background:#c8d0d8}.map-switch[aria-checked=true]{border-color:#d1ad53;background:#fff7df}.map-switch[aria-checked=true] i{background:#163859}.map-switch[aria-checked=true] i::after{background:#e8c66f}
+.legend-item{border-color:#e4dac8;background:rgb(255 253 249 / 84%);color:#1a3755;box-shadow:0 2px 6px rgb(16 39 67 / 3%)}.legend-item[aria-pressed=true]{border-color:#c9a13e;background:#fff2cc;box-shadow:0 4px 12px rgb(185 141 46 / 17%)}.legend-count{color:#6d7d90}.area-chip{border-color:#e1d6c2;background:#fffdf8;color:#203c59}.popup-sub{color:#667891}.popup-price{background:#e9f6ed;color:#18633b}
+.loading-overlay{background:rgb(239 242 246 / 92%);color:#102743}.spinner{border-color:#d7deea;border-top-color:#c69d36}.true-north-button{border-color:#d6bf82;background:#fffdf7;box-shadow:0 4px 12px rgb(16 39 67 / 16%)}.true-north-rose{border-color:#cbb36f;background:#fff}
+.maplibregl-popup-content{border-color:#dbc79c;background:#fffdf8;color:#173451;box-shadow:0 12px 26px rgb(16 39 67 / 20%)}.maplibregl-popup-tip{border-top-color:#fffdf8!important;border-bottom-color:#fffdf8!important}.maplibregl-ctrl-group{border-color:#cdb16b!important;background:#fffdf8!important;box-shadow:0 6px 14px rgb(16 39 67 / 18%)!important}.maplibregl-ctrl-group button{border-color:#e0d4bf!important;background-color:#fffdf8!important}.maplibregl-ctrl-group button:hover{background-color:#fff1ce!important}.maplibregl-ctrl-group button .maplibregl-ctrl-icon{filter:none;opacity:.82}
+.map-population-note{color:#173c2d;text-shadow:0 1px 1px rgb(255 255 255 / 95%)}.staff-area-summary-card{border-color:#d5c29a;color:#173d2d;background:rgb(255 254 250 / 91%);box-shadow:0 5px 18px rgb(16 39 67 / 13%)}.staff-area-summary-card h3{color:#102743}.staff-area-summary-district{color:#234b3a}.staff-area-summary-district h4{color:#143c2c}
+@media(max-width:760px){.display-shell{padding:14px 10px 20px}.display-header{margin:0;border-radius:0}.map-view-shortcuts{width:100%}.map-view-button{flex:1 1 auto}}

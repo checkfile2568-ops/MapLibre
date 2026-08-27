@@ -1,0 +1,232 @@
+/* ============================================================================
+   tokens.css — ชุดค่าออกแบบกลางของทั้งระบบ
+   แก้สี ตัวอักษร ระยะ เงา และจังหวะการเคลื่อนไหว ได้จากไฟล์นี้ไฟล์เดียว
+   ห้ามใส่สีดิบ (#hex) ในไฟล์ CSS อื่น ให้เรียกผ่าน var(--…) เสมอ
+   เพื่อให้ธีมสว่าง/มืดสลับได้ครบทุกจุด
+   ========================================================================== */
+
+/* ---------- โหมดสว่าง (ค่าเริ่มต้น) ---------- */
+:root {
+  color-scheme: light;
+
+  --void: #e4ebf2;
+  --void-2: #eef3f8;
+  --surface: rgba(255, 255, 255, 0.92);
+  --surface-solid: #ffffff;
+  --surface-sunken: #f2f6fa;
+  --surface-raised: #ffffff;
+  --line: #d7e1ec;
+  --line-soft: #e6edf4;
+  --line-strong: #bccbda;
+
+  --ink: #0d1927;
+  --ink-2: #35495e;
+  --muted: #62758a;
+  --on-accent: #ffffff;
+
+  --accent: #0f4c75;
+  --accent-hover: #14608f;
+  --accent-soft: rgba(15, 76, 117, 0.1);
+  --gold: #8a6114;
+  --gold-strong: #6d4b0d;
+  --gold-soft: rgba(138, 97, 20, 0.12);
+  --signal: #0e7c8c;
+
+  --ok: #1c8a5f;
+  --ok-soft: #e4f4ec;
+  --warn: #97690f;
+  --warn-soft: #fbf1de;
+  --danger: #b3382c;
+  --danger-soft: #fbe9e7;
+
+  --btn-primary-bg: linear-gradient(160deg, #14608f, #0e4468);
+  --btn-primary-ink: #ffffff;
+  --btn-primary-edge: rgba(255, 255, 255, 0.28);
+
+  --shadow-sm: 0 1px 2px rgba(13, 30, 51, 0.06), 0 2px 6px rgba(13, 30, 51, 0.05);
+  --shadow-md: 0 2px 6px rgba(13, 30, 51, 0.07), 0 12px 28px rgba(13, 30, 51, 0.09);
+  --shadow-lg: 0 8px 20px rgba(13, 30, 51, 0.1), 0 28px 60px rgba(13, 30, 51, 0.13);
+  --inner-top: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --glow: 0 0 0 1px rgba(15, 76, 117, 0.14), 0 0 26px rgba(15, 76, 117, 0.1);
+
+  --label-bg: rgba(255, 255, 255, 0.94);
+  --label-ink: #10233a;
+  --label-line: rgba(15, 45, 76, 0.16);
+
+  /* สีบนตัวแผนที่ — map-engine.js อ่านค่าเหล่านี้ */
+  --map-void: #dbe5ee;
+  --map-country: #edf2f7;
+  --map-country-line: #ffffff;
+  --map-outside: #d2dde9;
+  --map-outside-line: #ffffff;
+  --map-outside-top: #c3d1de;
+  --map-unassigned: #b7c6d4;
+  --map-area-line: #ffffff;
+  --map-halo: #a8761f;
+  --map-hover: #0d1927;
+  --map-selected: #0f4c75;
+}
+
+/* ---------- โหมดมืด: ตามการตั้งค่าเครื่อง ---------- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --void: #060b12;
+    --void-2: #0a121c;
+    --surface: rgba(16, 27, 39, 0.82);
+    --surface-solid: #101b27;
+    --surface-sunken: #0c151f;
+    --surface-raised: #16232f;
+    --line: rgba(255, 255, 255, 0.09);
+    --line-soft: rgba(255, 255, 255, 0.05);
+    --line-strong: rgba(255, 255, 255, 0.16);
+
+    --ink: #e9f0f7;
+    --ink-2: #b0c1d2;
+    --muted: #7a8ea1;
+    --on-accent: #0a121c;
+
+    --accent: #e8c07c;
+    --accent-hover: #f3d49c;
+    --accent-soft: rgba(232, 192, 124, 0.14);
+    --gold: #e8c07c;
+    --gold-strong: #f5d89e;
+    --gold-soft: rgba(232, 192, 124, 0.13);
+    --signal: #56d6e2;
+
+    --ok: #56cf98;
+    --ok-soft: rgba(86, 207, 152, 0.13);
+    --warn: #f2b959;
+    --warn-soft: rgba(242, 185, 89, 0.13);
+    --danger: #ff8878;
+    --danger-soft: rgba(255, 136, 120, 0.13);
+
+    --btn-primary-bg: linear-gradient(160deg, #f0cd90, #c9994b);
+    --btn-primary-ink: #17120a;
+    --btn-primary-edge: rgba(255, 255, 255, 0.4);
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.45), 0 16px 36px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 10px 26px rgba(0, 0, 0, 0.5), 0 34px 70px rgba(0, 0, 0, 0.5);
+    --inner-top: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    --glow: 0 0 0 1px rgba(232, 192, 124, 0.2), 0 0 30px rgba(232, 192, 124, 0.12);
+
+    --label-bg: rgba(11, 19, 28, 0.86);
+    --label-ink: #eef4fa;
+    --label-line: rgba(232, 192, 124, 0.28);
+
+    --map-void: #05090f;
+    --map-country: #0d1621;
+    --map-country-line: #1b2733;
+    --map-outside: #111b28;
+    --map-outside-line: #24344a;
+    --map-outside-top: #16233a;
+    --map-unassigned: #3f5872;
+    --map-area-line: #060c14;
+    --map-halo: #e8c07c;
+    --map-hover: #ffffff;
+    --map-selected: #f5d89e;
+  }
+}
+
+/* ---------- โหมดมืด: ผู้ใช้เลือกเอง ---------- */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --void: #060b12;
+  --void-2: #0a121c;
+  --surface: rgba(16, 27, 39, 0.82);
+  --surface-solid: #101b27;
+  --surface-sunken: #0c151f;
+  --surface-raised: #16232f;
+  --line: rgba(255, 255, 255, 0.09);
+  --line-soft: rgba(255, 255, 255, 0.05);
+  --line-strong: rgba(255, 255, 255, 0.16);
+
+  --ink: #e9f0f7;
+  --ink-2: #b0c1d2;
+  --muted: #7a8ea1;
+  --on-accent: #0a121c;
+
+  --accent: #e8c07c;
+  --accent-hover: #f3d49c;
+  --accent-soft: rgba(232, 192, 124, 0.14);
+  --gold: #e8c07c;
+  --gold-strong: #f5d89e;
+  --gold-soft: rgba(232, 192, 124, 0.13);
+  --signal: #56d6e2;
+
+  --ok: #56cf98;
+  --ok-soft: rgba(86, 207, 152, 0.13);
+  --warn: #f2b959;
+  --warn-soft: rgba(242, 185, 89, 0.13);
+  --danger: #ff8878;
+  --danger-soft: rgba(255, 136, 120, 0.13);
+
+  --btn-primary-bg: linear-gradient(160deg, #f0cd90, #c9994b);
+  --btn-primary-ink: #17120a;
+  --btn-primary-edge: rgba(255, 255, 255, 0.4);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.45), 0 16px 36px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 26px rgba(0, 0, 0, 0.5), 0 34px 70px rgba(0, 0, 0, 0.5);
+  --inner-top: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --glow: 0 0 0 1px rgba(232, 192, 124, 0.2), 0 0 30px rgba(232, 192, 124, 0.12);
+
+  --label-bg: rgba(11, 19, 28, 0.86);
+  --label-ink: #eef4fa;
+  --label-line: rgba(232, 192, 124, 0.28);
+
+  --map-void: #05090f;
+  --map-country: #0d1621;
+  --map-country-line: #1b2733;
+  --map-outside: #111b28;
+  --map-outside-line: #24344a;
+  --map-outside-top: #16233a;
+  --map-unassigned: #3f5872;
+  --map-area-line: #060c14;
+  --map-halo: #e8c07c;
+  --map-hover: #ffffff;
+  --map-selected: #f5d89e;
+}
+
+/* ---------- ค่าที่ใช้ร่วมทั้งสองธีม ---------- */
+:root {
+  --font-display: "Bai Jamjuree", "Sarabun", "TH Sarabun New", system-ui, sans-serif;
+  --font-body: "Sarabun", "TH Sarabun New", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  --text-xs: 0.72rem;
+  --text-sm: 0.81rem;
+  --text-base: 0.92rem;
+  --text-md: 1.02rem;
+  --text-lg: 1.2rem;
+  --text-xl: 1.48rem;
+  --text-2xl: 1.86rem;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 22px;
+  --space-6: 30px;
+  --space-7: 42px;
+
+  --r-xs: 5px;
+  --r-sm: 9px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-pill: 999px;
+  --bevel: 16px;
+
+  --dur-1: 150ms;
+  --dur-2: 280ms;
+  --dur-3: 520ms;
+  --dur-4: 900ms;
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --panel-width: 372px;
+  --header-height: 64px;
+}

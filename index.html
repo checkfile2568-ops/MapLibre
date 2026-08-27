@@ -4,54 +4,96 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="ระบบบริหารเขตพื้นที่งานส่งหมายและยอดรายตำบล ศาลจังหวัดลพบุรี">
-  <meta name="theme-color" content="#104a6f">
-  <title>ระบบบริหารเขตงานส่งหมาย | ศาลจังหวัดลพบุรี</title>
-  <link rel="preconnect" href="https://unpkg.com">
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.20.0/dist/maplibre-gl.css">
-  <link rel="stylesheet" href="styles.css?v=4.2.0">
-  <link rel="stylesheet" href="overview.css?v=4.3.0">
-  <link rel="stylesheet" href="theme.css?v=4.8.0">
+  <meta name="theme-color" content="#101b27">
+  <title>ตั้งค่าระบบเขตงานส่งหมาย | ศาลจังหวัดลพบุรี</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@500;600;700&family=Sarabun:wght@400;500;600;700&display=swap">
+
+  <link rel="stylesheet" href="vendor/maplibre-gl.css?v=5.0.0">
+  <link rel="stylesheet" href="tokens.css?v=5.0.0">
+  <link rel="stylesheet" href="ui.css?v=5.0.0">
+  <link rel="stylesheet" href="map.css?v=5.0.0">
+  <link rel="stylesheet" href="admin.css?v=5.0.0">
 </head>
 <body>
   <header class="app-header">
-    <div><p class="eyebrow">ศาลจังหวัดลพบุรี</p><h1>ระบบบริหารเขตพื้นที่งานส่งหมาย</h1></div>
-    <div class="header-actions"><a class="button button-secondary" href="view.html">เปิดหน้าจอแสดงผล</a></div>
+    <div>
+      <p class="eyebrow">ศาลจังหวัดลพบุรี</p>
+      <h1>ตั้งค่าระบบเขตพื้นที่งานส่งหมาย</h1>
+    </div>
+    <div class="header-actions">
+      <button id="theme-toggle" class="theme-toggle" type="button"></button>
+      <a class="button button-secondary" href="view.html">เปิดหน้าจอแสดงผล</a>
+    </div>
   </header>
 
   <main class="app-shell">
     <aside class="control-panel" aria-label="กำหนดผู้รับผิดชอบ พื้นที่ และยอด">
-      <section class="panel-section">
-        <div class="section-heading"><div><p class="eyebrow">ขั้นที่ 1</p><h2>ผู้รับผิดชอบ</h2></div><span id="color-swatch" class="color-swatch"></span></div>
+
+      <section class="panel-section enter" style="--i:0">
+        <div class="section-heading">
+          <div><p class="eyebrow">ขั้นที่ 1</p><h2>ผู้รับผิดชอบ</h2></div>
+          <span id="color-swatch" class="color-swatch"></span>
+        </div>
         <label for="staff-select">เลือกชื่อ</label>
         <select id="staff-select"><option value="">— เลือกผู้รับผิดชอบ —</option></select>
-        <div class="add-staff-row"><input id="new-staff-name" type="text" maxlength="80" placeholder="เพิ่มชื่อผู้ส่งหมาย"><button id="add-staff-button" class="button button-secondary" type="button">เพิ่ม</button></div>
-        <div class="compact-actions"><button id="new-color-button" class="text-button" type="button">คละสีใหม่</button><label class="text-button" for="staff-import-input">นำเข้ารายชื่อ</label><input id="staff-import-input" type="file" accept=".csv,.txt,text/csv,text/plain" hidden></div>
-        <p class="helper-text import-format">รูปแบบนำเข้า: ไฟล์ CSV หรือ TXT โดยใส่ <strong>1 ชื่อต่อ 1 บรรทัด</strong> หรือใช้คอลัมน์แรกเป็นชื่อ ระบบข้ามหัวตาราง “ชื่อ” หรือ “Name” ให้อัตโนมัติ</p>
+        <div class="add-staff-row">
+          <div>
+            <label for="new-staff-name">เพิ่มชื่อใหม่</label>
+            <input id="new-staff-name" type="text" maxlength="80" placeholder="ชื่อผู้ส่งหมาย">
+          </div>
+          <button id="add-staff-button" class="button button-secondary" type="button">เพิ่ม</button>
+        </div>
+        <div class="compact-actions">
+          <button id="new-color-button" class="text-button" type="button">คละสีใหม่</button>
+          <label class="text-button" for="staff-import-input">นำเข้ารายชื่อ</label>
+          <input id="staff-import-input" type="file" accept=".csv,.txt,text/csv,text/plain" hidden>
+        </div>
+        <p class="helper-text import-format">รูปแบบนำเข้า: ไฟล์ CSV หรือ TXT ใส่ <strong>1 ชื่อต่อ 1 บรรทัด</strong> หรือใช้คอลัมน์แรกเป็นชื่อ ระบบข้ามหัวตาราง “ชื่อ” หรือ “Name” ให้อัตโนมัติ</p>
         <p id="staff-help" class="helper-text"></p>
       </section>
 
-      <section class="panel-section">
-        <div class="section-heading"><div><p class="eyebrow">จัดการรายชื่อ</p><h2>เจ้าหน้าที่</h2></div><button id="toggle-staff-management" class="text-button" type="button" aria-expanded="false">แสดงข้อมูล</button></div>
-        <div id="staff-management-content" hidden><p class="helper-text">แก้ชื่อ ปิดใช้งาน หรือลบรายชื่อได้ หากต้องการลบต้องยกเลิกพื้นที่ทั้งหมดก่อน</p><div id="staff-management-list" class="staff-management-list"></div></div>
+      <section class="panel-section enter" style="--i:1">
+        <div class="section-heading">
+          <div><p class="eyebrow">จัดการรายชื่อ</p><h2>เจ้าหน้าที่</h2></div>
+          <button id="toggle-staff-management" class="text-button" type="button" aria-expanded="false">แสดงข้อมูล</button>
+        </div>
+        <div id="staff-management-content" hidden>
+          <p class="helper-text">แก้ชื่อ ปิดใช้งาน หรือลบรายชื่อได้ หากต้องการลบต้องยกเลิกพื้นที่ทั้งหมดก่อน</p>
+          <div id="staff-management-list" class="staff-management-list"></div>
+        </div>
       </section>
 
-      <section class="panel-section sharing-section">
-        <div class="section-heading"><div><p class="eyebrow">ข้อมูลร่วมทุกเครื่อง</p><h2>บันทึกส่วนกลาง</h2></div></div>
+      <section class="panel-section sharing-section enter" style="--i:2">
+        <div class="section-heading">
+          <div><p class="eyebrow">ข้อมูลร่วมทุกเครื่อง</p><h2>บันทึกส่วนกลาง</h2></div>
+        </div>
         <p id="shared-status" class="shared-status" role="status">กำลังเชื่อมต่อข้อมูลส่วนกลาง…</p>
         <label for="github-token">รหัสบันทึก GitHub</label>
         <input id="github-token" type="password" autocomplete="off" spellcheck="false" placeholder="Fine-grained token: Contents Read and write">
-        <label class="remember-token-choice" for="remember-github-token"><input id="remember-github-token" type="checkbox"><span>จำรหัสไว้ในเครื่องนี้</span></label>
-        <p class="helper-text">ใช้เฉพาะเครื่องส่วนตัว รหัสไม่ถูกส่งไปในไฟล์ข้อมูลกลาง</p>
-        <p id="remembered-token-status" class="remembered-token-status">ยังไม่ได้จำรหัสไว้ในเครื่องนี้</p>
+        <label class="remember-token-choice" for="remember-github-token">
+          <input id="remember-github-token" type="checkbox">
+          <span>จำรหัสไว้จนกว่าจะปิดเบราว์เซอร์</span>
+        </label>
+        <p class="helper-text">รหัสถูกเก็บไว้เฉพาะแท็บนี้ ปิดเบราว์เซอร์แล้วหายไปเอง และไม่ถูกส่งไปกับไฟล์ข้อมูลกลาง</p>
+        <p id="remembered-token-status" class="remembered-token-status">ยังไม่ได้จำรหัสไว้</p>
         <button id="forget-github-token-button" class="text-button forget-token-button" type="button" hidden>ลบรหัสที่จำไว้</button>
         <p id="token-status" class="token-status">วางรหัสแล้วกดตรวจสอบก่อนบันทึก</p>
         <button id="check-token-button" class="button button-muted check-token-button" type="button">ตรวจสอบรหัส</button>
-        <div class="shared-actions"><button id="reload-shared-button" class="button button-muted" type="button">โหลดค่ากลาง</button><button id="save-shared-button" class="button button-primary" type="button">บันทึกส่วนกลาง</button></div>
+        <div class="shared-actions">
+          <button id="reload-shared-button" class="button button-muted" type="button">โหลดค่ากลาง</button>
+          <button id="save-shared-button" class="button button-primary" type="button">บันทึกส่วนกลาง</button>
+        </div>
       </section>
 
-      <section class="panel-section">
-        <div class="section-heading"><div><p class="eyebrow">ขั้นที่ 2</p><h2>เลือกพื้นที่</h2></div><span id="area-selection-count" class="count-tag">พื้นที่ทั้งหมด 85 ตำบล</span></div>
-        <p class="helper-text">เลือกชื่อผู้รับผิดชอบก่อน ระบบจะแสดงพื้นที่ทั้งหมด 85 ตำบล และสามารถพิมพ์ค้นหาเพื่อเปลี่ยนพื้นที่ได้</p>
+      <section class="panel-section enter" style="--i:3">
+        <div class="section-heading">
+          <div><p class="eyebrow">ขั้นที่ 2</p><h2>เลือกพื้นที่</h2></div>
+          <span id="area-selection-count" class="count-tag">85 ตำบล</span>
+        </div>
+        <p class="helper-text">เลือกชื่อผู้รับผิดชอบก่อน จากนั้นติ๊กพื้นที่ หรือคลิกบนแผนที่ได้โดยตรง</p>
         <div id="district-list" class="district-list"></div>
         <label for="tambon-search">ค้นหาตำบล</label>
         <input id="tambon-search" type="search" autocomplete="off" placeholder="พิมพ์ชื่อตำบลหรืออำเภอ">
@@ -59,63 +101,125 @@
         <div id="unassigned-summary" class="unassigned-summary pending" aria-live="polite"></div>
       </section>
 
-      <section class="panel-section price-section">
-        <div class="section-heading"><div><p class="eyebrow">ขั้นที่ 3</p><h2>ยอดรายพื้นที่</h2></div><span id="price-progress" class="count-tag">0/0 ตำบล</span></div>
-        <p class="helper-text">แต่ละตำบลกำหนดยอดไม่เท่ากันได้ รองรับเลขไทย ทศนิยม 2 ตำแหน่ง และไฟล์ CSV/TXT</p>
+      <section class="panel-section price-section enter" style="--i:4">
+        <div class="section-heading">
+          <div><p class="eyebrow">ขั้นที่ 3</p><h2>ยอดรายพื้นที่</h2></div>
+          <span id="price-progress" class="count-tag">0/0 ตำบล</span>
+        </div>
+        <p class="helper-text">ยอดเป็นจำนวนนับ ไม่มีหน่วยเงิน แต่ละตำบลกำหนดไม่เท่ากันได้ รองรับเลขไทยและทศนิยม 2 ตำแหน่ง</p>
         <details class="price-import">
           <summary>นำเข้าหลายตำบลพร้อมกัน</summary>
           <textarea id="price-paste" placeholder="ตัวอย่าง&#10;เมืองลพบุรี/ทะเลชุบศร 500&#10;ท่าวุ้ง/บางคู้ 750.50"></textarea>
-          <div class="price-import-actions"><button id="price-import-button" class="button button-muted" type="button">นำเข้าข้อความ</button><label class="button button-muted" for="price-csv-input">เลือกไฟล์ CSV/TXT</label><input id="price-csv-input" type="file" accept=".csv,.txt,text/csv,text/plain" hidden></div>
+          <div class="price-import-actions">
+            <button id="price-import-button" class="button button-muted" type="button">นำเข้าข้อความ</button>
+            <label class="button button-muted" for="price-csv-input">เลือกไฟล์ CSV/TXT</label>
+            <input id="price-csv-input" type="file" accept=".csv,.txt,text/csv,text/plain" hidden>
+          </div>
           <p id="price-import-status" class="helper-text"></p>
         </details>
         <label for="price-search">ค้นหาพื้นที่เพื่อแก้ยอด</label>
         <input id="price-search" type="search" autocomplete="off" placeholder="ค้นหาตำบลหรืออำเภอ">
         <div id="price-list" class="price-list"></div>
-        <label class="publish-price-choice" for="publish-prices"><input id="publish-prices" type="checkbox"><span>แสดงยอดในหน้าดูผลสาธารณะ</span></label>
-        <p class="helper-text warning-note">การปิดปุ่มนี้ซ่อนยอดเฉพาะหน้า View แต่ Repository สาธารณะยังเปิดอ่านไฟล์ JSON ได้</p>
+        <label class="publish-price-choice" for="publish-prices">
+          <input id="publish-prices" type="checkbox">
+          <span>แสดงยอดในหน้าจอแสดงผล</span>
+        </label>
+        <p class="helper-text warning-note">ปิดสวิตช์นี้แล้วยอดจะหายจากหน้าแสดงผลทันทีทุกเครื่อง แต่ไฟล์ข้อมูลใน GitHub ยังเปิดอ่านได้ตามปกติของ Repository สาธารณะ</p>
       </section>
 
-      <section class="panel-section tools-section">
-        <div class="section-heading"><div><p class="eyebrow">เครื่องมือ</p><h2>สำรองและส่งออก</h2></div></div>
-        <div class="tool-grid"><label class="button button-muted" for="restore-input">กู้คืนข้อมูล</label><input id="restore-input" type="file" accept="application/json" hidden><button id="backup-button" class="button button-muted" type="button">สำรองข้อมูล</button><button id="export-button" class="button button-primary" type="button">ดาวน์โหลด PNG</button><button id="print-map-button" class="button button-muted" type="button">พิมพ์แผนที่ A4</button></div>
-        <details class="print-settings"><summary>เลือกข้อความบนแผนที่ A4</summary><label><input id="print-tambon-labels" type="checkbox" checked> ชื่อตำบล</label><label><input id="print-district-labels" type="checkbox" checked> ชื่ออำเภอ</label><label><input id="print-price-labels" type="checkbox" checked> ยอดรายตำบล</label></details>
+      <section class="panel-section tools-section enter" style="--i:5">
+        <div class="section-heading">
+          <div><p class="eyebrow">เครื่องมือ</p><h2>สำรองและส่งออก</h2></div>
+        </div>
+        <div class="tool-grid">
+          <label class="button button-muted" for="restore-input">กู้คืนข้อมูล</label>
+          <input id="restore-input" type="file" accept="application/json" hidden>
+          <button id="backup-button" class="button button-muted" type="button">สำรองข้อมูล</button>
+          <button id="export-button" class="button button-primary" type="button">ดาวน์โหลด PNG</button>
+          <button id="print-map-button" class="button button-muted" type="button">พิมพ์แผนที่ A4</button>
+        </div>
+        <details class="print-settings">
+          <summary>เลือกข้อความบนแผนที่ A4</summary>
+          <label><input id="print-tambon-labels" type="checkbox" checked> ชื่อตำบล</label>
+          <label><input id="print-district-labels" type="checkbox" checked> ชื่ออำเภอ</label>
+          <label><input id="print-price-labels" type="checkbox" checked> ยอดรายตำบล</label>
+        </details>
       </section>
 
-      <section class="panel-section report-section">
-        <div class="section-heading"><div><p class="eyebrow">รายงาน</p><h2>ภาระงานและพื้นที่</h2></div></div>
-        <label for="report-staff-select">เลือกรายบุคคล</label><select id="report-staff-select"><option value="">— รายงานทั้งหมด —</option></select>
-        <div class="report-actions"><button id="excel-report-button" class="button button-muted" type="button">ดาวน์โหลด Excel</button><button id="pdf-report-button" class="button button-primary" type="button">พิมพ์ / PDF</button></div>
+      <section class="panel-section report-section enter" style="--i:6">
+        <div class="section-heading">
+          <div><p class="eyebrow">รายงาน</p><h2>ภาระงานและพื้นที่</h2></div>
+        </div>
+        <label for="report-staff-select">เลือกรายบุคคล</label>
+        <select id="report-staff-select"><option value="">— รายงานทั้งหมด —</option></select>
+        <div class="report-actions">
+          <button id="excel-report-button" class="button button-muted" type="button">ดาวน์โหลด Excel</button>
+          <button id="pdf-report-button" class="button button-primary" type="button">พิมพ์ / PDF</button>
+        </div>
         <div id="report-summary" class="report-summary"></div>
       </section>
 
-      <section class="panel-section checks-section">
-        <div class="section-heading"><div><p class="eyebrow">ตรวจสอบ</p><h2>ความพร้อมข้อมูล</h2></div><button id="validate-button" class="text-button" type="button">ตรวจอีกครั้ง</button></div>
+      <section class="panel-section checks-section enter" style="--i:7">
+        <div class="section-heading">
+          <div><p class="eyebrow">ตรวจสอบ</p><h2>ความพร้อมข้อมูล</h2></div>
+          <button id="validate-button" class="text-button" type="button">ตรวจอีกครั้ง</button>
+        </div>
         <ul id="validation-list" class="validation-list"></ul>
       </section>
+
     </aside>
 
     <section id="printable" class="map-workspace" aria-label="แผนที่เขตรับผิดชอบ">
-      <div class="workspace-topline"><div><p class="eyebrow">ภาพรวมการมอบหมาย</p><h2>เขตศาลจังหวัดลพบุรี</h2></div><div id="assignment-summary" class="summary-pills"></div></div>
-      <div id="maps-layout" class="maps-layout maps-layout-single">
-        <article class="map-card main-map-card">
-          <div class="map-card-heading"><div><h3>แผนที่เขตหลัก</h3><p>สีแทนผู้รับผิดชอบ และป้ายยอดแยกรายตำบล</p></div><div class="map-card-options"><button id="labels-button" class="map-option" type="button">ซ่อนชื่อตำบล</button><button id="district-labels-button" class="map-option" type="button">ซ่อนชื่ออำเภอ</button><button id="price-labels-button" class="map-option" type="button">ซ่อนยอด</button><button id="toggle-legend-button" class="map-option" type="button">ซ่อนคำอธิบายสี</button></div></div>
-          <div class="map-view-shortcuts map-view-shortcuts-admin" role="group" aria-label="มุมมองแผนที่"><button id="province-overview-button" class="map-view-button" type="button">⌖ ภาพรวมลพบุรี</button><button id="tambon-view-button" class="map-view-button" type="button">⌕ ดูตำบล</button><button id="three-d-button" class="map-view-button" type="button" aria-pressed="false">◧ มุมมอง 3D</button></div>
-          <div id="main-map" class="map-canvas"></div>
-        </article>
-        <aside id="legend-rail" class="right-rail legend-rail"><article class="legend-card"><div class="map-card-heading"><div><h3>คำอธิบายสี</h3><p>สีและจำนวนพื้นที่ของผู้รับผิดชอบ</p></div></div><div id="legend" class="legend"></div></article></aside>
+      <div class="workspace-topline">
+        <div><p class="eyebrow">ภาพรวมการมอบหมาย</p><h2>เขตศาลจังหวัดลพบุรี</h2></div>
+        <div id="assignment-summary" class="summary-pills"></div>
       </div>
-      <footer class="map-footer"><span>ข้อมูลขอบเขตตำบล: Thailand Subdistrict Boundaries 2025</span><span id="updated-at">ยังไม่มีการบันทึก</span></footer>
+
+      <div id="maps-layout" class="maps-layout">
+        <article class="map-card main-map-card">
+          <div class="map-card-heading">
+            <div><h3>แผนที่เขตหลัก</h3><p>สีแทนผู้รับผิดชอบ และป้ายยอดแยกรายตำบล</p></div>
+            <div class="map-card-options">
+              <button id="labels-button" class="map-option" type="button">ชื่อตำบล</button>
+              <button id="district-labels-button" class="map-option" type="button">ชื่ออำเภอ</button>
+              <button id="price-labels-button" class="map-option" type="button">ยอด</button>
+              <button id="toggle-legend-button" class="map-option" type="button">คำอธิบายสี</button>
+            </div>
+          </div>
+          <div id="main-map" class="map-canvas"></div>
+          <div class="map-view-shortcuts map-view-shortcuts-admin" role="group" aria-label="มุมมองแผนที่">
+            <button id="province-overview-button" class="map-view-button" type="button">⌖ ภาพรวมลพบุรี</button>
+            <button id="tambon-view-button" class="map-view-button" type="button">⌕ ดูตำบล</button>
+            <button id="three-d-button" class="map-view-button" type="button" aria-pressed="true">◧ มุมมอง 3 มิติ</button>
+          </div>
+          <footer class="map-footer">
+            <span id="boundary-source">ขอบเขตตำบล: ข้อมูลในระบบ</span>
+            <span id="updated-at">ยังไม่มีการบันทึก</span>
+          </footer>
+        </article>
+
+        <aside id="legend-rail" class="right-rail legend-rail">
+          <article class="legend-card">
+            <div class="map-card-heading">
+              <div><h3>คำอธิบายสี</h3><p>สีและจำนวนพื้นที่ของผู้รับผิดชอบ</p></div>
+            </div>
+            <div id="legend" class="legend"></div>
+          </article>
+        </aside>
+      </div>
     </section>
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <div id="loading" class="loading-overlay" role="status"><div><span class="spinner"></span><p>กำลังโหลดขอบเขตตำบลลพบุรี…</p></div></div>
+  <div id="loading" class="loading-overlay" role="status">
+    <div><span class="spinner"></span><p>กำลังเตรียมแผนที่เขตส่งหมาย…</p></div>
+  </div>
 
-  <script src="https://unpkg.com/maplibre-gl@5.20.0/dist/maplibre-gl.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="core.js?v=4.2.0"></script>
-  <script src="overview.js?v=4.3.0"></script>
-  <script src="app.js?v=4.3.1"></script>
+  <script src="vendor/maplibre-gl.js?v=5.0.0"></script>
+  <script src="core.js?v=5.0.0"></script>
+  <script src="theme.js?v=5.0.0"></script>
+  <script src="boundaries.js?v=5.0.0"></script>
+  <script src="map-engine.js?v=5.0.0"></script>
+  <script src="app.js?v=5.0.0"></script>
 </body>
 </html>

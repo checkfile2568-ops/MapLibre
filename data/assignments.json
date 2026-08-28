@@ -53,6 +53,7 @@
     "160108": "legacy-jampai",
     "160109": "staff-1784993803984-w6gmn",
     "160110": "legacy-jampai",
+    "160111": "legacy-jampai",
     "160112": "legacy-jampai",
     "160114": "staff-1784987702700-q10g5",
     "160115": "legacy-boy",
@@ -202,5 +203,6 @@
   "showLegend": true,
   "showPriceLabels": false,
   "publishPrices": true,
-  "updatedAt": "2026-08-03T06:35:20.819Z"
+  "updatedAt": "2026-08-28T02:20:26.469Z",
+  "updatedBy": "checkfile2568-ops"
 }

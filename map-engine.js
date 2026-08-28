@@ -96,6 +96,21 @@
     return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
   }
 
+  /** ผสมสีสองสีเข้าหากัน ใช้หรี่พื้นที่ของคนที่ไม่ได้เลือกให้กลมกลืนกับพื้นหลัง */
+  function mixHex(from, to, amount) {
+    const parse = (value) => {
+      const hex = String(value).trim().replace("#", "");
+      const full = hex.length === 3 ? hex.split("").map((c) => c + c).join("") : hex;
+      const number = Number.parseInt(full.slice(0, 6), 16);
+      return Number.isFinite(number) ? [(number >> 16) & 255, (number >> 8) & 255, number & 255] : [128, 128, 128];
+    };
+    const [r1, g1, b1] = parse(from);
+    const [r2, g2, b2] = parse(to);
+    const t = Math.min(1, Math.max(0, amount));
+    const channel = (a, b) => Math.round(a + (b - a) * t).toString(16).padStart(2, "0");
+    return `#${channel(r1, r2)}${channel(g1, g2)}${channel(b1, b2)}`;
+  }
+
   function create(options = {}) {
     const {
       container,
@@ -126,6 +141,7 @@
       filterStaffId: "",
       selectedAreaId: "",
       searchText: "",
+      dimStrength: 0.78,
     };
     let markers = { area: [], district: [], context: [], province: [] };
     let threeD = Boolean(startThreeD);
@@ -208,6 +224,7 @@
       set("court-halo", "line-color", palette.halo);
       set("tambon-outline", "line-color", palette.areaLine);
       set("tambon-hover", "line-color", palette.hover);
+      set("tambon-focus", "line-color", palette.hover);
       set("tambon-selected", "line-color", palette.selected);
       refresh();
     }
@@ -215,7 +232,7 @@
     /* ------------------------------------------------------------ ข้อมูล */
 
     function collection() {
-      const { staffById, assignments, prices, filterStaffId, selectedAreaId, searchText } = presentation;
+      const { staffById, assignments, prices, filterStaffId, selectedAreaId, searchText, dimStrength } = presentation;
       const needle = Core.sanitizeName(searchText).toLocaleLowerCase("th");
       return {
         type: "FeatureCollection",
@@ -223,22 +240,25 @@
           const id = Core.areaId(feature);
           const owner = staffById.get(assignments[id]) || null;
           const amount = Number.isFinite(prices[id]) ? prices[id] : null;
-          const dimmed = Boolean(filterStaffId) && owner?.id !== filterStaffId;
+          const focused = Boolean(filterStaffId) && owner?.id === filterStaffId;
+          const dimmed = Boolean(filterStaffId) && !focused;
           const matched = needle
             ? `${Core.tambonName(feature)} ${Core.districtName(feature)} ${owner?.name || ""}`.toLocaleLowerCase("th").includes(needle)
             : false;
+          const baseColor = owner ? owner.color : palette.unassigned;
           return {
             type: "Feature",
             id,
             geometry: feature.geometry,
             properties: {
               id,
-              color: owner ? owner.color : palette.unassigned,
-              height: owner ? 1180 : 620,
+              color: dimmed ? mixHex(baseColor, palette.void, dimStrength) : baseColor,
+              height: dimmed ? 460 : owner ? (focused ? 2100 : 1180) : 620,
               amount,
               hasAmount: amount !== null,
               assigned: Boolean(owner),
               dimmed,
+              focused,
               matched,
               selected: id === selectedAreaId,
             },
@@ -259,7 +279,7 @@
         layout: { visibility: threeD ? "none" : "visible" },
         paint: {
           "fill-color": ["get", "color"],
-          "fill-opacity": ["case", ["get", "dimmed"], 0.16, ["get", "assigned"], 0.9, 0.62],
+          "fill-opacity": ["case", ["get", "assigned"], 0.9, 0.62],
           "fill-opacity-transition": { duration: 420 },
         },
       });
@@ -274,6 +294,7 @@
           "fill-extrusion-height": ["*", ["get", "height"], 0],
           "fill-extrusion-base": 0,
           "fill-extrusion-opacity": 0.94,
+          "fill-extrusion-height-transition": { duration: 900 },
           "fill-extrusion-vertical-gradient": true,
           "fill-extrusion-opacity-transition": { duration: 520 },
         },
@@ -307,6 +328,14 @@
           "line-width": ["case", ["boolean", ["feature-state", "hover"], false], 2.6, 0],
           "line-opacity": 0.9,
         },
+      });
+
+      map.addLayer({
+        id: "tambon-focus",
+        type: "line",
+        source: "tambons",
+        filter: ["==", ["get", "focused"], true],
+        paint: { "line-color": palette.hover, "line-width": 2, "line-opacity": 0.85 },
       });
 
       map.addLayer({
@@ -367,7 +396,8 @@
     }
 
     function refresh() {
-      if (ready && map.getSource("tambons")) map.getSource("tambons").setData(collection());
+      if (!ready) return;
+      if (map.getSource("tambons")) map.getSource("tambons").setData(collection());
       scheduleLabels();
     }
 
@@ -420,7 +450,7 @@
       scheduleLabels();
     }
 
-    function easeToBounds(bounds, { view = "detail", maxZoom = 12.2, duration = 700 } = {}) {
+    function easeToBounds(bounds, { view = "detail", maxZoom = 12.2, duration = 1600 } = {}) {
       const time = prefersReducedMotion() ? 0 : duration;
       const camera = map.cameraForBounds?.(bounds, { padding: padding(view), maxZoom });
       if (camera) map.easeTo({ ...camera, ...perspective(), duration: time, easing: easeInOutCubic });
@@ -453,7 +483,7 @@
         center: map.getCenter(),
         zoom: Math.max(map.getZoom(), 10.4),
         ...perspective(),
-        duration: prefersReducedMotion() ? 0 : 700,
+        duration: prefersReducedMotion() ? 0 : 1400,
         easing: easeInOutCubic,
       });
       scheduleLabels();
@@ -762,7 +792,7 @@
         context = value;
         if (ready && !map.getSource("country") && context) {
           addContextLayers();
-          for (const layer of ["tambon-ground", "tambon-3d", "tambon-outline", "tambon-match", "tambon-hover", "tambon-selected"]) {
+          for (const layer of ["tambon-ground", "tambon-3d", "tambon-outline", "tambon-match", "tambon-hover", "tambon-focus", "tambon-selected"]) {
             if (map.getLayer(layer)) map.moveLayer(layer);
           }
         }

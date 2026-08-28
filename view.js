@@ -323,7 +323,7 @@ function renderPersonDetail() {
   zoom.type = "button";
   zoom.className = "clear-filter";
   zoom.textContent = "ซูมดูพื้นที่";
-  zoom.addEventListener("click", () => engine?.flyToAreas(assigned));
+  zoom.addEventListener("click", () => engine?.flyToAreas(assigned, { duration: 1800 }));
   heading.append(title, zoom);
 
   const summary = document.createElement("div");
@@ -440,7 +440,7 @@ function selectStaff(id, focus = false) {
   dom.clear_staff_filter.hidden = !id;
   renderAll();
   if (!focus) return;
-  if (id) engine?.flyToAreas(features.filter((feature) => owner(feature)?.id === id));
+  if (id) engine?.flyToAreas(features.filter((feature) => owner(feature)?.id === id), { duration: 1800 });
   else engine?.flyToOverview({ duration: 800 });
 }
 

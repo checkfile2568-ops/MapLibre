@@ -652,6 +652,33 @@ async function importStaffFile(file) {
 
 /* =================================================== 5. การวาดหน้าจอ */
 
+/**
+ * เลือกผู้รับผิดชอบแล้วพากล้องไปหาพื้นที่ของเขาแบบช้า ๆ
+ * ถ้าคนนั้นยังไม่มีพื้นที่ ให้ถอยกลับมาภาพรวมทั้งเขตแทน
+ */
+function focusOnSelectedStaff({ announce = false } = {}) {
+  renderAll();
+  const person = selectedStaff();
+  if (!person) {
+    engine?.flyToOverview({ duration: 1400 });
+    return;
+  }
+  const areas = assignedAreasFor(person.id);
+  if (areas.length) engine?.flyToAreas(areas, { duration: 1800 });
+  else engine?.flyToOverview({ duration: 1400 });
+  if (announce) {
+    showToast(areas.length
+      ? `${person.name} รับผิดชอบ ${areas.length} ตำบล — กำลังซูมไปที่พื้นที่`
+      : `${person.name} ยังไม่มีพื้นที่รับผิดชอบ`);
+  }
+}
+
+function selectStaffAndFocus(person) {
+  if (!person?.active) return showToast(`${person?.name || "รายชื่อนี้"} ถูกปิดใช้งานอยู่ เปิดใช้งานก่อนจึงจะกำหนดพื้นที่ได้`);
+  dom.staff_select.value = person.id;
+  focusOnSelectedStaff({ announce: true });
+}
+
 function renderStaffSelect() {
   const current = selectedStaffId();
   dom.staff_select.innerHTML = '<option value="">— เลือกผู้รับผิดชอบ —</option>';
@@ -686,8 +713,12 @@ function renderStaffManagement() {
     const dot = document.createElement("span");
     dot.className = "legend-dot";
     dot.style.background = person.color;
-    const name = document.createElement("strong");
+    const name = document.createElement("button");
+    name.type = "button";
+    name.className = "staff-card-name";
     name.textContent = person.name;
+    name.title = "เลือกและซูมไปที่พื้นที่ของคนนี้";
+    name.addEventListener("click", () => selectStaffAndFocus(person));
     const status = document.createElement("span");
     status.className = `staff-status${person.active ? "" : " inactive"}`;
     status.textContent = person.active ? "ปฏิบัติงาน" : "ปิดใช้งาน";
@@ -904,11 +935,8 @@ function renderLegend() {
     const row = document.createElement("button");
     row.type = "button";
     row.className = `legend-item${person.active ? "" : " inactive"}`;
-    row.addEventListener("click", () => {
-      dom.staff_select.value = person.active ? person.id : "";
-      renderAll();
-      engine?.flyToAreas(areas);
-    });
+    row.setAttribute("aria-pressed", String(person.id === selectedStaffId()));
+    row.addEventListener("click", () => selectStaffAndFocus(person));
     const dot = document.createElement("span");
     dot.className = "legend-dot";
     dot.style.background = person.color;
@@ -1045,7 +1073,10 @@ function syncMap() {
     showTambonLabels: state.showLabels,
     showDistrictLabels: state.showDistrictLabels,
     showAmountLabels: state.showPriceLabels,
-    filterStaffId: "",
+    // เลือกชื่อใครไว้ พื้นที่ของคนนั้นจะยกตัวสูงขึ้นและมีเส้นขอบเน้น
+    // ส่วนพื้นที่คนอื่นจางลงแต่ยังเห็นและคลิกได้ เพราะยังต้องมอบหมายข้ามคน
+    filterStaffId: selectedStaffId(),
+    dimStrength: 0.62,
     selectedAreaId: "",
     searchText: "",
   });
@@ -1359,6 +1390,9 @@ function createMapEngine() {
     },
   });
   window.ThemeController?.subscribe(() => engine?.refreshPalette());
+  // ช่องทางตรวจสอบจากคอนโซลเบราว์เซอร์เวลาต้องแก้ปัญหาแผนที่
+  // เช่น __engine.map.getZoom() หรือ __engine.flyToOverview()
+  window.__engine = engine;
 }
 
 function setBoundarySource(origin) {
@@ -1378,12 +1412,7 @@ function bindEvents() {
   dom.new_staff_name.addEventListener("keydown", (event) => {
     if (event.key === "Enter") { event.preventDefault(); dom.add_staff_button.click(); }
   });
-  dom.staff_select.addEventListener("change", () => {
-    renderAll();
-    const person = selectedStaff();
-    if (person) engine?.flyToAreas(assignedAreasFor(person.id));
-    else engine?.flyToOverview({ duration: 700 });
-  });
+  dom.staff_select.addEventListener("change", () => focusOnSelectedStaff());
   dom.toggle_staff_management.addEventListener("click", () => { staffManagementOpen = !staffManagementOpen; renderStaffManagement(); });
   dom.new_color_button.addEventListener("click", () => {
     const person = selectedStaff();

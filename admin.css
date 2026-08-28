@@ -128,6 +128,24 @@
 .staff-card.inactive { opacity: 0.62; }
 .staff-card-heading { display: flex; align-items: center; gap: var(--space-2); }
 .staff-card-heading input { margin: 0; }
+
+.staff-card-name {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: none;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease-soft), background var(--dur-1) var(--ease-soft);
+}
+
+.staff-card-name:hover { color: var(--gold-strong); background: var(--gold-soft); }
 .staff-card-meta { display: flex; gap: var(--space-3); flex-wrap: wrap; font-size: var(--text-xs); color: var(--muted); }
 .staff-card-actions { display: flex; gap: var(--space-3); flex-wrap: wrap; }
 .staff-status { font-family: var(--font-display); font-weight: 600; }

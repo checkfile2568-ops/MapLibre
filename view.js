@@ -188,9 +188,7 @@ function renderLegend() {
     name.textContent = person.name;
     const summary = document.createElement("span");
     summary.className = "legend-count";
-    summary.textContent = amountsVisible()
-      ? `${areas.length} ตำบล · ยอด ${Core.formatAmount(Core.sumPrices(areas, state.prices))}`
-      : `${areas.length} ตำบล`;
+    summary.textContent = `${areas.length} ตำบล`;
     row.append(dot, name, summary);
     row.addEventListener("click", () => selectStaff(person.id === ui.selectedStaffId ? "" : person.id, true));
     fragment.append(row);

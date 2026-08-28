@@ -78,14 +78,20 @@
         <p id="price-privacy-note" class="price-privacy-note" hidden>ผู้ดูแลปิดการแสดงยอดในหน้าจอแสดงผล</p>
       </div>
 
-      <div class="search-box enter" style="--i:2">
+      <details id="legend-panel" class="legend-panel enter" style="--i:2">
+        <summary>รายชื่อและสี</summary>
+        <p>หนึ่งสีแทนผู้รับผิดชอบหนึ่งคน</p>
+        <div id="legend" class="legend"></div>
+      </details>
+
+      <div class="search-box enter" style="--i:3">
         <label for="search-input">ค้นหา</label>
         <input id="search-input" type="search" autocomplete="off" placeholder="เช่น ทะเลชุบศร หรือชื่อเจ้าหน้าที่">
         <div id="search-results" class="search-results"></div>
         <div id="overview-stats" class="overview-stats"></div>
       </div>
 
-      <div class="display-options enter" style="--i:3">
+      <div class="display-options enter" style="--i:4">
         <div class="options-heading">
           <h3>การแสดงผลบนแผนที่</h3>
           <p>เปิดหรือปิดข้อมูลที่ต้องการดูได้ทันที</p>
@@ -102,12 +108,6 @@
         </label>
         <button id="clear-staff-filter" class="clear-filter" type="button" hidden>แสดงทั้งหมด</button>
       </div>
-
-      <aside id="legend-panel" class="legend-panel enter" style="--i:4">
-        <h3>รายชื่อและสี</h3>
-        <p>หนึ่งสีแทนผู้รับผิดชอบหนึ่งคน</p>
-        <div id="legend" class="legend"></div>
-      </aside>
 
       <section id="person-detail" class="person-detail" hidden></section>
     </section>

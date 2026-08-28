@@ -2,60 +2,74 @@
   "version": 4,
   "staff": [
     {
-      "id": "staff-1784987702700-q10g5",
-      "name": "ชนินทร์",
-      "color": "#1377b5",
-      "active": true
-    },
-    {
-      "id": "staff-1784993803984-w6gmn",
-      "name": "ณรงค์",
-      "color": "#ca5d35",
-      "active": true
-    },
-    {
       "id": "legacy-jampai",
       "name": "อำไพพรรณ",
-      "color": "#2c9a6d",
+      "color": "#49c551",
       "active": true
     },
     {
       "id": "legacy-gomol",
       "name": "โกมล",
-      "color": "#7757b5",
+      "color": "#9449c5",
       "active": true
     },
     {
       "id": "legacy-nawaparat",
       "name": "นวพรรษ",
-      "color": "#c04662",
+      "color": "#c54959",
+      "active": true
+    },
+    {
+      "id": "staff-1787907600-3",
+      "name": "สุพัตรา",
+      "color": "#608f24",
+      "active": true
+    },
+    {
+      "id": "staff-1784987702700-q10g5",
+      "name": "ชนินทร์",
+      "color": "#499cc5",
       "active": true
     },
     {
       "id": "legacy-boy",
       "name": "ถนิจ",
-      "color": "#27858f",
+      "color": "#248f6f",
       "active": true
     },
     {
       "id": "legacy-patcharin",
       "name": "พัชรินทร์",
-      "color": "#ae791a",
+      "color": "#c5ad49",
       "active": true
     },
     {
-      "id": "staff-1787883752861-2e0n3",
-      "name": "สุพัตรา",
-      "color": "#4772af",
+      "id": "staff-1784993803984-w6gmn",
+      "name": "ณรงค์",
+      "color": "#8f3624",
+      "active": true
+    },
+    {
+      "id": "staff-1787907600-8",
+      "name": "วรางคณา",
+      "color": "#24278f",
+      "active": true
+    },
+    {
+      "id": "staff-1787907600-9",
+      "name": "ชุตาภรณ์",
+      "color": "#8f2476",
       "active": true
     }
   ],
   "assignments": {
+    "160101": "legacy-boy",
     "160102": "legacy-jampai",
     "160103": "legacy-boy",
     "160104": "legacy-jampai",
     "160105": "legacy-jampai",
     "160106": "legacy-jampai",
+    "160107": "staff-1787907600-9",
     "160108": "legacy-jampai",
     "160109": "staff-1784993803984-w6gmn",
     "160110": "legacy-jampai",
@@ -64,24 +78,34 @@
     "160114": "staff-1784987702700-q10g5",
     "160115": "legacy-boy",
     "160116": "legacy-boy",
+    "160117": "staff-1787907600-9",
+    "160118": "staff-1787907600-8",
+    "160119": "staff-1787907600-8",
     "160120": "legacy-boy",
     "160121": "legacy-jampai",
+    "160122": "staff-1787907600-9",
+    "160123": "staff-1787907600-9",
+    "160124": "staff-1787907600-8",
     "160125": "staff-1784987702700-q10g5",
     "160201": "staff-1784993803984-w6gmn",
     "160202": "staff-1784993803984-w6gmn",
-    "160203": "staff-1784993803984-w6gmn",
+    "160203": "staff-1787907600-8",
     "160204": "staff-1784993803984-w6gmn",
-    "160205": "staff-1784993803984-w6gmn",
+    "160205": "staff-1787907600-8",
     "160206": "staff-1784993803984-w6gmn",
     "160207": "staff-1784993803984-w6gmn",
-    "160208": "staff-1784993803984-w6gmn",
-    "160209": "staff-1784993803984-w6gmn",
+    "160208": "staff-1787907600-8",
+    "160209": "staff-1787907600-8",
     "160301": "legacy-nawaparat",
     "160302": "legacy-nawaparat",
     "160303": "staff-1784987702700-q10g5",
     "160304": "staff-1784987702700-q10g5",
     "160305": "staff-1784987702700-q10g5",
     "160306": "staff-1784987702700-q10g5",
+    "160307": "staff-1787907600-3",
+    "160308": "staff-1787907600-3",
+    "160309": "staff-1787907600-3",
+    "160310": "staff-1787907600-3",
     "160318": "staff-1784987702700-q10g5",
     "160320": "legacy-nawaparat",
     "160322": "legacy-nawaparat",
@@ -101,12 +125,17 @@
     "160603": "legacy-gomol",
     "160604": "legacy-nawaparat",
     "160605": "legacy-gomol",
+    "160606": "staff-1787907600-3",
     "160607": "legacy-nawaparat",
     "160608": "legacy-gomol",
+    "160609": "staff-1787907600-3",
+    "160610": "legacy-nawaparat",
+    "160611": "staff-1787907600-3",
     "160612": "legacy-gomol",
     "160613": "legacy-gomol",
     "160614": "legacy-gomol",
     "160615": "legacy-gomol",
+    "160616": "legacy-gomol",
     "160617": "legacy-gomol",
     "160618": "legacy-gomol",
     "160619": "legacy-gomol",
@@ -115,7 +144,10 @@
     "160622": "legacy-gomol",
     "161101": "legacy-nawaparat",
     "161102": "legacy-nawaparat",
-    "161103": "legacy-nawaparat"
+    "161103": "legacy-nawaparat",
+    "161104": "staff-1787907600-9",
+    "161105": "staff-1787907600-9",
+    "161106": "staff-1787907600-9"
   },
   "prices": {
     "160101": 500,
@@ -209,6 +241,6 @@
   "showLegend": true,
   "showPriceLabels": false,
   "publishPrices": true,
-  "updatedAt": "2026-08-28T03:15:16.566Z",
-  "updatedBy": "checkfile2568-ops"
+  "updatedAt": "2026-08-28T09:00:00Z",
+  "updatedBy": null
 }

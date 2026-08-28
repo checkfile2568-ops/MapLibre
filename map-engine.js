@@ -699,12 +699,13 @@
     function scheduleLabels() {
       if (!ready) return;
       clearTimeout(labelTimer);
-      const run = () => {
+      // ระหว่างเคลื่อนกล้องรอ moveend ก่อน เพื่อลดการล้างและสร้างป้ายกลางทาง
+      if (map.isMoving()) return;
+      labelTimer = setTimeout(() => {
+        labelTimer = null;
         if (!map.isStyleLoaded()) return;
         renderLabels();
-      };
-      map.once("idle", run);
-      labelTimer = setTimeout(run, 240);
+      }, 120);
     }
 
     /* --------------------------------------------------------- ตัวควบคุม */

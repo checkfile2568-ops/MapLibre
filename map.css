@@ -92,48 +92,39 @@
 /*
  * ป้ายบนแผนที่คือ marker ของ MapLibre ซึ่งกำหนดตำแหน่งด้วย transform แบบ inline
  * ห้าม animate transform ที่นี่เด็ดขาด เพราะ CSS animation จะทับ inline transform
- * ทำให้ป้ายทุกอันไปกองอยู่มุมซ้ายบน — ใช้ opacity อย่างเดียวเท่านั้น
+ * ทำให้ป้ายทุกอันไปกองอยู่มุมซ้ายบน และไม่ทำ animation ตอนสร้างป้ายใหม่
+ * เพื่อไม่ให้เห็นป้ายกระพริบระหว่างรีเฟรชแผนที่
  */
 .map-label {
   font-family: var(--font-display);
   pointer-events: none;
   user-select: none;
-  animation: label-in var(--dur-2) var(--ease-out) both;
-}
-
-@keyframes label-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
 }
 
 .map-area-label {
   display: grid;
   justify-items: center;
   gap: 1px;
-  padding: 3px 9px;
-  border-radius: var(--r-pill);
-  border: 1px solid var(--label-line);
-  background: var(--label-bg);
   color: var(--label-ink);
   font-size: var(--text-xs);
   font-weight: 600;
   line-height: 1.25;
   white-space: nowrap;
-  box-shadow: var(--shadow-sm);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
 }
 
-.map-area-label.with-amount { border-radius: var(--r-sm); padding: 4px 10px; }
-
-.map-area-name { color: var(--label-ink); }
+.map-area-name {
+  color: var(--label-ink);
+  font-size: var(--text-xs);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.62);
+}
 
 .map-area-amount {
   font-variant-numeric: tabular-nums;
-  font-size: var(--text-xs);
-  font-weight: 700;
+  font-size: 0.62rem;
+  font-weight: 600;
   color: var(--gold-strong);
   letter-spacing: 0.02em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.62);
 }
 
 .map-district-label {

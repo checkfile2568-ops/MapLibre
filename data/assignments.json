@@ -42,6 +42,12 @@
       "name": "พัชรินทร์",
       "color": "#ae791a",
       "active": true
+    },
+    {
+      "id": "staff-1787883752861-2e0n3",
+      "name": "สุพัตรา",
+      "color": "#4772af",
+      "active": true
     }
   ],
   "assignments": {
@@ -203,6 +209,6 @@
   "showLegend": true,
   "showPriceLabels": false,
   "publishPrices": true,
-  "updatedAt": "2026-08-28T02:20:26.469Z",
+  "updatedAt": "2026-08-28T03:15:16.566Z",
   "updatedBy": "checkfile2568-ops"
 }

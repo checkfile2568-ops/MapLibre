@@ -19,8 +19,8 @@ const REFRESH_INTERVAL_MS = 90000;
 
 const dom = Object.fromEntries([
   "loading", "theme-toggle", "display-title", "map-title", "search-input", "overview-stats", "updated-at", "data-status",
-  "coverage-main", "coverage-exclusion", "display-content", "search-menu", "legend-panel", "legend", "search-results",
-  "central-notice", "toggle-tambon-labels", "toggle-district-labels", "toggle-amount-labels", "toggle-legend-button",
+  "coverage-main", "coverage-exclusion", "display-content", "search-menu", "legend", "search-results",
+  "central-notice", "toggle-tambon-labels", "toggle-district-labels", "toggle-amount-labels",
   "staff-filter", "clear-staff-filter", "person-detail", "price-privacy-note", "province-overview-button",
   "tambon-view-button", "three-d-button", "staff-area-summary-card", "staff-area-summary-title",
   "staff-area-summary-groups", "tambon-info-card", "close-tambon-info-button", "tambon-info-title",
@@ -33,7 +33,7 @@ let state = Core.initialState();
 let engine = null;
 let revision = null;
 let etag = null;
-let ui = { selectedStaffId: "", selectedFeatureId: "", showTambonLabels: true, showDistrictLabels: true, showAmountLabels: true, showLegend: true };
+let ui = { selectedStaffId: "", selectedFeatureId: "", showTambonLabels: true, showDistrictLabels: true, showAmountLabels: true };
 
 /* ------------------------------------------------------------ ตัวช่วย */
 
@@ -141,7 +141,6 @@ function renderStats() {
     [`${assigned}/${total}`, "มอบหมายแล้ว"],
     [total - assigned, "ยังไม่มอบหมาย"],
   ];
-  if (amountsVisible()) values.push([Core.formatAmount(Core.sumPrices(features, state.prices)), "ยอดรวมทั้งเขต"]);
   dom.overview_stats.replaceChildren(...values.map(([value, label]) => {
     const item = document.createElement("span");
     item.className = "stat";
@@ -358,8 +357,6 @@ function renderControls() {
   setSwitch(dom.toggle_tambon_labels, ui.showTambonLabels);
   setSwitch(dom.toggle_district_labels, ui.showDistrictLabels);
   setSwitch(dom.toggle_amount_labels, ui.showAmountLabels);
-  setSwitch(dom.toggle_legend_button, ui.showLegend);
-  dom.legend_panel.hidden = !ui.showLegend;
   dom.toggle_amount_labels.hidden = !amountsPublished();
   if (dom.three_d_button) {
     const on = engine?.isThreeD?.() ?? true;
@@ -538,7 +535,6 @@ function bindEvents() {
   dom.toggle_tambon_labels.addEventListener("click", () => { ui.showTambonLabels = !ui.showTambonLabels; renderControls(); syncMap(); });
   dom.toggle_district_labels.addEventListener("click", () => { ui.showDistrictLabels = !ui.showDistrictLabels; renderControls(); syncMap(); });
   dom.toggle_amount_labels.addEventListener("click", () => { ui.showAmountLabels = !ui.showAmountLabels; renderControls(); renderAll(); });
-  dom.toggle_legend_button.addEventListener("click", () => { ui.showLegend = !ui.showLegend; renderControls(); });
 
   let resizeTimer = null;
   const refit = () => {

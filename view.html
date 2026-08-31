@@ -11,11 +11,11 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@500;600;700&family=Sarabun:wght@400;500;600;700&display=swap">
 
-  <link rel="stylesheet" href="vendor/maplibre-gl.css?v=5.0.1">
-  <link rel="stylesheet" href="tokens.css?v=5.0.1">
-  <link rel="stylesheet" href="ui.css?v=5.0.1">
-  <link rel="stylesheet" href="map.css?v=5.0.1">
-  <link rel="stylesheet" href="display.css?v=5.0.1">
+  <link rel="stylesheet" href="vendor/maplibre-gl.css?v=5.0.2">
+  <link rel="stylesheet" href="tokens.css?v=5.0.2">
+  <link rel="stylesheet" href="ui.css?v=5.0.2">
+  <link rel="stylesheet" href="map.css?v=5.0.2">
+  <link rel="stylesheet" href="display.css?v=5.0.2">
 </head>
 <body>
   <header class="display-header">
@@ -48,6 +48,10 @@
         <div class="map-column">
           <div id="display-map" class="display-map"></div>
 
+          <aside id="map-staff-legend" class="map-staff-legend" aria-label="รายชื่อผู้รับผิดชอบและสี">
+            <div id="legend" class="legend"></div>
+          </aside>
+
           <aside id="staff-area-summary-card" class="staff-area-summary-card" aria-live="polite" hidden>
             <h3 id="staff-area-summary-title">ผู้รับผิดชอบ: —</h3>
             <div id="staff-area-summary-groups" class="staff-area-summary-groups"></div>
@@ -78,20 +82,14 @@
         <p id="price-privacy-note" class="price-privacy-note" hidden>ผู้ดูแลปิดการแสดงยอดในหน้าจอแสดงผล</p>
       </div>
 
-      <details id="legend-panel" class="legend-panel enter" style="--i:2">
-        <summary>รายชื่อและสี</summary>
-        <p>หนึ่งสีแทนผู้รับผิดชอบหนึ่งคน</p>
-        <div id="legend" class="legend"></div>
-      </details>
-
-      <div class="search-box enter" style="--i:3">
+      <div class="search-box enter" style="--i:2">
         <label for="search-input">ค้นหา</label>
         <input id="search-input" type="search" autocomplete="off" placeholder="เช่น ทะเลชุบศร หรือชื่อเจ้าหน้าที่">
         <div id="search-results" class="search-results"></div>
         <div id="overview-stats" class="overview-stats"></div>
       </div>
 
-      <div class="display-options enter" style="--i:4">
+      <div class="display-options enter" style="--i:3">
         <div class="options-heading">
           <h3>การแสดงผลบนแผนที่</h3>
           <p>เปิดหรือปิดข้อมูลที่ต้องการดูได้ทันที</p>
@@ -100,7 +98,6 @@
           <button id="toggle-tambon-labels" class="map-switch" type="button" role="switch" aria-checked="true"><span>ชื่อตำบล</span><i></i></button>
           <button id="toggle-district-labels" class="map-switch" type="button" role="switch" aria-checked="true"><span>ชื่ออำเภอ</span><i></i></button>
           <button id="toggle-amount-labels" class="map-switch" type="button" role="switch" aria-checked="true" hidden><span>ยอดรายตำบล</span><i></i></button>
-          <button id="toggle-legend-button" class="map-switch" type="button" role="switch" aria-checked="true"><span>คำอธิบายสี</span><i></i></button>
         </div>
         <label class="person-filter" for="staff-filter">
           <span>แสดงเฉพาะบุคคล</span>
@@ -117,11 +114,11 @@
     <div><span class="spinner"></span><p>กำลังเตรียมภาพรวมการมอบหมาย…</p></div>
   </div>
 
-  <script src="vendor/maplibre-gl.js?v=5.0.1"></script>
-  <script src="core.js?v=5.0.1"></script>
-  <script src="theme.js?v=5.0.1"></script>
-  <script src="boundaries.js?v=5.0.1"></script>
-  <script src="map-engine.js?v=5.0.1"></script>
-  <script src="view.js?v=5.0.1"></script>
+  <script src="vendor/maplibre-gl.js?v=5.0.2"></script>
+  <script src="core.js?v=5.0.2"></script>
+  <script src="theme.js?v=5.0.2"></script>
+  <script src="boundaries.js?v=5.0.2"></script>
+  <script src="map-engine.js?v=5.0.2"></script>
+  <script src="view.js?v=5.0.2"></script>
 </body>
 </html>

@@ -17,7 +17,7 @@
   "use strict";
 
   /** เลขรุ่นของชุดไฟล์ ใช้ต่อท้าย URL ทุกไฟล์ (?v=) ให้ตรงกันทั้งระบบ */
-  const APP_VERSION = "5.0.1";
+  const APP_VERSION = "5.0.2";
 
   /** เลขรุ่นของ "โครงสร้างข้อมูล" ใน assignments.json — คนละตัวกับ APP_VERSION */
   const VERSION = 4;
